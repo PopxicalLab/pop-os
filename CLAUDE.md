@@ -19,6 +19,7 @@ not just describe.
 - **Framework:** NestJS (v10)
 - **ORM:** Prisma (v5)
 - **Database:** PostgreSQL 16, run via Docker (docker-compose.yml)
+- **UI Framework:** tailwind
 - **Frontend:** a single static page at `public/index.html` (vanilla JS,
   no framework) served by NestJS. Keep it framework-free and self-contained.
 - **OS:** Windows (primary) and macOS (secondary). Windows path: `C:\Users\yys\dev\pop-os`.
