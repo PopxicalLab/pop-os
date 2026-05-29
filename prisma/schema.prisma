@@ -1,0 +1,177 @@
+// ───────────────────────────────────────────────────────────────
+// Pop OS — Prisma schema
+// This file is the SINGLE source of truth for your database shape.
+// You edit this file, then run `npx prisma migrate dev` and Prisma
+// builds/updates the real PostgreSQL tables to match.
+// ───────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL") // read from the .env file
+}
+
+// ── PROJECT ENUMS ────────────────────────────────────────────────
+// Which quadrant a project sits in (PPM framework).
+// DRAIN = low budget / high complexity — needs two-signature approval.
+enum ProjectQuadrant {
+  GOLD
+  STRATEGIC_BET
+  OPERATIONAL_FILLER
+  DRAIN
+}
+
+// How urgently the studio is treating this project.
+enum ProjectPriority {
+  P1
+  P2
+  P3
+}
+
+// How established the client relationship is.
+// Used as one input to the PPM quadrant/priority recommendation engine.
+enum ClientTier {
+  NEW
+  RETURNING
+  KEY_ACCOUNT
+}
+
+// Where the project is in its lifecycle.
+enum ProjectStatus {
+  BRIEF
+  IN_PROGRESS
+  INTERNAL_REVIEW
+  DELIVERED
+  ON_HOLD
+  CANCELLED
+}
+
+// Employment type — restricted to a fixed set of values.
+// (This is the Prisma way of doing a dropdown / "enum".)
+enum EmploymentType {
+  FULL_TIME
+  CONTRACT
+  FREELANCE
+  INTERN
+}
+
+// Where a skill-rating change came from.
+// INTERVIEW is the very first entry (candidate stage); the others
+// happen after hire and can move a score up or down.
+enum RatingSource {
+  INTERVIEW
+  PROJECT_COMPLETION
+  MANUAL_ADJUSTMENT
+}
+
+// ── PEOPLE / ELC ────────────────────────────────────────────────
+// One record per person. This is the foundation of the whole system:
+// Projects, Capacity, and Assets will all link back to a Person.
+model Person {
+  id             String         @id @default(cuid())
+  name           String
+  role           String         // e.g. "3D Artist", "Producer", "PM"
+  department     String         // e.g. "3D", "Art", "Production"
+  startDate      DateTime
+  employmentType EmploymentType @default(FULL_TIME)
+  warmPool       Boolean        @default(false) // true = in the Warm Talent Pool (alumni/rejected/freelance)
+
+  // A person's rated skills (the live current scores).
+  skills             PersonSkill[]
+
+  // Projects this person is responsible for (as producer or PM).
+  projectsAsProducer Project[]    @relation("ProducerProjects")
+  projectsAsPM       Project[]    @relation("PMProjects")
+
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+}
+
+// ── SKILL ───────────────────────────────────────────────────────
+// The studio's master list of skills. Keeping these as their own
+// records (instead of free-typed text) means "Rigging" is always
+// spelled the same and you can ask "who is strong at Rigging?".
+model Skill {
+  id        String        @id @default(cuid())
+  name      String        @unique // e.g. "Modeling", "Rigging", "Animation"
+  createdAt DateTime      @default(now())
+
+  people    PersonSkill[]
+}
+
+// ── PERSON SKILL ────────────────────────────────────────────────
+// The live link: this person has this skill at this current rating.
+// One row per person-per-skill. The `rating` is the CURRENT score;
+// every change to it is also recorded in SkillRatingChange below.
+model PersonSkill {
+  id        String   @id @default(cuid())
+  personId  String
+  skillId   String
+  rating    Int      // current score, 1–5 (validated in the API)
+
+  person    Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  skill     Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  history   SkillRatingChange[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([personId, skillId]) // a person can't have the same skill twice
+}
+
+// ── SKILL RATING CHANGE ─────────────────────────────────────────
+// The audit trail. Every score movement writes one row here:
+// what it was, what it became, who did it, why (source), and when.
+// The interview score is simply the FIRST row, source = INTERVIEW.
+model SkillRatingChange {
+  id            String       @id @default(cuid())
+  personSkillId String
+  oldRating     Int?         // null for the very first (interview) entry
+  newRating     Int          // 1–5
+  source        RatingSource
+  changedBy     String?      // who made the change (free text for now; links to Person later)
+  note          String?      // required by the API when source = MANUAL_ADJUSTMENT
+  createdAt     DateTime     @default(now())
+
+  personSkill   PersonSkill  @relation(fields: [personSkillId], references: [id], onDelete: Cascade)
+}
+
+// ── PROJECT ──────────────────────────────────────────────────────
+// The spine of the production system. Every piece of capacity and
+// every deliverable (Asset) will eventually link back to a Project.
+model Project {
+  id          String          @id @default(cuid())
+  name        String
+  client      String?         // who commissioned it (free text for now)
+  quadrant    ProjectQuadrant
+  priority    ProjectPriority @default(P2)
+  status      ProjectStatus   @default(BRIEF)
+  deadline    DateTime?
+
+  // Who is running and managing this project.
+  producerId  String?
+  pmId        String?
+  producer    Person?         @relation("ProducerProjects", fields: [producerId], references: [id], onDelete: SetNull)
+  pm          Person?         @relation("PMProjects",       fields: [pmId],       references: [id], onDelete: SetNull)
+
+  // Drain approval gate — both must be true before a DRAIN project is accepted.
+  // Only meaningful when quadrant = DRAIN; ignored otherwise.
+  drainApprovedByExec     Boolean @default(false)
+  drainApprovedByProducer Boolean @default(false)
+
+  // ── PPM recommendation inputs ────────────────────────────────
+  // Captured now so every project becomes a training example for the
+  // future quadrant/priority recommendation engine.
+  estimatedValue    Float?     // expected revenue (£/$ — no currency enforced yet)
+  estimatedDuration Int?       // length in weeks
+  complexityScore   Int?       // self-assessed 1–5 (1 = simple, 5 = very complex)
+  clientTier        ClientTier? // how established the relationship is
+  marginTarget      Float?     // target gross margin as a percentage (0–100)
+
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}

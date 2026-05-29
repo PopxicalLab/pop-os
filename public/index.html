@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pop OS</title>
+
+  <!-- Paint body background immediately to prevent a flash while Tailwind loads. -->
+  <script>
+    try {
+      const mode = localStorage.getItem('pop-os-mode') || 'dark';
+      const custom = JSON.parse(localStorage.getItem('pop-os-theme-' + mode) || localStorage.getItem('pop-os-theme') || 'null');
+      const fallback = mode === 'light' ? '#f5f2ec' : '#111009';
+      const bg = (custom && custom.bg) ? custom.bg : fallback;
+      document.write('<style>body{background-color:' + bg + '}</style>');
+    } catch (e) {}
+  </script>
+
+  <!-- CDN must load first so it can set up its own global object. -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- After CDN is ready, resolve and apply the active palette. -->
+  <script>
+    (function () {
+      const DARK  = { bg:'#111009', panel:'#191814', panel2:'#201e19', line:'#2c2920', ink:'#e4e0d4', muted:'#857f73', accent:'#d4a23a', warm:'#c05535' };
+      const LIGHT = { bg:'#f5f2ec', panel:'#fdfcf9', panel2:'#ece8e0', line:'#d8d2c8', ink:'#1a1814',  muted:'#7a7468', accent:'#b8871e', warm:'#b04525' };
+      const mode   = localStorage.getItem('pop-os-mode') || 'dark';
+      const base   = mode === 'light' ? LIGHT : DARK;
+      // Fall back to the old single-key format so previously saved themes aren't lost.
+      const custom = JSON.parse(localStorage.getItem('pop-os-theme-' + mode) || localStorage.getItem('pop-os-theme') || 'null');
+      const theme  = custom || base;
+      window._mode  = mode;
+      window._theme = theme;
+      window._DARK  = DARK;
+      window._LIGHT = LIGHT;
+      tailwind.config = { theme: { extend: { colors: theme } } };
+    })();
+  </script>
+
+  <style type="text/tailwindcss">
+    @layer components {
+      .form-input {
+        @apply w-full bg-panel2 border border-line text-ink placeholder-muted/60
+               px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-accent/70
+               transition-colors duration-150;
+      }
+      .form-label {
+        @apply block text-xs text-muted font-medium mb-1.5 mt-3;
+      }
+      .btn-del {
+        @apply bg-transparent border border-line text-muted px-2.5 py-1 rounded-md
+               text-xs font-medium hover:border-warm/60 hover:text-warm
+               transition-colors duration-150 cursor-pointer;
+      }
+      .badge {
+        @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold;
+      }
+    }
+  </style>
+</head>
+<body class="bg-bg min-h-screen text-ink antialiased">
+
+  <!-- ── SETTINGS OVERLAY ────────────────────────────────────── -->
+  <div id="settings-overlay"
+    class="hidden fixed inset-0 bg-bg/60 backdrop-blur-sm z-[100]"
+    onclick="closeSettings()"></div>
+
+  <!-- ── SETTINGS DRAWER ────────────────────────────────────── -->
+  <div id="settings-panel"
+    class="hidden fixed right-0 top-0 h-full w-80 bg-panel border-l border-line z-[101] overflow-y-auto flex flex-col">
+
+    <div class="flex items-center justify-between px-5 py-4 border-b border-line shrink-0">
+      <h2 class="text-sm font-semibold text-ink">Theme</h2>
+      <button onclick="closeSettings()"
+        class="w-7 h-7 flex items-center justify-center rounded-lg text-muted hover:text-ink hover:bg-panel2 transition-colors cursor-pointer text-lg leading-none">
+        ×
+      </button>
+    </div>
+
+    <div class="p-5 space-y-6 flex-1">
+
+      <!-- Day / Night mode -->
+      <div>
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Mode</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="switchMode('light')" id="mode-day-btn"
+            class="flex items-center justify-center gap-2 border rounded-lg px-3 py-2.5
+                   hover:border-accent/50 transition-colors cursor-pointer text-xs font-semibold">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+            </svg>
+            Day
+          </button>
+          <button onclick="switchMode('dark')" id="mode-night-btn"
+            class="flex items-center justify-center gap-2 border rounded-lg px-3 py-2.5
+                   hover:border-accent/50 transition-colors cursor-pointer text-xs font-semibold">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+            </svg>
+            Night
+          </button>
+        </div>
+      </div>
+
+      <!-- Presets -->
+      <div>
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Presets</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="applyPreset('Warm Dark')" data-preset="Warm Dark"
+            class="preset-btn flex items-center gap-2 bg-panel2 border border-line rounded-lg px-3 py-2.5
+                   hover:border-accent/50 transition-colors cursor-pointer text-left">
+            <span class="w-4 h-4 rounded-full bg-[#d4a23a] shrink-0"></span>
+            <span class="text-xs font-medium text-ink">Warm Dark</span>
+          </button>
+          <button onclick="applyPreset('Cool Dark')" data-preset="Cool Dark"
+            class="preset-btn flex items-center gap-2 bg-panel2 border border-line rounded-lg px-3 py-2.5
+                   hover:border-accent/50 transition-colors cursor-pointer text-left">
+            <span class="w-4 h-4 rounded-full bg-[#5b9cf6] shrink-0"></span>
+            <span class="text-xs font-medium text-ink">Cool Dark</span>
+          </button>
+          <button onclick="applyPreset('Midnight')" data-preset="Midnight"
+            class="preset-btn flex items-center gap-2 bg-panel2 border border-line rounded-lg px-3 py-2.5
+                   hover:border-accent/50 transition-colors cursor-pointer text-left">
+            <span class="w-4 h-4 rounded-full bg-[#7c6fcd] shrink-0"></span>
+            <span class="text-xs font-medium text-ink">Midnight</span>
+          </button>
+          <button onclick="applyPreset('Forest')" data-preset="Forest"
+            class="preset-btn flex items-center gap-2 bg-panel2 border border-line rounded-lg px-3 py-2.5
+                   hover:border-accent/50 transition-colors cursor-pointer text-left">
+            <span class="w-4 h-4 rounded-full bg-[#5aab66] shrink-0"></span>
+            <span class="text-xs font-medium text-ink">Forest</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Color pickers -->
+      <div>
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Custom colors</p>
+        <div class="space-y-1">
+          <!-- Each row: label + hex text + color swatch -->
+          <div id="rows-colors"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer actions -->
+    <div class="px-5 py-4 border-t border-line shrink-0 space-y-2">
+      <button onclick="saveAndApply()"
+        class="w-full bg-accent text-bg font-semibold py-2.5 rounded-lg text-sm
+               hover:brightness-110 transition-all duration-150 cursor-pointer">
+        Save &amp; apply
+      </button>
+      <button onclick="resetTheme()"
+        class="w-full bg-transparent border border-line text-muted font-medium py-2 rounded-lg text-sm
+               hover:border-warm/60 hover:text-warm transition-colors duration-150 cursor-pointer">
+        Reset to defaults
+      </button>
+    </div>
+  </div>
+
+  <!-- ── HEADER ──────────────────────────────────────────────── -->
+  <header class="sticky top-0 z-50 bg-panel/95 backdrop-blur-sm border-b border-line">
+    <div class="max-w-7xl mx-auto px-5 h-13 flex items-center gap-4 py-3">
+      <div class="flex items-center gap-3 shrink-0">
+        <img src="/lps-logo.png" class="h-7 w-auto object-contain" alt="LPS" />
+        <span class="text-line h-5 w-px bg-line block"></span>
+        <img src="/pxl-logo.png" class="h-7 w-auto object-contain" alt="PXL" />
+        <div class="pl-1">
+          <p class="text-sm font-bold text-ink leading-tight tracking-tight">Pop OS</p>
+          <p class="text-[10px] text-muted leading-tight hidden sm:block">Pop Group Studio</p>
+        </div>
+      </div>
+      <nav class="flex gap-1 bg-bg/80 rounded-full p-1 border border-line">
+        <button id="tab-btn-people"
+          class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 bg-panel text-ink"
+          onclick="switchTab('people')">People / ELC</button>
+        <button id="tab-btn-projects"
+          class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
+          onclick="switchTab('projects')">Projects</button>
+      </nav>
+      <!-- Day / night toggle -->
+      <button id="mode-btn" onclick="toggleMode()" title="Toggle day / night"
+        class="ml-auto w-8 h-8 flex items-center justify-center rounded-lg text-muted
+               hover:text-ink hover:bg-panel2 transition-colors cursor-pointer shrink-0"></button>
+      <!-- Settings trigger -->
+      <button onclick="openSettings()" title="Theme settings"
+        class="w-8 h-8 flex items-center justify-center rounded-lg text-muted
+               hover:text-ink hover:bg-panel2 transition-colors cursor-pointer shrink-0">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ════════════════════════════════════════════════════
+       PANEL: PEOPLE
+  ════════════════════════════════════════════════════ -->
+  <div class="panel" id="tab-people">
+    <div class="max-w-7xl mx-auto px-5 py-6 grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5 items-start">
+
+      <div class="space-y-4">
+        <div class="bg-panel border border-line rounded-xl p-5">
+          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-4">Add a person</h2>
+          <label class="form-label" style="margin-top:0">Name</label>
+          <input id="name" class="form-input" placeholder="e.g. Jia Jyn" />
+          <label class="form-label">Role</label>
+          <input id="role" class="form-input" placeholder="e.g. 3D Artist" />
+          <label class="form-label">Department</label>
+          <input id="department" class="form-input" placeholder="e.g. 3D" />
+          <label class="form-label">Start date</label>
+          <input id="startDate" type="date" class="form-input" />
+          <label class="form-label">Employment type</label>
+          <select id="employmentType" class="form-input cursor-pointer">
+            <option value="FULL_TIME">Full-time</option>
+            <option value="CONTRACT">Contract</option>
+            <option value="FREELANCE">Freelance</option>
+            <option value="INTERN">Intern</option>
+          </select>
+          <label class="form-label">Warm Talent Pool?</label>
+          <select id="warmPool" class="form-input cursor-pointer">
+            <option value="false">No — active staff</option>
+            <option value="true">Yes — warm pool / alumni</option>
+          </select>
+          <button id="add"
+            class="mt-4 w-full bg-accent text-bg font-semibold py-2.5 rounded-lg text-sm
+                   hover:brightness-110 transition-all duration-150 cursor-pointer">
+            Add person
+          </button>
+          <div id="msg" class="text-xs mt-2 min-h-[18px]"></div>
+        </div>
+
+        <div class="bg-panel border border-line rounded-xl p-5">
+          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-1">Skill master list</h2>
+          <p class="text-xs text-muted mb-3">Studio-wide skills you can rate people on.</p>
+          <div id="skillList" class="flex flex-wrap gap-1.5 mb-3 min-h-[24px]"></div>
+          <label class="form-label" style="margin-top:0">New skill</label>
+          <input id="newSkill" class="form-input" placeholder="e.g. Rigging" />
+          <button id="addSkill"
+            class="mt-3 w-full bg-panel2 border border-line text-ink font-semibold py-2 rounded-lg
+                   text-sm hover:border-accent/50 transition-all duration-150 cursor-pointer">
+            Add skill
+          </button>
+          <div id="skillMsg" class="text-xs mt-2 min-h-[18px]"></div>
+        </div>
+      </div>
+
+      <div class="bg-panel border border-line rounded-xl p-5">
+        <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-4">People</h2>
+        <div class="overflow-x-auto -mx-5 px-5">
+          <table class="w-full min-w-[520px] text-sm">
+            <thead>
+              <tr class="border-b border-line">
+                <th class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Name</th>
+                <th class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Role</th>
+                <th class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Dept</th>
+                <th class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Skills</th>
+                <th class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Status</th>
+                <th class="pb-3 px-2"></th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+        <div id="empty" class="hidden text-center text-muted text-sm py-10">
+          No people yet — add one on the left.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════
+       PANEL: PROJECTS
+  ════════════════════════════════════════════════════ -->
+  <div class="panel hidden" id="tab-projects">
+    <div class="max-w-7xl mx-auto px-5 py-6 grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5 items-start">
+
+      <div class="bg-panel border border-line rounded-xl p-5">
+        <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-4">Add a project</h2>
+        <label class="form-label" style="margin-top:0">Project name</label>
+        <input id="p-name" class="form-input" placeholder="e.g. Nike AW25 Campaign" />
+        <label class="form-label">Client</label>
+        <input id="p-client" class="form-input" placeholder="e.g. Nike (optional)" />
+        <label class="form-label">Quadrant</label>
+        <select id="p-quadrant" class="form-input cursor-pointer">
+          <option value="GOLD">Gold</option>
+          <option value="STRATEGIC_BET">Strategic Bet</option>
+          <option value="OPERATIONAL_FILLER">Operational Filler</option>
+          <option value="DRAIN">Drain</option>
+        </select>
+        <label class="form-label">Priority</label>
+        <select id="p-priority" class="form-input cursor-pointer">
+          <option value="P1">P1 — urgent</option>
+          <option value="P2" selected>P2 — normal</option>
+          <option value="P3">P3 — low</option>
+        </select>
+        <label class="form-label">Status</label>
+        <select id="p-status" class="form-input cursor-pointer">
+          <option value="BRIEF">Brief</option>
+          <option value="IN_PROGRESS">In progress</option>
+          <option value="INTERNAL_REVIEW">Internal review</option>
+          <option value="DELIVERED">Delivered</option>
+          <option value="ON_HOLD">On hold</option>
+          <option value="CANCELLED">Cancelled</option>
+        </select>
+        <label class="form-label">Deadline</label>
+        <input id="p-deadline" type="date" class="form-input" />
+        <label class="form-label">Producer</label>
+        <select id="p-producer" class="form-input cursor-pointer"><option value="">— none —</option></select>
+        <label class="form-label">PM</label>
+        <select id="p-pm" class="form-input cursor-pointer"><option value="">— none —</option></select>
+
+        <!-- PPM inputs — collapsed by default, optional but valuable for future AI recommendations -->
+        <div class="mt-4 border border-line rounded-xl overflow-hidden">
+          <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden');this.querySelector('.ppm-chevron').classList.toggle('rotate-180')"
+            class="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-panel2/50 transition-colors cursor-pointer">
+            <span class="text-[11px] font-semibold uppercase tracking-widest text-muted">PPM inputs <span class="normal-case font-normal text-muted/60">(optional · used for future recommendations)</span></span>
+            <svg class="ppm-chevron w-3.5 h-3.5 text-muted transition-transform duration-150" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+          <div class="hidden px-4 pb-4 space-y-0">
+            <label class="form-label" style="margin-top:12px">Estimated value (£)</label>
+            <input id="p-est-value" type="number" min="0" step="100" class="form-input" placeholder="e.g. 25000" />
+            <label class="form-label">Estimated duration (weeks)</label>
+            <input id="p-est-duration" type="number" min="1" step="1" class="form-input" placeholder="e.g. 6" />
+            <label class="form-label">Complexity <span class="text-muted/60 font-normal">(1 = simple · 5 = very complex)</span></label>
+            <select id="p-complexity" class="form-input cursor-pointer">
+              <option value="">— not set —</option>
+              <option value="1">1 — Simple</option>
+              <option value="2">2 — Low</option>
+              <option value="3">3 — Medium</option>
+              <option value="4">4 — High</option>
+              <option value="5">5 — Very complex</option>
+            </select>
+            <label class="form-label">Client tier</label>
+            <select id="p-client-tier" class="form-input cursor-pointer">
+              <option value="">— not set —</option>
+              <option value="NEW">New</option>
+              <option value="RETURNING">Returning</option>
+              <option value="KEY_ACCOUNT">Key account</option>
+            </select>
+            <label class="form-label">Margin target (%)</label>
+            <input id="p-margin" type="number" min="0" max="100" step="1" class="form-input" placeholder="e.g. 40" />
+          </div>
+        </div>
+
+        <div id="p-drain-gate" class="hidden mt-4 bg-warm/10 border border-warm/25 rounded-xl p-4">
+          <p class="text-[11px] font-semibold uppercase tracking-wider text-warm mb-1">Drain approval gate</p>
+          <p class="text-xs text-muted mb-3">Both signatures required before this project is accepted.</p>
+          <label class="flex items-center gap-2.5 text-sm text-ink cursor-pointer mb-2.5">
+            <input type="checkbox" id="p-exec" class="accent-accent w-3.5 h-3.5 cursor-pointer" />
+            Exec / CEO approved
+          </label>
+          <label class="flex items-center gap-2.5 text-sm text-ink cursor-pointer">
+            <input type="checkbox" id="p-prod-approval" class="accent-accent w-3.5 h-3.5 cursor-pointer" />
+            Producer approved
+          </label>
+        </div>
+
+        <button id="p-add"
+          class="mt-4 w-full bg-accent text-bg font-semibold py-2.5 rounded-lg text-sm
+                 hover:brightness-110 transition-all duration-150 cursor-pointer">
+          Add project
+        </button>
+        <div id="pmsg" class="text-xs mt-2 min-h-[18px]"></div>
+      </div>
+
+      <!-- LIST VIEW -->
+      <div id="p-list-view" class="bg-panel border border-line rounded-xl p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">Projects</h2>
+          <!-- Column picker -->
+          <div class="relative">
+            <button onclick="toggleColPicker()"
+              class="flex items-center gap-1.5 text-xs text-muted border border-line px-3 py-1.5 rounded-lg
+                     hover:border-accent/50 hover:text-ink transition-colors cursor-pointer">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"/>
+              </svg>
+              Columns
+            </button>
+            <div id="col-picker"
+              class="hidden absolute right-0 top-9 z-20 bg-panel border border-line rounded-xl shadow-lg py-1 w-44">
+              <!-- populated by buildColPicker() -->
+            </div>
+          </div>
+        </div>
+        <div class="overflow-x-auto -mx-5 px-5">
+          <table class="w-full min-w-[600px] text-sm">
+            <thead>
+              <tr class="border-b border-line">
+                <th class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Name</th>
+                <th data-col="client"     class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Client</th>
+                <th data-col="quadrant"   class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Quadrant</th>
+                <th data-col="priority"   class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Pri</th>
+                <th class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Status</th>
+                <th data-col="deadline"   class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Deadline</th>
+                <th data-col="producer"   class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Producer</th>
+                <th data-col="pm"         class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">PM</th>
+                <th data-col="value"      class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Est. Value</th>
+                <th data-col="duration"   class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Duration</th>
+                <th data-col="complexity" class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Complexity</th>
+                <th data-col="tier"       class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Client tier</th>
+                <th data-col="margin"     class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Margin</th>
+                <th class="pb-3 px-2"></th>
+              </tr>
+            </thead>
+            <tbody id="p-rows"></tbody>
+          </table>
+        </div>
+        <div id="p-empty" class="hidden text-center text-muted text-sm py-10">
+          No projects yet — add one on the left.
+        </div>
+      </div>
+
+      <!-- DETAIL VIEW (hidden until a project row is clicked) -->
+      <div id="p-detail-view" class="hidden bg-panel border border-line rounded-xl p-5">
+        <button onclick="showProjectList()"
+          class="flex items-center gap-1.5 text-xs text-muted hover:text-ink transition-colors cursor-pointer mb-5">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+          </svg>
+          All projects
+        </button>
+        <div id="p-detail-content"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ── utilities ────────────────────────────────────────────────
+    const $ = (id) => document.getElementById(id);
+
+    function msg(el, text, kind) {
+      el.textContent = text;
+      el.className = kind === 'err' ? 'text-xs text-warm mt-2 min-h-[18px]'
+                   : kind === 'ok'  ? 'text-xs text-accent mt-2 min-h-[18px]'
+                                    : 'text-xs text-muted mt-2 min-h-[18px]';
+      if (text) setTimeout(() => { if (el.textContent === text) el.textContent = ''; }, 4500);
+    }
+
+    function esc(s) {
+      return String(s).replace(/[&<>"']/g, c =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])
+      );
+    }
+
+    function dots(n) {
+      let h = '<span class="inline-flex gap-0.5 items-center">';
+      for (let i = 1; i <= 5; i++)
+        h += `<span class="w-1.5 h-1.5 rounded-full ${i <= n ? 'bg-accent' : 'bg-line'}"></span>`;
+      return h + '</span>';
+    }
+
+    const SOURCES = {
+      INTERVIEW: 'Interview',
+      PROJECT_COMPLETION: 'Project completion',
+      MANUAL_ADJUSTMENT: 'Manual adjustment',
+    };
+    const CLIENT_TIER_LABEL = { NEW: 'New', RETURNING: 'Returning', KEY_ACCOUNT: 'Key acct' };
+
+    function complexityDots(n) {
+      if (!n) return '<span class="text-muted">—</span>';
+      let h = '<span class="inline-flex gap-0.5 items-center">';
+      for (let i = 1; i <= 5; i++)
+        h += `<span class="w-1.5 h-1.5 rounded-full ${i <= n ? 'bg-accent' : 'bg-line'}"></span>`;
+      return h + `</span> <span class="text-xs text-muted ml-1">${n}</span>`;
+    }
+
+    function fmtValue(v) {
+      if (v == null) return '<span class="text-muted">—</span>';
+      return '£' + Number(v).toLocaleString('en-GB', { maximumFractionDigits: 0 });
+    }
+
+    const QUADRANT_LABEL = {
+      GOLD: 'Gold', STRATEGIC_BET: 'Strategic Bet',
+      OPERATIONAL_FILLER: 'Op. Filler', DRAIN: 'Drain',
+    };
+    const QUADRANT_CLS = {
+      GOLD:               'bg-yellow-500/15 text-yellow-400',
+      STRATEGIC_BET:      'bg-emerald-500/15 text-emerald-400',
+      OPERATIONAL_FILLER: 'bg-sky-500/15 text-sky-400',
+      DRAIN:              'bg-warm/15 text-warm',
+    };
+    const STATUS_LABEL = {
+      BRIEF: 'Brief', IN_PROGRESS: 'In progress', INTERNAL_REVIEW: 'Internal review',
+      DELIVERED: 'Delivered', ON_HOLD: 'On hold', CANCELLED: 'Cancelled',
+    };
+    const PRI_CLS = {
+      P1: 'font-bold text-warm',
+      P2: 'font-semibold text-accent',
+      P3: 'font-medium text-muted',
+    };
+
+    // ── day / night icons ────────────────────────────────────────
+    const ICON_SUN  = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>`;
+    const ICON_MOON = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>`;
+
+    // Render the correct icon on the header toggle button.
+    $('mode-btn').innerHTML = window._mode === 'dark' ? ICON_MOON : ICON_SUN;
+
+    // Quick header toggle: flip mode, clear custom colours, reload.
+    // Switch modes while keeping the user's accent + warm colours intact.
+    // Only the structural colours (bg/panel/borders/text) change; the chosen
+    // accent and danger colours follow you across modes.
+    function applyModeSwitch(mode) {
+      const base = mode === 'light' ? window._LIGHT : window._DARK;
+      const next = {
+        bg:     base.bg,
+        panel:  base.panel,
+        panel2: base.panel2,
+        line:   base.line,
+        ink:    base.ink,
+        muted:  base.muted,
+        accent: window._theme.accent,
+        warm:   window._theme.warm,
+      };
+      localStorage.setItem('pop-os-mode', mode);
+      localStorage.setItem('pop-os-theme-' + mode, JSON.stringify(next));
+      location.reload();
+    }
+
+    function toggleMode() { applyModeSwitch(window._mode === 'dark' ? 'light' : 'dark'); }
+    function switchMode(mode) { if (mode !== window._mode) applyModeSwitch(mode); }
+
+    // ── tab switching ────────────────────────────────────────────
+    function switchTab(name) {
+      ['people', 'projects'].forEach(t => {
+        const active = t === name;
+        $('tab-btn-' + t).className = active
+          ? 'px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 bg-panel text-ink'
+          : 'px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink';
+        $('tab-' + t).classList.toggle('hidden', !active);
+      });
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // THEME SETTINGS
+    // ══════════════════════════════════════════════════════════════
+
+    // The default colours for the active mode (set by the head script).
+    const THEME_DEFAULTS = window._mode === 'light' ? window._LIGHT : window._DARK;
+
+    const PRESETS = {
+      'Warm Dark': { bg:'#111009', panel:'#191814', panel2:'#201e19', line:'#2c2920', ink:'#e4e0d4', muted:'#857f73', accent:'#d4a23a', warm:'#c05535' },
+      'Cool Dark':  { bg:'#0d0f14', panel:'#141920', panel2:'#1b2029', line:'#252e3b', ink:'#dde3ee', muted:'#7a8394', accent:'#5b9cf6', warm:'#e05252' },
+      'Midnight':   { bg:'#0f0f18', panel:'#15151f', panel2:'#1c1c28', line:'#262635', ink:'#e0dff2', muted:'#7a7990', accent:'#7c6fcd', warm:'#e05b5b' },
+      'Forest':     { bg:'#0d1209', panel:'#141a0f', panel2:'#1b2416', line:'#233020', ink:'#d8e6d0', muted:'#7a9070', accent:'#5aab66', warm:'#c06038' },
+      'Day':        window._LIGHT,
+    };
+
+    const COLOR_LABELS = {
+      bg: 'Background', panel: 'Panel', panel2: 'Input bg',
+      line: 'Borders', ink: 'Text', muted: 'Muted text',
+      accent: 'Accent', warm: 'Warning',
+    };
+
+    // Find which preset (if any) matches the currently loaded colours.
+    function getActivePreset() {
+      const t = window._theme;
+      for (const [name, p] of Object.entries(PRESETS)) {
+        if (Object.keys(p).every(k => p[k] === t[k])) return name;
+      }
+      return null;
+    }
+
+    // Highlight the preset button that matches the given name (or none).
+    function highlightActivePreset(activeName) {
+      document.querySelectorAll('[data-preset]').forEach(btn => {
+        const on = btn.dataset.preset === activeName;
+        btn.classList.toggle('border-accent',    on);
+        btn.classList.toggle('bg-accent/10',     on);
+        btn.classList.toggle('border-line',      !on);
+      });
+    }
+
+    // Highlight the active mode button in the settings drawer.
+    function highlightModeButtons() {
+      const active   = 'bg-accent text-bg border-accent';
+      const inactive = 'bg-panel2 text-ink border-line';
+      ['day', 'night'].forEach(m => {
+        const btn = $('mode-' + m + '-btn');
+        if (!btn) return;
+        const isActive = (m === 'day' && window._mode === 'light') || (m === 'night' && window._mode === 'dark');
+        btn.className = btn.className.replace(/bg-\S+|text-\S+|border-\S+/g, '').trim();
+        btn.classList.add(...(isActive ? active : inactive).split(' '));
+      });
+    }
+
+    // Render the color picker rows on first open.
+    function buildColorPickers() {
+      const container = $('rows-colors');
+      if (container.children.length) return; // already built
+      const current = window._theme || THEME_DEFAULTS;
+      container.innerHTML = Object.keys(COLOR_LABELS).map(key => `
+        <div class="flex items-center justify-between py-2.5 border-b border-line last:border-0">
+          <label for="color-${key}" class="text-xs text-ink cursor-pointer">${COLOR_LABELS[key]}</label>
+          <div class="flex items-center gap-2">
+            <span class="font-mono text-[11px] text-muted" id="hex-${key}">${current[key]}</span>
+            <input type="color" id="color-${key}" value="${current[key]}"
+              class="w-8 h-7 rounded-md cursor-pointer border border-line bg-transparent p-0.5"
+              oninput="$('hex-${key}').textContent = this.value" />
+          </div>
+        </div>`).join('');
+    }
+
+    function openSettings()  {
+      buildColorPickers();
+      highlightModeButtons();
+      highlightActivePreset(getActivePreset());
+      $('settings-overlay').classList.remove('hidden');
+      $('settings-panel').classList.remove('hidden');
+    }
+    function closeSettings() {
+      $('settings-overlay').classList.add('hidden');
+      $('settings-panel').classList.add('hidden');
+    }
+
+    function applyPreset(name) {
+      const p = PRESETS[name];
+      if (!p) return;
+      Object.keys(p).forEach(k => {
+        const el = $('color-' + k);
+        if (el) { el.value = p[k]; $('hex-' + k).textContent = p[k]; }
+      });
+      highlightActivePreset(name);
+    }
+
+    function saveAndApply() {
+      const colors = {};
+      Object.keys(COLOR_LABELS).forEach(k => {
+        colors[k] = $('color-' + k)?.value || THEME_DEFAULTS[k];
+      });
+      localStorage.setItem('pop-os-theme-' + window._mode, JSON.stringify(colors));
+      location.reload();
+    }
+
+    function resetTheme() {
+      localStorage.removeItem('pop-os-theme-' + window._mode);
+      location.reload();
+    }
+
+    // ══════════════════════════════════════════════════════════════
+    // PEOPLE / ELC
+    // ══════════════════════════════════════════════════════════════
+    let SKILLS = [];
+    let PEOPLE = [];
+
+    async function loadSkills() {
+      SKILLS = await (await fetch('/api/skills')).json();
+      $('skillList').innerHTML = SKILLS.length
+        ? SKILLS.map(s =>
+            `<span class="inline-flex items-center bg-panel2 border border-line px-2.5 py-0.5 rounded-full text-xs text-ink">${esc(s.name)}</span>`
+          ).join('')
+        : '<span class="text-xs text-muted">No skills yet.</span>';
+    }
+
+    $('addSkill').addEventListener('click', async () => {
+      const name = $('newSkill').value.trim();
+      if (!name) { msg($('skillMsg'), 'Enter a skill name.', 'err'); return; }
+      const res = await fetch('/api/skills', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+      if (res.ok) { $('newSkill').value = ''; msg($('skillMsg'), 'Skill added.', 'ok'); await loadSkills(); }
+      else { const e = await res.json().catch(() => ({})); msg($('skillMsg'), [].concat(e.message || 'Failed').join(', '), 'err'); }
+    });
+
+    async function load() {
+      PEOPLE = await (await fetch('/api/people')).json();
+      const rows = $('rows'); rows.innerHTML = '';
+      $('empty').classList.toggle('hidden', PEOPLE.length > 0);
+      for (const p of PEOPLE) {
+        const skills = (p.skills || []).map(ps =>
+          `<span class="inline-flex items-center gap-1.5 bg-panel2 border border-line px-2 py-0.5 rounded-full
+                        text-xs cursor-pointer hover:border-accent/50 transition-colors"
+                data-ps="${ps.id}" title="Click to update rating">
+             ${esc(ps.skill.name)} ${dots(ps.rating)}
+             <span class="font-bold text-accent">${ps.rating}</span>
+           </span>`
+        ).join('') || '<span class="text-xs text-muted">No skills rated</span>';
+
+        const statusBadge = p.warmPool
+          ? '<span class="badge bg-warm/15 text-warm">Warm pool</span>'
+          : '<span class="badge bg-accent/15 text-accent">Active</span>';
+
+        const tr = document.createElement('tr');
+        tr.className = 'border-b border-line hover:bg-panel2/40 transition-colors';
+        tr.innerHTML = `
+          <td class="py-3 px-2 font-medium whitespace-nowrap">${esc(p.name)}</td>
+          <td class="py-3 px-2 text-muted text-xs whitespace-nowrap">${esc(p.role)}</td>
+          <td class="py-3 px-2 text-muted text-xs whitespace-nowrap">${esc(p.department)}</td>
+          <td class="py-3 px-2">
+            <div class="flex flex-wrap gap-1">${skills}</div>
+            <div class="mt-2">
+              <button class="btn-del" data-assign="${p.id}">+ rate a skill</button>
+            </div>
+            <div id="area-${p.id}"></div>
+          </td>
+          <td class="py-3 px-2 whitespace-nowrap">${statusBadge}</td>
+          <td class="py-3 px-2 whitespace-nowrap">
+            <button class="btn-del" data-del="${p.id}">Remove</button>
+          </td>`;
+        rows.appendChild(tr);
+      }
+      rows.querySelectorAll('[data-del]').forEach(b => b.onclick = () => removePerson(b.dataset.del));
+      rows.querySelectorAll('[data-assign]').forEach(b => b.onclick = () => showAssign(b.dataset.assign));
+      rows.querySelectorAll('[data-ps]').forEach(b => b.onclick = () => showChange(b.dataset.ps, b));
+      populatePersonDropdowns();
+    }
+
+    async function addPerson() {
+      const body = {
+        name: $('name').value.trim(), role: $('role').value.trim(),
+        department: $('department').value.trim(),
+        startDate: $('startDate').value || new Date().toISOString().slice(0, 10),
+        employmentType: $('employmentType').value,
+        warmPool: $('warmPool').value === 'true',
+      };
+      if (!body.name || !body.role || !body.department) {
+        msg($('msg'), 'Name, role and department are required.', 'err'); return;
+      }
+      const res = await fetch('/api/people', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (res.ok) {
+        ['name', 'role', 'department'].forEach(id => $(id).value = '');
+        msg($('msg'), 'Person added.', 'ok'); load();
+      } else {
+        const e = await res.json().catch(() => ({}));
+        msg($('msg'), [].concat(e.message || 'Failed').join(', '), 'err');
+      }
+    }
+
+    async function removePerson(id) {
+      if (!confirm('Remove this person? Their skill ratings and history go too.')) return;
+      const res = await fetch('/api/people/' + id, { method: 'DELETE' });
+      if (res.ok) { msg($('msg'), 'Removed.', 'ok'); load(); }
+      else msg($('msg'), 'Could not remove.', 'err');
+    }
+
+    function showAssign(personId) {
+      const area = $('area-' + personId);
+      if (area.dataset.open === '1') { area.innerHTML = ''; area.dataset.open = '0'; return; }
+      area.dataset.open = '1';
+      const opts = SKILLS.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+      area.innerHTML = `
+        <div class="bg-panel2 border border-line rounded-xl p-4 mt-3 space-y-3">
+          <div class="grid grid-cols-3 gap-2">
+            <div>
+              <p class="text-[10px] text-muted font-medium mb-1">Skill</p>
+              <select class="a-skill w-full bg-bg border border-line text-ink px-2 py-1.5 rounded-lg text-xs focus:outline-none focus:border-accent/70 cursor-pointer">
+                ${opts || '<option>(add skills first)</option>'}
+              </select>
+            </div>
+            <div>
+              <p class="text-[10px] text-muted font-medium mb-1">Rating 1–5</p>
+              <select class="a-rating w-full bg-bg border border-line text-ink px-2 py-1.5 rounded-lg text-xs focus:outline-none focus:border-accent/70 cursor-pointer">
+                ${[1,2,3,4,5].map(n => `<option>${n}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <p class="text-[10px] text-muted font-medium mb-1">Source</p>
+              <select class="a-source w-full bg-bg border border-line text-ink px-2 py-1.5 rounded-lg text-xs focus:outline-none focus:border-accent/70 cursor-pointer">
+                ${Object.entries(SOURCES).map(([k,v]) => `<option value="${k}">${v}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div class="a-note-wrap hidden">
+            <p class="text-[10px] text-muted font-medium mb-1">Note <span class="text-warm">(required for manual adjustment)</span></p>
+            <input class="a-note w-full bg-bg border border-line text-ink px-2 py-1.5 rounded-lg text-xs placeholder-muted/60 focus:outline-none focus:border-accent/70" placeholder="Reason for this rating" />
+          </div>
+          <div class="flex items-center gap-3">
+            <button class="a-save bg-accent text-bg text-xs font-semibold px-4 py-1.5 rounded-lg hover:brightness-110 transition-all cursor-pointer">Save rating</button>
+            <span class="a-msg text-xs"></span>
+          </div>
+        </div>`;
+      const sourceSel = area.querySelector('.a-source');
+      const noteWrap = area.querySelector('.a-note-wrap');
+      sourceSel.onchange = () => noteWrap.classList.toggle('hidden', sourceSel.value !== 'MANUAL_ADJUSTMENT');
+      area.querySelector('.a-save').onclick = async () => {
+        const body = {
+          skillId: area.querySelector('.a-skill').value,
+          rating: +area.querySelector('.a-rating').value,
+          source: sourceSel.value,
+          note: area.querySelector('.a-note').value.trim() || undefined,
+        };
+        const res = await fetch(`/api/people/${personId}/skills`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (res.ok) { area.innerHTML = ''; area.dataset.open = '0'; load(); }
+        else { const e = await res.json().catch(() => ({})); msg(area.querySelector('.a-msg'), [].concat(e.message || 'Failed').join(', '), 'err'); }
+      };
+    }
+
+    async function showChange(psId, chip) {
+      const area = chip.closest('td').querySelector('[id^="area-"]');
+      const hist = await (await fetch(`/api/person-skills/${psId}/history`)).json();
+      const histHtml = hist.map(h => {
+        const arrow = h.oldRating == null ? `— → ${h.newRating}` : `${h.oldRating} → ${h.newRating}`;
+        return `<div class="flex items-start gap-2 py-2 border-b border-line last:border-0">
+          <span class="w-1.5 h-1.5 rounded-full bg-muted/50 mt-1.5 shrink-0"></span>
+          <span class="text-xs">
+            <b class="text-ink">${arrow}</b>
+            <span class="text-muted"> · ${SOURCES[h.source] || h.source}</span>
+            ${h.note ? `<span class="text-muted"> · "${esc(h.note)}"</span>` : ''}
+            <span class="text-muted"> · ${new Date(h.createdAt).toLocaleDateString()}</span>
+          </span>
+        </div>`;
+      }).join('') || '<p class="text-xs text-muted py-2">No history.</p>';
+
+      area.dataset.open = '1';
+      area.innerHTML = `
+        <div class="bg-panel2 border border-line rounded-xl p-4 mt-3 space-y-3">
+          <div class="grid grid-cols-2 gap-2">
+            <div>
+              <p class="text-[10px] text-muted font-medium mb-1">New rating 1–5</p>
+              <select class="c-rating w-full bg-bg border border-line text-ink px-2 py-1.5 rounded-lg text-xs focus:outline-none focus:border-accent/70 cursor-pointer">
+                ${[1,2,3,4,5].map(n => `<option>${n}</option>`).join('')}
+              </select>
+            </div>
+            <div>
+              <p class="text-[10px] text-muted font-medium mb-1">Source</p>
+              <select class="c-source w-full bg-bg border border-line text-ink px-2 py-1.5 rounded-lg text-xs focus:outline-none focus:border-accent/70 cursor-pointer">
+                ${Object.entries(SOURCES).map(([k,v]) => `<option value="${k}">${v}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+          <div class="c-note-wrap">
+            <p class="text-[10px] text-muted font-medium mb-1">Note <span class="text-warm">(required for manual adjustment)</span></p>
+            <input class="c-note w-full bg-bg border border-line text-ink px-2 py-1.5 rounded-lg text-xs placeholder-muted/60 focus:outline-none focus:border-accent/70" placeholder="Reason for the change" />
+          </div>
+          <div class="flex items-center gap-3">
+            <button class="c-save bg-accent text-bg text-xs font-semibold px-4 py-1.5 rounded-lg hover:brightness-110 transition-all cursor-pointer">Apply change</button>
+            <button class="c-remove btn-del">Remove skill</button>
+            <span class="c-msg text-xs"></span>
+          </div>
+          <div class="border-t border-line pt-3">
+            <p class="text-[10px] font-semibold uppercase tracking-wider text-muted mb-2">History</p>
+            ${histHtml}
+          </div>
+        </div>`;
+      const sourceSel = area.querySelector('.c-source');
+      const noteWrap = area.querySelector('.c-note-wrap');
+      sourceSel.value = 'MANUAL_ADJUSTMENT';
+      sourceSel.onchange = () => noteWrap.classList.toggle('hidden', sourceSel.value !== 'MANUAL_ADJUSTMENT');
+      area.querySelector('.c-save').onclick = async () => {
+        const body = {
+          newRating: +area.querySelector('.c-rating').value,
+          source: sourceSel.value,
+          note: area.querySelector('.c-note').value.trim() || undefined,
+        };
+        const res = await fetch(`/api/person-skills/${psId}/rating`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        if (res.ok) { area.innerHTML = ''; load(); }
+        else { const e = await res.json().catch(() => ({})); msg(area.querySelector('.c-msg'), [].concat(e.message || 'Failed').join(', '), 'err'); }
+      };
+      area.querySelector('.c-remove').onclick = async () => {
+        if (!confirm('Remove this skill from the person?')) return;
+        const res = await fetch(`/api/person-skills/${psId}`, { method: 'DELETE' });
+        if (res.ok) { area.innerHTML = ''; load(); }
+        else msg(area.querySelector('.c-msg'), 'Failed', 'err');
+      };
+    }
+
+    $('add').addEventListener('click', addPerson);
+
+    // ══════════════════════════════════════════════════════════════
+    // PROJECTS
+    // ══════════════════════════════════════════════════════════════
+
+    $('p-quadrant').addEventListener('change', () => {
+      $('p-drain-gate').classList.toggle('hidden', $('p-quadrant').value !== 'DRAIN');
+    });
+
+    function populatePersonDropdowns() {
+      const opts = '<option value="">— none —</option>' +
+        PEOPLE.map(p => `<option value="${p.id}">${esc(p.name)} (${esc(p.role)})</option>`).join('');
+      $('p-producer').innerHTML = opts;
+      $('p-pm').innerHTML = opts;
+    }
+
+    // ── column visibility ────────────────────────────────────────
+    const PROJ_COLS = [
+      { id: 'client',     label: 'Client',       def: true  },
+      { id: 'quadrant',   label: 'Quadrant',     def: true  },
+      { id: 'priority',   label: 'Priority',     def: true  },
+      { id: 'deadline',   label: 'Deadline',     def: true  },
+      { id: 'producer',   label: 'Producer',     def: true  },
+      { id: 'pm',         label: 'PM',           def: true  },
+      { id: 'value',      label: 'Est. Value',   def: false },
+      { id: 'duration',   label: 'Duration',     def: false },
+      { id: 'complexity', label: 'Complexity',   def: false },
+      { id: 'tier',       label: 'Client tier',  def: false },
+      { id: 'margin',     label: 'Margin',       def: false },
+    ];
+
+    function getColVis() {
+      const saved = JSON.parse(localStorage.getItem('pop-os-proj-cols') || 'null') || {};
+      const vis = {};
+      PROJ_COLS.forEach(c => { vis[c.id] = c.id in saved ? saved[c.id] : c.def; });
+      return vis;
+    }
+
+    function applyColVisibility() {
+      const vis = getColVis();
+      PROJ_COLS.forEach(c => {
+        document.querySelectorAll(`[data-col="${c.id}"]`).forEach(el => {
+          el.classList.toggle('hidden', !vis[c.id]);
+        });
+      });
+    }
+
+    function toggleCol(id, visible) {
+      const vis = getColVis();
+      vis[id] = visible;
+      localStorage.setItem('pop-os-proj-cols', JSON.stringify(vis));
+      applyColVisibility();
+    }
+
+    function buildColPicker() {
+      const vis = getColVis();
+      $('col-picker').innerHTML = PROJ_COLS.map(c => `
+        <label class="flex items-center gap-2.5 px-3 py-2 hover:bg-panel2/60 cursor-pointer">
+          <input type="checkbox" ${vis[c.id] ? 'checked' : ''}
+            onchange="toggleCol('${c.id}', this.checked)"
+            class="accent-accent w-3.5 h-3.5 cursor-pointer" />
+          <span class="text-xs text-ink">${c.label}</span>
+        </label>`).join('');
+    }
+
+    function toggleColPicker() {
+      const picker = $('col-picker');
+      if (picker.classList.contains('hidden')) {
+        buildColPicker();
+        picker.classList.remove('hidden');
+        // close when clicking outside
+        setTimeout(() => document.addEventListener('click', function h(e) {
+          if (!picker.contains(e.target) && !e.target.closest('button[onclick="toggleColPicker()"]')) {
+            picker.classList.add('hidden');
+            document.removeEventListener('click', h);
+          }
+        }), 0);
+      } else {
+        picker.classList.add('hidden');
+      }
+    }
+
+    // ── project detail view ──────────────────────────────────────
+    function showProjectList() {
+      $('p-detail-view').classList.add('hidden');
+      $('p-list-view').classList.remove('hidden');
+    }
+
+    async function showProjectDetail(id) {
+      const p = await (await fetch('/api/projects/' + id)).json();
+      $('p-list-view').classList.add('hidden');
+      $('p-detail-view').classList.remove('hidden');
+
+      const field = (label, value) => value
+        ? `<div><p class="text-[10px] text-muted font-medium uppercase tracking-wider mb-0.5">${label}</p>
+               <p class="text-sm text-ink">${value}</p></div>`
+        : `<div><p class="text-[10px] text-muted font-medium uppercase tracking-wider mb-0.5">${label}</p>
+               <p class="text-sm text-muted">—</p></div>`;
+
+      const deadline = p.deadline ? new Date(p.deadline).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : null;
+
+      $('p-detail-content').innerHTML = `
+        <div class="mb-6">
+          <div class="flex items-start gap-3 flex-wrap">
+            <span class="badge ${QUADRANT_CLS[p.quadrant] || ''} text-xs">${QUADRANT_LABEL[p.quadrant] || p.quadrant}</span>
+            <span class="text-xs ${PRI_CLS[p.priority] || ''}">${p.priority}</span>
+          </div>
+          <h2 class="text-xl font-bold text-ink mt-2">${esc(p.name)}</h2>
+          ${p.client ? `<p class="text-sm text-muted mt-1">${esc(p.client)}</p>` : ''}
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 pb-5 border-b border-line">
+          ${field('Status',   STATUS_LABEL[p.status] || p.status)}
+          ${field('Deadline', deadline)}
+          ${field('Producer', p.producer?.name)}
+          ${field('PM',       p.pm?.name)}
+          ${p.quadrant === 'DRAIN' ? field('Drain gate', `Exec: ${p.drainApprovedByExec ? '✓' : '✗'} · Producer: ${p.drainApprovedByProducer ? '✓' : '✗'}`) : ''}
+        </div>
+
+        <div class="mt-5 pb-5 border-b border-line">
+          <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">PPM inputs</p>
+          <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            ${field('Est. value',  p.estimatedValue != null ? fmtValue(p.estimatedValue) : null)}
+            ${field('Duration',    p.estimatedDuration != null ? p.estimatedDuration + ' weeks' : null)}
+            ${field('Complexity',  p.complexityScore != null ? p.complexityScore + ' / 5' : null)}
+            ${field('Client tier', p.clientTier ? CLIENT_TIER_LABEL[p.clientTier] : null)}
+            ${field('Margin target', p.marginTarget != null ? p.marginTarget + '%' : null)}
+          </div>
+        </div>
+
+        <div class="mt-5 pb-5 border-b border-line">
+          <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-2">Assets</p>
+          <p class="text-xs text-muted">Coming soon — deliverables and their SOP stage will appear here.</p>
+        </div>
+
+        <div class="mt-5">
+          <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-2">Capacity</p>
+          <p class="text-xs text-muted">Coming soon — team allocations by week will appear here.</p>
+        </div>`;
+    }
+
+    async function loadProjects() {
+      const projects = await (await fetch('/api/projects')).json();
+      const rows = $('p-rows'); rows.innerHTML = '';
+      $('p-empty').classList.toggle('hidden', projects.length > 0);
+      for (const p of projects) {
+        const deadline = p.deadline ? new Date(p.deadline).toLocaleDateString() : '—';
+        const drainNote = p.quadrant === 'DRAIN'
+          ? `<div class="text-[10px] text-warm mt-0.5">Exec: ${p.drainApprovedByExec ? '✓' : '✗'} · Producer: ${p.drainApprovedByProducer ? '✓' : '✗'}</div>`
+          : '';
+        const tr = document.createElement('tr');
+        tr.className = 'border-b border-line hover:bg-panel2/40 transition-colors';
+        tr.innerHTML = `
+          <td class="py-3 px-2">
+            <button class="font-medium text-sm text-left hover:text-accent transition-colors cursor-pointer" data-proj-detail="${p.id}">${esc(p.name)}</button>
+            ${drainNote}
+          </td>
+          <td data-col="client"     class="py-3 px-2 text-muted text-xs whitespace-nowrap">${p.client ? esc(p.client) : '—'}</td>
+          <td data-col="quadrant"   class="py-3 px-2 whitespace-nowrap"><span class="badge ${QUADRANT_CLS[p.quadrant] || ''}">${QUADRANT_LABEL[p.quadrant] || p.quadrant}</span></td>
+          <td data-col="priority"   class="py-3 px-2 whitespace-nowrap"><span class="text-xs ${PRI_CLS[p.priority] || ''}">${p.priority}</span></td>
+          <td class="py-3 px-2">
+            <select class="bg-panel2 border border-line text-ink px-2 py-1 rounded-md text-xs
+                           focus:outline-none focus:border-accent/70 cursor-pointer"
+                    data-proj="${p.id}" data-field="status">
+              ${Object.entries(STATUS_LABEL).map(([k,v]) =>
+                `<option value="${k}"${p.status === k ? ' selected' : ''}>${v}</option>`
+              ).join('')}
+            </select>
+          </td>
+          <td data-col="deadline"   class="py-3 px-2 text-muted text-xs whitespace-nowrap">${deadline}</td>
+          <td data-col="producer"   class="py-3 px-2 text-muted text-xs whitespace-nowrap">${p.producer ? esc(p.producer.name) : '—'}</td>
+          <td data-col="pm"         class="py-3 px-2 text-muted text-xs whitespace-nowrap">${p.pm ? esc(p.pm.name) : '—'}</td>
+          <td data-col="value"      class="py-3 px-2 text-xs whitespace-nowrap">${fmtValue(p.estimatedValue)}</td>
+          <td data-col="duration"   class="py-3 px-2 text-xs whitespace-nowrap">${p.estimatedDuration != null ? `<span class="text-ink">${p.estimatedDuration}</span><span class="text-muted">w</span>` : '<span class="text-muted">—</span>'}</td>
+          <td data-col="complexity" class="py-3 px-2 whitespace-nowrap">${complexityDots(p.complexityScore)}</td>
+          <td data-col="tier"       class="py-3 px-2 text-xs whitespace-nowrap">${p.clientTier ? `<span class="badge bg-panel2 border border-line text-muted">${CLIENT_TIER_LABEL[p.clientTier]}</span>` : '<span class="text-muted">—</span>'}</td>
+          <td data-col="margin"     class="py-3 px-2 text-xs whitespace-nowrap">${p.marginTarget != null ? `<span class="text-ink">${p.marginTarget}</span><span class="text-muted">%</span>` : '<span class="text-muted">—</span>'}</td>
+          <td class="py-3 px-2 whitespace-nowrap"><button class="btn-del" data-proj-del="${p.id}">Remove</button></td>`;
+        rows.appendChild(tr);
+      }
+      rows.querySelectorAll('[data-field="status"]').forEach(sel => {
+        sel.onchange = async () => {
+          await fetch(`/api/projects/${sel.dataset.proj}`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: sel.value }),
+          });
+        };
+      });
+      rows.querySelectorAll('[data-proj-del]').forEach(b => b.onclick = () => removeProject(b.dataset.projDel));
+      rows.querySelectorAll('[data-proj-detail]').forEach(b => b.onclick = () => showProjectDetail(b.dataset.projDetail));
+      applyColVisibility();
+    }
+
+    async function addProject() {
+      const quad = $('p-quadrant').value;
+      const body = {
+        name:       $('p-name').value.trim(),
+        client:     $('p-client').value.trim() || undefined,
+        quadrant:   quad,
+        priority:   $('p-priority').value,
+        status:     $('p-status').value,
+        deadline:   $('p-deadline').value || undefined,
+        producerId: $('p-producer').value || undefined,
+        pmId:       $('p-pm').value || undefined,
+      };
+      if (quad === 'DRAIN') {
+        body.drainApprovedByExec     = $('p-exec').checked;
+        body.drainApprovedByProducer = $('p-prod-approval').checked;
+      }
+      // PPM inputs — all optional
+      const estVal  = parseFloat($('p-est-value').value);
+      const estDur  = parseInt($('p-est-duration').value);
+      const complex = parseInt($('p-complexity').value);
+      const margin  = parseFloat($('p-margin').value);
+      if (!isNaN(estVal))  body.estimatedValue    = estVal;
+      if (!isNaN(estDur))  body.estimatedDuration = estDur;
+      if (!isNaN(complex)) body.complexityScore   = complex;
+      if ($('p-client-tier').value) body.clientTier = $('p-client-tier').value;
+      if (!isNaN(margin))  body.marginTarget      = margin;
+
+      if (!body.name) { msg($('pmsg'), 'Project name is required.', 'err'); return; }
+      const res = await fetch('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      if (res.ok) {
+        ['p-name','p-client','p-deadline','p-est-value','p-est-duration','p-margin'].forEach(id => $(id).value = '');
+        $('p-quadrant').value = 'GOLD'; $('p-complexity').value = ''; $('p-client-tier').value = '';
+        $('p-drain-gate').classList.add('hidden');
+        $('p-exec').checked = false; $('p-prod-approval').checked = false;
+        msg($('pmsg'), 'Project added.', 'ok');
+        loadProjects();
+      } else {
+        const e = await res.json().catch(() => ({}));
+        msg($('pmsg'), [].concat(e.message || 'Failed').join(', '), 'err');
+      }
+    }
+
+    async function removeProject(id) {
+      if (!confirm('Remove this project?')) return;
+      await fetch('/api/projects/' + id, { method: 'DELETE' });
+      loadProjects();
+    }
+
+    $('p-add').addEventListener('click', addProject);
+
+    // ── boot ──────────────────────────────────────────────────────
+    loadSkills().then(load).then(loadProjects);
+  </script>
+</body>
+</html>

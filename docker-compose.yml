@@ -1,0 +1,30 @@
+# ───────────────────────────────────────────────────────────────
+# Pop OS — PostgreSQL via Docker
+#
+# This file describes the database so anyone can start it with one
+# command, instead of installing PostgreSQL on their machine.
+#
+#   Start it:   docker compose up -d
+#   Stop it:    docker compose down          (data is kept)
+#   Wipe it:    docker compose down -v       (data is deleted too)
+#   Check it:   docker compose ps
+# ───────────────────────────────────────────────────────────────
+services:
+  db:
+    image: postgres:16
+    container_name: pop-os-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: pop_os
+    ports:
+      # host:container — your app connects to localhost:5432
+      - "5432:5432"
+    volumes:
+      # Named volume = your data survives `docker compose down`.
+      # It is only deleted if you run `docker compose down -v`.
+      - pop_os_data:/var/lib/postgresql/data
+
+volumes:
+  pop_os_data:
