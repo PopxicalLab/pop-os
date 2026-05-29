@@ -99,7 +99,8 @@ Conventions already in use (keep them consistent):
 
 ## Data model (current state)
 
-Built so far: **People / ELC** with **rated skills**.
+Built so far: **People / ELC** with **rated skills**, and **Projects** with
+full PPM fields.
 
 - **Person** — one record per individual. Fields: name, role, department,
   startDate, employmentType (enum: FULL_TIME/CONTRACT/FREELANCE/INTERN),
@@ -115,6 +116,15 @@ Built so far: **People / ELC** with **rated skills**.
 - **SkillRatingChange** — audit trail. One row per score movement:
   oldRating (null for the first entry), newRating, source (enum), changedBy
   (free text for now), note, createdAt.
+
+- **Project** — the spine of the production system. Fields: name, client,
+  quadrant (enum: GOLD/STRATEGIC_BET/OPERATIONAL_FILLER/DRAIN), priority
+  (enum: P1/P2/P3), status (enum: BRIEF/IN_PROGRESS/INTERNAL_REVIEW/
+  DELIVERED/ON_HOLD/CANCELLED), deadline, producerId → Person, pmId → Person,
+  drainApprovedByExec (bool), drainApprovedByProducer (bool).
+  PPM inputs (for future recommendation engine): estimatedValue (Float),
+  estimatedDuration (Int, weeks), complexityScore (Int, 1–5),
+  clientTier (enum: NEW/RETURNING/KEY_ACCOUNT), marginTarget (Float, %).
 
 ### Skills design decisions (do not undo these without asking)
 
@@ -140,14 +150,10 @@ Built so far: **People / ELC** with **rated skills**.
 The order is driven by dependencies, not preference:
 
 1. **People / ELC** — DONE. The foundation; everything links to a Person.
-2. **Projects** — NEXT. The spine. Carries the PPM framework:
-   - quadrant (Gold / Strategic Bet / Operational Filler / Drain)
-   - priority (P1 / P2 / P3)
-   - status, deadline, client, plus links to a producer (Person) and PM (Person)
-   - The "Drain" project type requires a two-signature approval gate
-     (Exec/CEO + Producer) before acceptance — model this as a workflow gate,
-     likely two fields on Project, not a separate table.
-3. **Capacity** — junction of Person × Project per week. One row per
+2. **Projects** — DONE. The spine. PPM quadrant/priority/status, producer/PM
+   links, Drain approval gate, PPM recommendation inputs (estimatedValue,
+   estimatedDuration, complexityScore, clientTier, marginTarget).
+3. **Capacity** — NEXT. Junction of Person × Project per week. One row per
    person-per-project-per-week with role (Main/Support) and pct_week.
    Enforces the 70–80% main / 20–30% support rule. "If it's not on the
    Capacity Board, it doesn't exist." Needs People + Projects first.
@@ -155,6 +161,12 @@ The order is driven by dependencies, not preference:
 4. **Assets** — deliverables that move through the SOP stages
    (Brief → WIP → Internal Review → Revision → Final Delivery), with a
    Creative Director sign-off at Internal Review. Belongs to a Project.
+5. **PPM recommendation engine** — uses the PPM input fields on Project plus
+   historical project outcomes to suggest quadrant and priority. Rule-based
+   scoring first, Claude API reasoning layer later.
+6. **Staffing recommendation engine** — given a project's quadrant/priority
+   and required skills, recommends who to assign based on current capacity
+   and skill ratings.
 
 When a SkillRatingChange has source = PROJECT_COMPLETION, it will eventually
 link to the real Project record. Until Projects exists, treat it as a label
