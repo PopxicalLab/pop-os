@@ -180,6 +180,9 @@
         <button id="tab-btn-projects"
           class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
           onclick="switchTab('projects')">Projects</button>
+        <button id="tab-btn-capacity"
+          class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
+          onclick="switchTab('capacity')">Capacity</button>
       </nav>
       <!-- Day / night toggle -->
       <button id="mode-btn" onclick="toggleMode()" title="Toggle day / night"
@@ -433,8 +436,69 @@
     </div>
   </div>
 
+  <!-- ════════════════════════════════════════════════════
+       PANEL: CAPACITY
+  ════════════════════════════════════════════════════ -->
+  <div class="panel hidden" id="tab-capacity">
+    <div class="max-w-7xl mx-auto px-5 py-6 grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5 items-start">
+
+      <!-- Left: week navigation + add form -->
+      <div class="space-y-4">
+
+        <!-- Week navigator -->
+        <div class="bg-panel border border-line rounded-xl p-3 flex items-center gap-2">
+          <button onclick="shiftWeek(-1)"
+            class="w-8 h-8 flex items-center justify-center rounded-lg text-muted
+                   hover:text-ink hover:bg-panel2 transition-colors cursor-pointer shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+          </button>
+          <span id="cap-week-label" class="flex-1 text-center text-xs font-semibold text-ink"></span>
+          <button onclick="shiftWeek(1)"
+            class="w-8 h-8 flex items-center justify-center rounded-lg text-muted
+                   hover:text-ink hover:bg-panel2 transition-colors cursor-pointer shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Add allocation form -->
+        <div class="bg-panel border border-line rounded-xl p-5">
+          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-4">Add allocation</h2>
+          <label class="form-label" style="margin-top:0">Person</label>
+          <select id="cap-person" class="form-input cursor-pointer"><option value="">— select —</option></select>
+          <label class="form-label">Project</label>
+          <select id="cap-project" class="form-input cursor-pointer"><option value="">— select —</option></select>
+          <label class="form-label">Role</label>
+          <select id="cap-role" class="form-input cursor-pointer">
+            <option value="MAIN">Main  (70–80%)</option>
+            <option value="SUPPORT">Support  (20–30%)</option>
+          </select>
+          <label class="form-label">% of week</label>
+          <input id="cap-pct" type="number" min="1" max="100" class="form-input" placeholder="e.g. 75" />
+          <button id="cap-add"
+            class="mt-4 w-full bg-accent text-bg font-semibold py-2.5 rounded-lg text-sm
+                   hover:brightness-110 transition-all duration-150 cursor-pointer">
+            Add allocation
+          </button>
+          <div id="cap-msg" class="text-xs mt-2 min-h-[18px]"></div>
+        </div>
+      </div>
+
+      <!-- Right: the board -->
+      <div class="bg-panel border border-line rounded-xl p-5">
+        <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-4">Capacity Board</h2>
+        <div id="cap-board">
+          <div class="text-center text-muted text-sm py-10">Switch to this tab to load the board.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
-    // ── utilities ────────────────────────────────────────────────
+    // ── shared utilities — available to all module JS files ──────
     const $ = (id) => document.getElementById(id);
 
     function msg(el, text, kind) {
@@ -450,53 +514,6 @@
         ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])
       );
     }
-
-    function dots(n) {
-      let h = '<span class="inline-flex gap-0.5 items-center">';
-      for (let i = 1; i <= 5; i++)
-        h += `<span class="w-1.5 h-1.5 rounded-full ${i <= n ? 'bg-accent' : 'bg-line'}"></span>`;
-      return h + '</span>';
-    }
-
-    const SOURCES = {
-      INTERVIEW: 'Interview',
-      PROJECT_COMPLETION: 'Project completion',
-      MANUAL_ADJUSTMENT: 'Manual adjustment',
-    };
-    const CLIENT_TIER_LABEL = { NEW: 'New', RETURNING: 'Returning', KEY_ACCOUNT: 'Key acct' };
-
-    function complexityDots(n) {
-      if (!n) return '<span class="text-muted">—</span>';
-      let h = '<span class="inline-flex gap-0.5 items-center">';
-      for (let i = 1; i <= 5; i++)
-        h += `<span class="w-1.5 h-1.5 rounded-full ${i <= n ? 'bg-accent' : 'bg-line'}"></span>`;
-      return h + `</span> <span class="text-xs text-muted ml-1">${n}</span>`;
-    }
-
-    function fmtValue(v) {
-      if (v == null) return '<span class="text-muted">—</span>';
-      return '£' + Number(v).toLocaleString('en-GB', { maximumFractionDigits: 0 });
-    }
-
-    const QUADRANT_LABEL = {
-      GOLD: 'Gold', STRATEGIC_BET: 'Strategic Bet',
-      OPERATIONAL_FILLER: 'Op. Filler', DRAIN: 'Drain',
-    };
-    const QUADRANT_CLS = {
-      GOLD:               'bg-yellow-500/15 text-yellow-400',
-      STRATEGIC_BET:      'bg-emerald-500/15 text-emerald-400',
-      OPERATIONAL_FILLER: 'bg-sky-500/15 text-sky-400',
-      DRAIN:              'bg-warm/15 text-warm',
-    };
-    const STATUS_LABEL = {
-      BRIEF: 'Brief', IN_PROGRESS: 'In progress', INTERNAL_REVIEW: 'Internal review',
-      DELIVERED: 'Delivered', ON_HOLD: 'On hold', CANCELLED: 'Cancelled',
-    };
-    const PRI_CLS = {
-      P1: 'font-bold text-warm',
-      P2: 'font-semibold text-accent',
-      P3: 'font-medium text-muted',
-    };
 
     // ── day / night icons ────────────────────────────────────────
     const ICON_SUN  = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>`;
@@ -531,13 +548,14 @@
 
     // ── tab switching ────────────────────────────────────────────
     function switchTab(name) {
-      ['people', 'projects'].forEach(t => {
+      ['people', 'projects', 'capacity'].forEach(t => {
         const active = t === name;
         $('tab-btn-' + t).className = active
           ? 'px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 bg-panel text-ink'
           : 'px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink';
         $('tab-' + t).classList.toggle('hidden', !active);
       });
+      if (name === 'capacity') loadCapacityBoard();
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -646,467 +664,14 @@
       location.reload();
     }
 
-    // ══════════════════════════════════════════════════════════════
-    // PEOPLE / ELC
-    // ══════════════════════════════════════════════════════════════
-    let SKILLS = [];
-    let PEOPLE = [];
-
-    async function loadSkills() {
-      SKILLS = await (await fetch('/api/skills')).json();
-      $('skillList').innerHTML = SKILLS.length
-        ? SKILLS.map(s =>
-            `<span class="inline-flex items-center bg-panel2 border border-line px-2.5 py-0.5 rounded-full text-xs text-ink">${esc(s.name)}</span>`
-          ).join('')
-        : '<span class="text-xs text-muted">No skills yet.</span>';
-    }
-
-    $('addSkill').addEventListener('click', async () => {
-      const name = $('newSkill').value.trim();
-      if (!name) { msg($('skillMsg'), 'Enter a skill name.', 'err'); return; }
-      const res = await fetch('/api/skills', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
-      if (res.ok) { $('newSkill').value = ''; msg($('skillMsg'), 'Skill added.', 'ok'); await loadSkills(); }
-      else { const e = await res.json().catch(() => ({})); msg($('skillMsg'), [].concat(e.message || 'Failed').join(', '), 'err'); }
-    });
-
-    async function load() {
-      PEOPLE = await (await fetch('/api/people')).json();
-      const rows = $('rows'); rows.innerHTML = '';
-      $('empty').classList.toggle('hidden', PEOPLE.length > 0);
-      for (const p of PEOPLE) {
-        const skills = (p.skills || []).map(ps =>
-          `<span class="inline-flex items-center gap-1.5 bg-panel2 border border-line px-2 py-0.5 rounded-full
-                        text-xs cursor-pointer hover:border-accent/50 transition-colors"
-                data-ps="${ps.id}" title="Click to update rating">
-             ${esc(ps.skill.name)} ${dots(ps.rating)}
-             <span class="font-bold text-accent">${ps.rating}</span>
-           </span>`
-        ).join('') || '<span class="text-xs text-muted">No skills rated</span>';
-
-        const statusBadge = p.warmPool
-          ? '<span class="badge bg-warm/15 text-warm">Warm pool</span>'
-          : '<span class="badge bg-accent/15 text-accent">Active</span>';
-
-        const tr = document.createElement('tr');
-        tr.className = 'border-b border-line hover:bg-panel2/40 transition-colors';
-        tr.innerHTML = `
-          <td class="py-3 px-2 font-medium whitespace-nowrap">${esc(p.name)}</td>
-          <td class="py-3 px-2 text-muted text-xs whitespace-nowrap">${esc(p.role)}</td>
-          <td class="py-3 px-2 text-muted text-xs whitespace-nowrap">${esc(p.department)}</td>
-          <td class="py-3 px-2">
-            <div class="flex flex-wrap gap-1">${skills}</div>
-            <div class="mt-2">
-              <button class="btn-del" data-assign="${p.id}">+ rate a skill</button>
-            </div>
-            <div id="area-${p.id}"></div>
-          </td>
-          <td class="py-3 px-2 whitespace-nowrap">${statusBadge}</td>
-          <td class="py-3 px-2 whitespace-nowrap">
-            <button class="btn-del" data-del="${p.id}">Remove</button>
-          </td>`;
-        rows.appendChild(tr);
-      }
-      rows.querySelectorAll('[data-del]').forEach(b => b.onclick = () => removePerson(b.dataset.del));
-      rows.querySelectorAll('[data-assign]').forEach(b => b.onclick = () => showAssign(b.dataset.assign));
-      rows.querySelectorAll('[data-ps]').forEach(b => b.onclick = () => showChange(b.dataset.ps, b));
-      populatePersonDropdowns();
-    }
-
-    async function addPerson() {
-      const body = {
-        name: $('name').value.trim(), role: $('role').value.trim(),
-        department: $('department').value.trim(),
-        startDate: $('startDate').value || new Date().toISOString().slice(0, 10),
-        employmentType: $('employmentType').value,
-        warmPool: $('warmPool').value === 'true',
-      };
-      if (!body.name || !body.role || !body.department) {
-        msg($('msg'), 'Name, role and department are required.', 'err'); return;
-      }
-      const res = await fetch('/api/people', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      if (res.ok) {
-        ['name', 'role', 'department'].forEach(id => $(id).value = '');
-        msg($('msg'), 'Person added.', 'ok'); load();
-      } else {
-        const e = await res.json().catch(() => ({}));
-        msg($('msg'), [].concat(e.message || 'Failed').join(', '), 'err');
-      }
-    }
-
-    async function removePerson(id) {
-      if (!confirm('Remove this person? Their skill ratings and history go too.')) return;
-      const res = await fetch('/api/people/' + id, { method: 'DELETE' });
-      if (res.ok) { msg($('msg'), 'Removed.', 'ok'); load(); }
-      else msg($('msg'), 'Could not remove.', 'err');
-    }
-
-    function showAssign(personId) {
-      const area = $('area-' + personId);
-      if (area.dataset.open === '1') { area.innerHTML = ''; area.dataset.open = '0'; return; }
-      area.dataset.open = '1';
-      const opts = SKILLS.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
-      area.innerHTML = `
-        <div class="bg-panel2 border border-line rounded-xl p-4 mt-3 space-y-3">
-          <div class="grid grid-cols-3 gap-2">
-            <div>
-              <p class="text-[10px] text-muted font-medium mb-1">Skill</p>
-              <select class="a-skill w-full bg-bg border border-line text-ink px-2 py-1.5 rounded-lg text-xs focus:outline-none focus:border-accent/70 cursor-pointer">
-                ${opts || '<option>(add skills first)</option>'}
-              </select>
-            </div>
-            <div>
-              <p class="text-[10px] text-muted font-medium mb-1">Rating 1–5</p>
-              <select class="a-rating w-full bg-bg border border-line text-ink px-2 py-1.5 rounded-lg text-xs focus:outline-none focus:border-accent/70 cursor-pointer">
-                ${[1,2,3,4,5].map(n => `<option>${n}</option>`).join('')}
-              </select>
-            </div>
-            <div>
-              <p class="text-[10px] text-muted font-medium mb-1">Source</p>
-              <select class="a-source w-full bg-bg border border-line text-ink px-2 py-1.5 rounded-lg text-xs focus:outline-none focus:border-accent/70 cursor-pointer">
-                ${Object.entries(SOURCES).map(([k,v]) => `<option value="${k}">${v}</option>`).join('')}
-              </select>
-            </div>
-          </div>
-          <div class="a-note-wrap hidden">
-            <p class="text-[10px] text-muted font-medium mb-1">Note <span class="text-warm">(required for manual adjustment)</span></p>
-            <input class="a-note w-full bg-bg border border-line text-ink px-2 py-1.5 rounded-lg text-xs placeholder-muted/60 focus:outline-none focus:border-accent/70" placeholder="Reason for this rating" />
-          </div>
-          <div class="flex items-center gap-3">
-            <button class="a-save bg-accent text-bg text-xs font-semibold px-4 py-1.5 rounded-lg hover:brightness-110 transition-all cursor-pointer">Save rating</button>
-            <span class="a-msg text-xs"></span>
-          </div>
-        </div>`;
-      const sourceSel = area.querySelector('.a-source');
-      const noteWrap = area.querySelector('.a-note-wrap');
-      sourceSel.onchange = () => noteWrap.classList.toggle('hidden', sourceSel.value !== 'MANUAL_ADJUSTMENT');
-      area.querySelector('.a-save').onclick = async () => {
-        const body = {
-          skillId: area.querySelector('.a-skill').value,
-          rating: +area.querySelector('.a-rating').value,
-          source: sourceSel.value,
-          note: area.querySelector('.a-note').value.trim() || undefined,
-        };
-        const res = await fetch(`/api/people/${personId}/skills`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-        if (res.ok) { area.innerHTML = ''; area.dataset.open = '0'; load(); }
-        else { const e = await res.json().catch(() => ({})); msg(area.querySelector('.a-msg'), [].concat(e.message || 'Failed').join(', '), 'err'); }
-      };
-    }
-
-    async function showChange(psId, chip) {
-      const area = chip.closest('td').querySelector('[id^="area-"]');
-      const hist = await (await fetch(`/api/person-skills/${psId}/history`)).json();
-      const histHtml = hist.map(h => {
-        const arrow = h.oldRating == null ? `— → ${h.newRating}` : `${h.oldRating} → ${h.newRating}`;
-        return `<div class="flex items-start gap-2 py-2 border-b border-line last:border-0">
-          <span class="w-1.5 h-1.5 rounded-full bg-muted/50 mt-1.5 shrink-0"></span>
-          <span class="text-xs">
-            <b class="text-ink">${arrow}</b>
-            <span class="text-muted"> · ${SOURCES[h.source] || h.source}</span>
-            ${h.note ? `<span class="text-muted"> · "${esc(h.note)}"</span>` : ''}
-            <span class="text-muted"> · ${new Date(h.createdAt).toLocaleDateString()}</span>
-          </span>
-        </div>`;
-      }).join('') || '<p class="text-xs text-muted py-2">No history.</p>';
-
-      area.dataset.open = '1';
-      area.innerHTML = `
-        <div class="bg-panel2 border border-line rounded-xl p-4 mt-3 space-y-3">
-          <div class="grid grid-cols-2 gap-2">
-            <div>
-              <p class="text-[10px] text-muted font-medium mb-1">New rating 1–5</p>
-              <select class="c-rating w-full bg-bg border border-line text-ink px-2 py-1.5 rounded-lg text-xs focus:outline-none focus:border-accent/70 cursor-pointer">
-                ${[1,2,3,4,5].map(n => `<option>${n}</option>`).join('')}
-              </select>
-            </div>
-            <div>
-              <p class="text-[10px] text-muted font-medium mb-1">Source</p>
-              <select class="c-source w-full bg-bg border border-line text-ink px-2 py-1.5 rounded-lg text-xs focus:outline-none focus:border-accent/70 cursor-pointer">
-                ${Object.entries(SOURCES).map(([k,v]) => `<option value="${k}">${v}</option>`).join('')}
-              </select>
-            </div>
-          </div>
-          <div class="c-note-wrap">
-            <p class="text-[10px] text-muted font-medium mb-1">Note <span class="text-warm">(required for manual adjustment)</span></p>
-            <input class="c-note w-full bg-bg border border-line text-ink px-2 py-1.5 rounded-lg text-xs placeholder-muted/60 focus:outline-none focus:border-accent/70" placeholder="Reason for the change" />
-          </div>
-          <div class="flex items-center gap-3">
-            <button class="c-save bg-accent text-bg text-xs font-semibold px-4 py-1.5 rounded-lg hover:brightness-110 transition-all cursor-pointer">Apply change</button>
-            <button class="c-remove btn-del">Remove skill</button>
-            <span class="c-msg text-xs"></span>
-          </div>
-          <div class="border-t border-line pt-3">
-            <p class="text-[10px] font-semibold uppercase tracking-wider text-muted mb-2">History</p>
-            ${histHtml}
-          </div>
-        </div>`;
-      const sourceSel = area.querySelector('.c-source');
-      const noteWrap = area.querySelector('.c-note-wrap');
-      sourceSel.value = 'MANUAL_ADJUSTMENT';
-      sourceSel.onchange = () => noteWrap.classList.toggle('hidden', sourceSel.value !== 'MANUAL_ADJUSTMENT');
-      area.querySelector('.c-save').onclick = async () => {
-        const body = {
-          newRating: +area.querySelector('.c-rating').value,
-          source: sourceSel.value,
-          note: area.querySelector('.c-note').value.trim() || undefined,
-        };
-        const res = await fetch(`/api/person-skills/${psId}/rating`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-        if (res.ok) { area.innerHTML = ''; load(); }
-        else { const e = await res.json().catch(() => ({})); msg(area.querySelector('.c-msg'), [].concat(e.message || 'Failed').join(', '), 'err'); }
-      };
-      area.querySelector('.c-remove').onclick = async () => {
-        if (!confirm('Remove this skill from the person?')) return;
-        const res = await fetch(`/api/person-skills/${psId}`, { method: 'DELETE' });
-        if (res.ok) { area.innerHTML = ''; load(); }
-        else msg(area.querySelector('.c-msg'), 'Failed', 'err');
-      };
-    }
-
-    $('add').addEventListener('click', addPerson);
-
-    // ══════════════════════════════════════════════════════════════
-    // PROJECTS
-    // ══════════════════════════════════════════════════════════════
-
-    $('p-quadrant').addEventListener('change', () => {
-      $('p-drain-gate').classList.toggle('hidden', $('p-quadrant').value !== 'DRAIN');
-    });
-
-    function populatePersonDropdowns() {
-      const opts = '<option value="">— none —</option>' +
-        PEOPLE.map(p => `<option value="${p.id}">${esc(p.name)} (${esc(p.role)})</option>`).join('');
-      $('p-producer').innerHTML = opts;
-      $('p-pm').innerHTML = opts;
-    }
-
-    // ── column visibility ────────────────────────────────────────
-    const PROJ_COLS = [
-      { id: 'client',     label: 'Client',       def: true  },
-      { id: 'quadrant',   label: 'Quadrant',     def: true  },
-      { id: 'priority',   label: 'Priority',     def: true  },
-      { id: 'deadline',   label: 'Deadline',     def: true  },
-      { id: 'producer',   label: 'Producer',     def: true  },
-      { id: 'pm',         label: 'PM',           def: true  },
-      { id: 'value',      label: 'Est. Value',   def: false },
-      { id: 'duration',   label: 'Duration',     def: false },
-      { id: 'complexity', label: 'Complexity',   def: false },
-      { id: 'tier',       label: 'Client tier',  def: false },
-      { id: 'margin',     label: 'Margin',       def: false },
-    ];
-
-    function getColVis() {
-      const saved = JSON.parse(localStorage.getItem('pop-os-proj-cols') || 'null') || {};
-      const vis = {};
-      PROJ_COLS.forEach(c => { vis[c.id] = c.id in saved ? saved[c.id] : c.def; });
-      return vis;
-    }
-
-    function applyColVisibility() {
-      const vis = getColVis();
-      PROJ_COLS.forEach(c => {
-        document.querySelectorAll(`[data-col="${c.id}"]`).forEach(el => {
-          el.classList.toggle('hidden', !vis[c.id]);
-        });
-      });
-    }
-
-    function toggleCol(id, visible) {
-      const vis = getColVis();
-      vis[id] = visible;
-      localStorage.setItem('pop-os-proj-cols', JSON.stringify(vis));
-      applyColVisibility();
-    }
-
-    function buildColPicker() {
-      const vis = getColVis();
-      $('col-picker').innerHTML = PROJ_COLS.map(c => `
-        <label class="flex items-center gap-2.5 px-3 py-2 hover:bg-panel2/60 cursor-pointer">
-          <input type="checkbox" ${vis[c.id] ? 'checked' : ''}
-            onchange="toggleCol('${c.id}', this.checked)"
-            class="accent-accent w-3.5 h-3.5 cursor-pointer" />
-          <span class="text-xs text-ink">${c.label}</span>
-        </label>`).join('');
-    }
-
-    function toggleColPicker() {
-      const picker = $('col-picker');
-      if (picker.classList.contains('hidden')) {
-        buildColPicker();
-        picker.classList.remove('hidden');
-        // close when clicking outside
-        setTimeout(() => document.addEventListener('click', function h(e) {
-          if (!picker.contains(e.target) && !e.target.closest('button[onclick="toggleColPicker()"]')) {
-            picker.classList.add('hidden');
-            document.removeEventListener('click', h);
-          }
-        }), 0);
-      } else {
-        picker.classList.add('hidden');
-      }
-    }
-
-    // ── project detail view ──────────────────────────────────────
-    function showProjectList() {
-      $('p-detail-view').classList.add('hidden');
-      $('p-list-view').classList.remove('hidden');
-    }
-
-    async function showProjectDetail(id) {
-      const p = await (await fetch('/api/projects/' + id)).json();
-      $('p-list-view').classList.add('hidden');
-      $('p-detail-view').classList.remove('hidden');
-
-      const field = (label, value) => value
-        ? `<div><p class="text-[10px] text-muted font-medium uppercase tracking-wider mb-0.5">${label}</p>
-               <p class="text-sm text-ink">${value}</p></div>`
-        : `<div><p class="text-[10px] text-muted font-medium uppercase tracking-wider mb-0.5">${label}</p>
-               <p class="text-sm text-muted">—</p></div>`;
-
-      const deadline = p.deadline ? new Date(p.deadline).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : null;
-
-      $('p-detail-content').innerHTML = `
-        <div class="mb-6">
-          <div class="flex items-start gap-3 flex-wrap">
-            <span class="badge ${QUADRANT_CLS[p.quadrant] || ''} text-xs">${QUADRANT_LABEL[p.quadrant] || p.quadrant}</span>
-            <span class="text-xs ${PRI_CLS[p.priority] || ''}">${p.priority}</span>
-          </div>
-          <h2 class="text-xl font-bold text-ink mt-2">${esc(p.name)}</h2>
-          ${p.client ? `<p class="text-sm text-muted mt-1">${esc(p.client)}</p>` : ''}
-        </div>
-
-        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 pb-5 border-b border-line">
-          ${field('Status',   STATUS_LABEL[p.status] || p.status)}
-          ${field('Deadline', deadline)}
-          ${field('Producer', p.producer?.name)}
-          ${field('PM',       p.pm?.name)}
-          ${p.quadrant === 'DRAIN' ? field('Drain gate', `Exec: ${p.drainApprovedByExec ? '✓' : '✗'} · Producer: ${p.drainApprovedByProducer ? '✓' : '✗'}`) : ''}
-        </div>
-
-        <div class="mt-5 pb-5 border-b border-line">
-          <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">PPM inputs</p>
-          <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
-            ${field('Est. value',  p.estimatedValue != null ? fmtValue(p.estimatedValue) : null)}
-            ${field('Duration',    p.estimatedDuration != null ? p.estimatedDuration + ' weeks' : null)}
-            ${field('Complexity',  p.complexityScore != null ? p.complexityScore + ' / 5' : null)}
-            ${field('Client tier', p.clientTier ? CLIENT_TIER_LABEL[p.clientTier] : null)}
-            ${field('Margin target', p.marginTarget != null ? p.marginTarget + '%' : null)}
-          </div>
-        </div>
-
-        <div class="mt-5 pb-5 border-b border-line">
-          <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-2">Assets</p>
-          <p class="text-xs text-muted">Coming soon — deliverables and their SOP stage will appear here.</p>
-        </div>
-
-        <div class="mt-5">
-          <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-2">Capacity</p>
-          <p class="text-xs text-muted">Coming soon — team allocations by week will appear here.</p>
-        </div>`;
-    }
-
-    async function loadProjects() {
-      const projects = await (await fetch('/api/projects')).json();
-      const rows = $('p-rows'); rows.innerHTML = '';
-      $('p-empty').classList.toggle('hidden', projects.length > 0);
-      for (const p of projects) {
-        const deadline = p.deadline ? new Date(p.deadline).toLocaleDateString() : '—';
-        const drainNote = p.quadrant === 'DRAIN'
-          ? `<div class="text-[10px] text-warm mt-0.5">Exec: ${p.drainApprovedByExec ? '✓' : '✗'} · Producer: ${p.drainApprovedByProducer ? '✓' : '✗'}</div>`
-          : '';
-        const tr = document.createElement('tr');
-        tr.className = 'border-b border-line hover:bg-panel2/40 transition-colors';
-        tr.innerHTML = `
-          <td class="py-3 px-2">
-            <button class="font-medium text-sm text-left hover:text-accent transition-colors cursor-pointer" data-proj-detail="${p.id}">${esc(p.name)}</button>
-            ${drainNote}
-          </td>
-          <td data-col="client"     class="py-3 px-2 text-muted text-xs whitespace-nowrap">${p.client ? esc(p.client) : '—'}</td>
-          <td data-col="quadrant"   class="py-3 px-2 whitespace-nowrap"><span class="badge ${QUADRANT_CLS[p.quadrant] || ''}">${QUADRANT_LABEL[p.quadrant] || p.quadrant}</span></td>
-          <td data-col="priority"   class="py-3 px-2 whitespace-nowrap"><span class="text-xs ${PRI_CLS[p.priority] || ''}">${p.priority}</span></td>
-          <td class="py-3 px-2">
-            <select class="bg-panel2 border border-line text-ink px-2 py-1 rounded-md text-xs
-                           focus:outline-none focus:border-accent/70 cursor-pointer"
-                    data-proj="${p.id}" data-field="status">
-              ${Object.entries(STATUS_LABEL).map(([k,v]) =>
-                `<option value="${k}"${p.status === k ? ' selected' : ''}>${v}</option>`
-              ).join('')}
-            </select>
-          </td>
-          <td data-col="deadline"   class="py-3 px-2 text-muted text-xs whitespace-nowrap">${deadline}</td>
-          <td data-col="producer"   class="py-3 px-2 text-muted text-xs whitespace-nowrap">${p.producer ? esc(p.producer.name) : '—'}</td>
-          <td data-col="pm"         class="py-3 px-2 text-muted text-xs whitespace-nowrap">${p.pm ? esc(p.pm.name) : '—'}</td>
-          <td data-col="value"      class="py-3 px-2 text-xs whitespace-nowrap">${fmtValue(p.estimatedValue)}</td>
-          <td data-col="duration"   class="py-3 px-2 text-xs whitespace-nowrap">${p.estimatedDuration != null ? `<span class="text-ink">${p.estimatedDuration}</span><span class="text-muted">w</span>` : '<span class="text-muted">—</span>'}</td>
-          <td data-col="complexity" class="py-3 px-2 whitespace-nowrap">${complexityDots(p.complexityScore)}</td>
-          <td data-col="tier"       class="py-3 px-2 text-xs whitespace-nowrap">${p.clientTier ? `<span class="badge bg-panel2 border border-line text-muted">${CLIENT_TIER_LABEL[p.clientTier]}</span>` : '<span class="text-muted">—</span>'}</td>
-          <td data-col="margin"     class="py-3 px-2 text-xs whitespace-nowrap">${p.marginTarget != null ? `<span class="text-ink">${p.marginTarget}</span><span class="text-muted">%</span>` : '<span class="text-muted">—</span>'}</td>
-          <td class="py-3 px-2 whitespace-nowrap"><button class="btn-del" data-proj-del="${p.id}">Remove</button></td>`;
-        rows.appendChild(tr);
-      }
-      rows.querySelectorAll('[data-field="status"]').forEach(sel => {
-        sel.onchange = async () => {
-          await fetch(`/api/projects/${sel.dataset.proj}`, {
-            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: sel.value }),
-          });
-        };
-      });
-      rows.querySelectorAll('[data-proj-del]').forEach(b => b.onclick = () => removeProject(b.dataset.projDel));
-      rows.querySelectorAll('[data-proj-detail]').forEach(b => b.onclick = () => showProjectDetail(b.dataset.projDetail));
-      applyColVisibility();
-    }
-
-    async function addProject() {
-      const quad = $('p-quadrant').value;
-      const body = {
-        name:       $('p-name').value.trim(),
-        client:     $('p-client').value.trim() || undefined,
-        quadrant:   quad,
-        priority:   $('p-priority').value,
-        status:     $('p-status').value,
-        deadline:   $('p-deadline').value || undefined,
-        producerId: $('p-producer').value || undefined,
-        pmId:       $('p-pm').value || undefined,
-      };
-      if (quad === 'DRAIN') {
-        body.drainApprovedByExec     = $('p-exec').checked;
-        body.drainApprovedByProducer = $('p-prod-approval').checked;
-      }
-      // PPM inputs — all optional
-      const estVal  = parseFloat($('p-est-value').value);
-      const estDur  = parseInt($('p-est-duration').value);
-      const complex = parseInt($('p-complexity').value);
-      const margin  = parseFloat($('p-margin').value);
-      if (!isNaN(estVal))  body.estimatedValue    = estVal;
-      if (!isNaN(estDur))  body.estimatedDuration = estDur;
-      if (!isNaN(complex)) body.complexityScore   = complex;
-      if ($('p-client-tier').value) body.clientTier = $('p-client-tier').value;
-      if (!isNaN(margin))  body.marginTarget      = margin;
-
-      if (!body.name) { msg($('pmsg'), 'Project name is required.', 'err'); return; }
-      const res = await fetch('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-      if (res.ok) {
-        ['p-name','p-client','p-deadline','p-est-value','p-est-duration','p-margin'].forEach(id => $(id).value = '');
-        $('p-quadrant').value = 'GOLD'; $('p-complexity').value = ''; $('p-client-tier').value = '';
-        $('p-drain-gate').classList.add('hidden');
-        $('p-exec').checked = false; $('p-prod-approval').checked = false;
-        msg($('pmsg'), 'Project added.', 'ok');
-        loadProjects();
-      } else {
-        const e = await res.json().catch(() => ({}));
-        msg($('pmsg'), [].concat(e.message || 'Failed').join(', '), 'err');
-      }
-    }
-
-    async function removeProject(id) {
-      if (!confirm('Remove this project?')) return;
-      await fetch('/api/projects/' + id, { method: 'DELETE' });
-      loadProjects();
-    }
-
-    $('p-add').addEventListener('click', addProject);
-
-    // ── boot ──────────────────────────────────────────────────────
-    loadSkills().then(load).then(loadProjects);
   </script>
+
+  <!-- ── Module scripts: one file per tab ─────────────────────── -->
+  <script src="/js/people.js"></script>
+  <script src="/js/projects.js"></script>
+  <script src="/js/capacity.js"></script>
+
+  <!-- Boot: kick off initial data load for the default (People) tab -->
+  <script>loadSkills().then(load).then(loadProjects);</script>
 </body>
 </html>

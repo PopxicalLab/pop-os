@@ -14,6 +14,14 @@ datasource db {
   url      = env("DATABASE_URL") // read from the .env file
 }
 
+// ── CAPACITY ENUM ───────────────────────────────────────────────
+// Whether the person is the primary owner of the project week or a
+// supporting hand. Convention: Main = 70–80%, Support = 20–30%.
+enum CapacityRole {
+  MAIN
+  SUPPORT
+}
+
 // ── PROJECT ENUMS ────────────────────────────────────────────────
 // Which quadrant a project sits in (PPM framework).
 // DRAIN = low budget / high complexity — needs two-signature approval.
@@ -85,6 +93,9 @@ model Person {
   // Projects this person is responsible for (as producer or PM).
   projectsAsProducer Project[]    @relation("ProducerProjects")
   projectsAsPM       Project[]    @relation("PMProjects")
+
+  // Weekly capacity allocations across projects.
+  capacityEntries    Capacity[]
 
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -172,6 +183,31 @@ model Project {
   clientTier        ClientTier? // how established the relationship is
   marginTarget      Float?     // target gross margin as a percentage (0–100)
 
+  // Weekly capacity allocations for this project.
+  capacityEntries Capacity[]
+
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
+}
+
+// ── CAPACITY ─────────────────────────────────────────────────────
+// One row per person × project × week. This IS the Capacity Board.
+// "If it's not here, it doesn't exist."
+// weekStart is always the Monday of the ISO week at UTC midnight.
+model Capacity {
+  id         String       @id @default(cuid())
+  personId   String
+  projectId  String
+  weekStart  DateTime     // Monday 00:00:00 UTC — normalised in the service
+  role       CapacityRole
+  pctWeek    Float        // percentage of the week, 1–100
+
+  person     Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
+  project    Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  // A person can only appear once per project per week.
+  @@unique([personId, projectId, weekStart])
 }
