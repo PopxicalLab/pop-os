@@ -46,9 +46,10 @@ $('addSkill').addEventListener('click', async () => {
 
 async function load() {
   PEOPLE = await (await fetch('/api/people')).json();
+  const visible = PEOPLE.filter(p => matchesFilter(p.company));
   const rows = $('rows'); rows.innerHTML = '';
-  $('empty').classList.toggle('hidden', PEOPLE.length > 0);
-  for (const p of PEOPLE) {
+  $('empty').classList.toggle('hidden', visible.length > 0);
+  for (const p of visible) {
     const skills = (p.skills || []).map(ps =>
       `<span class="inline-flex items-center gap-1.5 bg-panel2 border border-line px-2 py-0.5 rounded-full
                     text-xs cursor-pointer hover:border-accent/50 transition-colors"
@@ -61,11 +62,12 @@ async function load() {
     const statusBadge = p.warmPool
       ? '<span class="badge bg-warm/15 text-warm">Warm pool</span>'
       : '<span class="badge bg-accent/15 text-accent">Active</span>';
+    const companyBadge = coBadge(p.company);
 
     const tr = document.createElement('tr');
     tr.className = 'border-b border-line hover:bg-panel2/40 transition-colors';
     tr.innerHTML = `
-      <td class="py-3 px-2 font-medium whitespace-nowrap">${esc(p.name)}</td>
+      <td class="py-3 px-2 font-medium whitespace-nowrap">${esc(p.name)}${companyBadge}</td>
       <td class="py-3 px-2 text-muted text-xs whitespace-nowrap">${esc(p.role)}</td>
       <td class="py-3 px-2 text-muted text-xs whitespace-nowrap">${esc(p.department)}</td>
       <td class="py-3 px-2">
@@ -95,6 +97,7 @@ async function addPerson() {
     startDate:      $('startDate').value || new Date().toISOString().slice(0, 10),
     employmentType: $('employmentType').value,
     warmPool:       $('warmPool').value === 'true',
+    company:        $('company').value || undefined,
   };
   if (!body.name || !body.role || !body.department) {
     msg($('msg'), 'Name, role and department are required.', 'err'); return;

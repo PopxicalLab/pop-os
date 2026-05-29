@@ -20,8 +20,11 @@ not just describe.
 - **ORM:** Prisma (v5)
 - **Database:** PostgreSQL 16, run via Docker (docker-compose.yml)
 - **UI Framework:** tailwind
-- **Frontend:** a single static page at `public/index.html` (vanilla JS,
-  no framework) served by NestJS. Keep it framework-free and self-contained.
+- **Frontend:** vanilla JS, no framework, served by NestJS via `ServeStaticModule`.
+  `public/index.html` is a thin shell (HTML structure, shared utilities, theme,
+  tab switching). Each tab's logic lives in its own file under `public/js/`:
+  `people.js`, `projects.js`, `capacity.js`. Adding a new tab = new file + one
+  `<script src>` line in `index.html`. Keep it framework-free.
 - **OS:** Windows (primary) and macOS (secondary). Windows path: `C:\Users\yys\dev\pop-os`.
 
 This is a self-hosted project. No paid SaaS, no cloud services. Everything
@@ -85,7 +88,10 @@ Then:
 - add the model(s) to `prisma/schema.prisma`
 - import the new module in `src/app.module.ts`
 - run a migration (see workflow rule above)
-- add UI to `public/index.html` if user-facing
+- add a `public/js/<name>.js` file for the tab's UI logic
+- add `<script src="/js/<name>.js"></script>` to `public/index.html`
+- add a tab button to the nav and a panel div in `index.html`
+- update `switchTab()` in `index.html` to include the new tab name
 
 Conventions already in use (keep them consistent):
 - IDs are `String @id @default(cuid())`.
@@ -99,12 +105,20 @@ Conventions already in use (keep them consistent):
 
 ## Data model (current state)
 
-Built so far: **People / ELC** with **rated skills**, and **Projects** with
-full PPM fields.
+Built so far: **People / ELC** with **rated skills**, **Projects** with full
+PPM fields, and **Capacity** (weekly allocation board).
+
+- **Company** — enum: `LPS` (Lorrypop Studio) / `PXL` (Popxical Lab). Optional
+  field on both Person and Project. Untagged records show under both companies
+  in the global filter. Cross-company allocations are valid (a PXL person can
+  work on an LPS project). The header logo buttons act as a global filter;
+  the active company filters People, Projects, and the Capacity board
+  simultaneously.
 
 - **Person** — one record per individual. Fields: name, role, department,
   startDate, employmentType (enum: FULL_TIME/CONTRACT/FREELANCE/INTERN),
-  warmPool (bool — Warm Talent Pool / alumni). Has many PersonSkill.
+  warmPool (bool — Warm Talent Pool / alumni), company (Company? — optional).
+  Has many PersonSkill and Capacity entries.
 
 - **Skill** — the studio-wide master list of skills (name is unique).
   Skills are NOT free text on a person; they are shared records, so
@@ -118,13 +132,23 @@ full PPM fields.
   (free text for now), note, createdAt.
 
 - **Project** — the spine of the production system. Fields: name, client,
-  quadrant (enum: GOLD/STRATEGIC_BET/OPERATIONAL_FILLER/DRAIN), priority
-  (enum: P1/P2/P3), status (enum: BRIEF/IN_PROGRESS/INTERNAL_REVIEW/
-  DELIVERED/ON_HOLD/CANCELLED), deadline, producerId → Person, pmId → Person,
-  drainApprovedByExec (bool), drainApprovedByProducer (bool).
+  company (Company? — optional), quadrant (enum: GOLD/STRATEGIC_BET/
+  OPERATIONAL_FILLER/DRAIN), priority (enum: P1/P2/P3), status (enum:
+  BRIEF/IN_PROGRESS/INTERNAL_REVIEW/DELIVERED/ON_HOLD/CANCELLED), deadline,
+  producerId → Person, pmId → Person, drainApprovedByExec (bool),
+  drainApprovedByProducer (bool).
   PPM inputs (for future recommendation engine): estimatedValue (Float),
   estimatedDuration (Int, weeks), complexityScore (Int, 1–5),
   clientTier (enum: NEW/RETURNING/KEY_ACCOUNT), marginTarget (Float, %).
+  Has many Capacity entries.
+
+- **Capacity** — the weekly allocation board. One row per person × project ×
+  week. Fields: personId → Person, projectId → Project, weekStart (DateTime —
+  always Monday 00:00 UTC, normalised in the service), role (enum: MAIN/
+  SUPPORT), pctWeek (Float, 1–100). Unique on (personId, projectId, weekStart).
+  Business rules enforced in the service: a person's total pctWeek across all
+  projects in a week cannot exceed 100%. MAIN/SUPPORT is a convention
+  (70–80% / 20–30%) but not a hard constraint — only the 100% cap is enforced.
 
 ### Skills design decisions (do not undo these without asking)
 
@@ -153,24 +177,27 @@ The order is driven by dependencies, not preference:
 2. **Projects** — DONE. The spine. PPM quadrant/priority/status, producer/PM
    links, Drain approval gate, PPM recommendation inputs (estimatedValue,
    estimatedDuration, complexityScore, clientTier, marginTarget).
-3. **Capacity** — NEXT. Junction of Person × Project per week. One row per
-   person-per-project-per-week with role (Main/Support) and pct_week.
-   Enforces the 70–80% main / 20–30% support rule. "If it's not on the
-   Capacity Board, it doesn't exist." Needs People + Projects first.
-   Skill ratings feed staffing decisions here — that's why ratings matter.
-4. **Assets** — deliverables that move through the SOP stages
+3. **Capacity** — DONE. Weekly allocation board (Person × Project × week).
+   Role (MAIN/SUPPORT), pctWeek (1–100), 100% cap enforced per person per week.
+   Global company filter (LPS/PXL) applies here too — filters by project company
+   so cross-company (lent) people still appear when their project matches.
+4. **Dashboard** — NEXT. Home tab. Aggregates data from all modules: active
+   project count, who has capacity this week, leave/absence gaps, overdue
+   projects. Note: leave is not yet in the data model — Capacity only tracks
+   project allocations, not absence.
+5. **Assets** — deliverables that move through the SOP stages
    (Brief → WIP → Internal Review → Revision → Final Delivery), with a
    Creative Director sign-off at Internal Review. Belongs to a Project.
-5. **PPM recommendation engine** — uses the PPM input fields on Project plus
+6. **PPM recommendation engine** — uses the PPM input fields on Project plus
    historical project outcomes to suggest quadrant and priority. Rule-based
    scoring first, Claude API reasoning layer later.
-6. **Staffing recommendation engine** — given a project's quadrant/priority
+7. **Staffing recommendation engine** — given a project's quadrant/priority
    and required skills, recommends who to assign based on current capacity
    and skill ratings.
 
 When a SkillRatingChange has source = PROJECT_COMPLETION, it will eventually
-link to the real Project record. Until Projects exists, treat it as a label
-only — do not create the dependency early (chicken-and-egg).
+link to the real Project record. The foreign key is intentionally deferred —
+do not add it until the staffing engine requires it.
 
 ---
 

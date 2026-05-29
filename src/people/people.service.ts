@@ -36,6 +36,7 @@ export class PeopleService {
         startDate: new Date(dto.startDate),
         employmentType: dto.employmentType ?? 'FULL_TIME',
         warmPool: dto.warmPool ?? false,
+        company: dto.company ?? null,
       },
     });
   }

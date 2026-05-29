@@ -165,9 +165,15 @@
   <header class="sticky top-0 z-50 bg-panel/95 backdrop-blur-sm border-b border-line">
     <div class="max-w-7xl mx-auto px-5 h-13 flex items-center gap-4 py-3">
       <div class="flex items-center gap-3 shrink-0">
-        <img src="/lps-logo.png" class="h-7 w-auto object-contain" alt="LPS" />
-        <span class="text-line h-5 w-px bg-line block"></span>
-        <img src="/pxl-logo.png" class="h-7 w-auto object-contain" alt="PXL" />
+        <button id="filter-btn-LPS" onclick="setCompanyFilter('LPS')" title="Filter to Lorrypop Studio"
+          class="rounded-lg p-0.5 cursor-pointer transition-all duration-150 hover:opacity-100">
+          <img src="/lps-logo.png" class="h-7 w-auto object-contain" alt="LPS" />
+        </button>
+        <span class="h-5 w-px bg-line block"></span>
+        <button id="filter-btn-PXL" onclick="setCompanyFilter('PXL')" title="Filter to Popxical Lab"
+          class="rounded-lg p-0.5 cursor-pointer transition-all duration-150 hover:opacity-100">
+          <img src="/pxl-logo.png" class="h-7 w-auto object-contain" alt="PXL" />
+        </button>
         <div class="pl-1">
           <p class="text-sm font-bold text-ink leading-tight tracking-tight">Pop OS</p>
           <p class="text-[10px] text-muted leading-tight hidden sm:block">Pop Group Studio</p>
@@ -229,6 +235,12 @@
             <option value="false">No — active staff</option>
             <option value="true">Yes — warm pool / alumni</option>
           </select>
+          <label class="form-label">Company</label>
+          <select id="company" class="form-input cursor-pointer">
+            <option value="">— not set —</option>
+            <option value="LPS">Lorrypop Studio (LPS)</option>
+            <option value="PXL">Popxical Lab (PXL)</option>
+          </select>
           <button id="add"
             class="mt-4 w-full bg-accent text-bg font-semibold py-2.5 rounded-lg text-sm
                    hover:brightness-110 transition-all duration-150 cursor-pointer">
@@ -288,6 +300,12 @@
         <input id="p-name" class="form-input" placeholder="e.g. Nike AW25 Campaign" />
         <label class="form-label">Client</label>
         <input id="p-client" class="form-input" placeholder="e.g. Nike (optional)" />
+        <label class="form-label">Company</label>
+        <select id="p-company" class="form-input cursor-pointer">
+          <option value="">— not set —</option>
+          <option value="LPS">Lorrypop Studio (LPS)</option>
+          <option value="PXL">Popxical Lab (PXL)</option>
+        </select>
         <label class="form-label">Quadrant</label>
         <select id="p-quadrant" class="form-input cursor-pointer">
           <option value="GOLD">Gold</option>
@@ -545,6 +563,51 @@
 
     function toggleMode() { applyModeSwitch(window._mode === 'dark' ? 'light' : 'dark'); }
     function switchMode(mode) { if (mode !== window._mode) applyModeSwitch(mode); }
+
+    // ── company filter ───────────────────────────────────────────
+    // null = both companies visible; 'LPS' or 'PXL' = filtered.
+    window._company = null;
+
+    // Returns true if an item should appear under the current filter.
+    // Untagged items (company = null) always show regardless of filter.
+    function matchesFilter(company) {
+      if (!window._company) return true;
+      if (!company) return true;
+      return company === window._company;
+    }
+
+    function setCompanyFilter(co) {
+      window._company = (window._company === co) ? null : co; // toggle off if already active
+      updateFilterUI();
+      const active = ['people', 'projects', 'capacity'].find(t =>
+        !$('tab-' + t).classList.contains('hidden')
+      );
+      if (active === 'people')   load();
+      else if (active === 'projects') loadProjects();
+      else if (active === 'capacity') loadCapacityBoard();
+    }
+
+    function updateFilterUI() {
+      ['LPS', 'PXL'].forEach(co => {
+        const btn = $('filter-btn-' + co);
+        if (!btn) return;
+        const isActive    = window._company === co;
+        const otherActive = window._company && window._company !== co;
+        btn.classList.toggle('ring-2',        isActive);
+        btn.classList.toggle('ring-accent',   isActive);
+        btn.classList.toggle('opacity-40',    !!otherActive);
+      });
+    }
+
+    // Company badge HTML — used by people.js and projects.js.
+    const CO_CLS = {
+      LPS: 'bg-accent/15 text-accent',
+      PXL: 'bg-sky-500/15 text-sky-400',
+    };
+    function coBadge(company) {
+      if (!company) return '';
+      return `<span class="badge ${CO_CLS[company]} ml-1">${company}</span>`;
+    }
 
     // ── tab switching ────────────────────────────────────────────
     function switchTab(name) {

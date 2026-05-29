@@ -18,7 +18,7 @@ function toMonday(d: Date): Date {
 // Fields included on every returned capacity entry.
 const WITH_DETAILS = {
   person:  { select: { id: true, name: true, role: true } },
-  project: { select: { id: true, name: true, quadrant: true, priority: true } },
+  project: { select: { id: true, name: true, quadrant: true, priority: true, company: true } },
 } as const;
 
 @Injectable()

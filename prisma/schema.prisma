@@ -14,6 +14,13 @@ datasource db {
   url      = env("DATABASE_URL") // read from the .env file
 }
 
+// ── COMPANY ─────────────────────────────────────────────────────
+// The two studios that make up Pop Group.
+enum Company {
+  LPS // Lorrypop Studio
+  PXL // Popxical Lab
+}
+
 // ── CAPACITY ENUM ───────────────────────────────────────────────
 // Whether the person is the primary owner of the project week or a
 // supporting hand. Convention: Main = 70–80%, Support = 20–30%.
@@ -86,6 +93,7 @@ model Person {
   startDate      DateTime
   employmentType EmploymentType @default(FULL_TIME)
   warmPool       Boolean        @default(false) // true = in the Warm Talent Pool (alumni/rejected/freelance)
+  company        Company?       // LPS or PXL — optional so existing records are unaffected
 
   // A person's rated skills (the live current scores).
   skills             PersonSkill[]
@@ -168,6 +176,8 @@ model Project {
   pmId        String?
   producer    Person?         @relation("ProducerProjects", fields: [producerId], references: [id], onDelete: SetNull)
   pm          Person?         @relation("PMProjects",       fields: [pmId],       references: [id], onDelete: SetNull)
+
+  company     Company?        // which studio owns this project (optional)
 
   // Drain approval gate — both must be true before a DRAIN project is accepted.
   // Only meaningful when quadrant = DRAIN; ignored otherwise.

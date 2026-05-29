@@ -4,7 +4,7 @@ import {
   IsString, IsNotEmpty, IsOptional, IsEnum, IsDateString, IsBoolean,
   IsNumber, Min, Max,
 } from 'class-validator';
-import { ProjectQuadrant, ProjectPriority, ProjectStatus, ClientTier } from '@prisma/client';
+import { ProjectQuadrant, ProjectPriority, ProjectStatus, ClientTier, Company } from '@prisma/client';
 
 export class CreateProjectDto {
   @IsString() @IsNotEmpty()
@@ -52,12 +52,16 @@ export class CreateProjectDto {
 
   @IsOptional() @IsNumber() @Min(0) @Max(100)
   marginTarget?: number;
+
+  @IsOptional() @IsEnum(Company)
+  company?: Company;
 }
 
 // For updates every field is optional — you might change just one thing.
 export class UpdateProjectDto {
   @IsOptional() @IsString() @IsNotEmpty() name?: string;
   @IsOptional() @IsString()               client?: string;
+  @IsOptional() @IsEnum(Company)          company?: Company;
   @IsOptional() @IsEnum(ProjectQuadrant)  quadrant?: ProjectQuadrant;
   @IsOptional() @IsEnum(ProjectPriority)  priority?: ProjectPriority;
   @IsOptional() @IsEnum(ProjectStatus)    status?: ProjectStatus;

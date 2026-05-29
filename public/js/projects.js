@@ -172,7 +172,8 @@ async function showProjectDetail(id) {
 // ── project list ─────────────────────────────────────────────
 
 async function loadProjects() {
-  const projects = await (await fetch('/api/projects')).json();
+  const all     = await (await fetch('/api/projects')).json();
+  const projects = all.filter(p => matchesFilter(p.company));
   const rows = $('p-rows'); rows.innerHTML = '';
   $('p-empty').classList.toggle('hidden', projects.length > 0);
   for (const p of projects) {
@@ -185,7 +186,7 @@ async function loadProjects() {
     tr.innerHTML = `
       <td class="py-3 px-2">
         <button class="font-medium text-sm text-left hover:text-accent transition-colors cursor-pointer" data-proj-detail="${p.id}">${esc(p.name)}</button>
-        ${drainNote}
+        ${coBadge(p.company)}${drainNote}
       </td>
       <td data-col="client"     class="py-3 px-2 text-muted text-xs whitespace-nowrap">${p.client ? esc(p.client) : '—'}</td>
       <td data-col="quadrant"   class="py-3 px-2 whitespace-nowrap"><span class="badge ${QUADRANT_CLS[p.quadrant] || ''}">${QUADRANT_LABEL[p.quadrant] || p.quadrant}</span></td>
@@ -228,6 +229,7 @@ async function addProject() {
   const body = {
     name:       $('p-name').value.trim(),
     client:     $('p-client').value.trim() || undefined,
+    company:    $('p-company').value || undefined,
     quadrant:   quad,
     priority:   $('p-priority').value,
     status:     $('p-status').value,

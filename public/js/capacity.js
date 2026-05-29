@@ -40,14 +40,29 @@ async function loadCapacityBoard() {
     fetch('/api/capacity?week=' + toISODate(_capWeek)).then(r => r.json()),
   ]);
 
+  // Sum up each person's committed % for this week from the current entries.
+  const weekTotals = {};
+  for (const e of entries) {
+    weekTotals[e.personId] = (weekTotals[e.personId] || 0) + e.pctWeek;
+  }
+
   // Person dropdown — active staff only (not warm pool).
+  // Shows remaining capacity; disables anyone already at 100%.
   const pSel   = $('cap-person');
   const curPer = pSel.value;
   pSel.innerHTML = '<option value="">— select —</option>' +
     people
       .filter(p => !p.warmPool)
       .sort((a, b) => a.name.localeCompare(b.name))
-      .map(p => `<option value="${p.id}"${p.id === curPer ? ' selected' : ''}>${esc(p.name)}</option>`)
+      .map(p => {
+        const used      = weekTotals[p.id] || 0;
+        const remaining = 100 - used;
+        const label     = used === 0   ? `${esc(p.name)} — free`
+                        : used >= 100  ? `${esc(p.name)} — full`
+                        :                `${esc(p.name)} — ${remaining}% left`;
+        const disabled  = used >= 100 ? ' disabled' : '';
+        return `<option value="${p.id}"${p.id === curPer ? ' selected' : ''}${disabled}>${label}</option>`;
+      })
       .join('');
 
   // Project dropdown — active projects only.
@@ -66,14 +81,18 @@ async function loadCapacityBoard() {
 function renderCapacityBoard(entries) {
   const board = $('cap-board');
 
-  if (!entries.length) {
+  // Filter by the active company — based on the project's company so that
+  // cross-company (lent) people still appear when their project matches.
+  const visible = entries.filter(e => matchesFilter(e.project.company));
+
+  if (!visible.length) {
     board.innerHTML = '<div class="text-center text-muted text-sm py-10">No allocations this week — add one on the left.</div>';
     return;
   }
 
   // Group by person, preserving order from API (sorted by name asc).
   const byPerson = {};
-  for (const e of entries) {
+  for (const e of visible) {
     if (!byPerson[e.personId]) byPerson[e.personId] = { person: e.person, entries: [] };
     byPerson[e.personId].entries.push(e);
   }
@@ -120,7 +139,7 @@ function renderCapacityBoard(entries) {
       const roleLabel = e.role === 'MAIN' ? 'Main' : 'Support';
       html += `<tr class="border-b border-line/40 hover:bg-panel2/30 transition-colors">
         <td class="py-2.5 px-2"></td>
-        <td class="py-2.5 px-2 text-ink">${esc(e.project.name)}</td>
+        <td class="py-2.5 px-2 text-ink">${esc(e.project.name)}${coBadge(e.project.company)}</td>
         <td class="py-2.5 px-2"><span class="text-xs ${roleCls}">${roleLabel}</span></td>
         <td class="py-2.5 px-2 text-right text-muted text-xs">${e.pctWeek}%</td>
         <td class="py-2.5 px-2"><button class="btn-del" data-cap-del="${e.id}">Remove</button></td>
