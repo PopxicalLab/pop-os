@@ -21,7 +21,7 @@ not just describe.
 - **Database:** PostgreSQL 16, run via Docker (docker-compose.yml)
 - **Frontend:** a single static page at `public/index.html` (vanilla JS,
   no framework) served by NestJS. Keep it framework-free and self-contained.
-- **OS:** Windows. Project lives at `C:\Users\yys\dev\pop-os`.
+- **OS:** Windows (primary) and macOS (secondary). Windows path: `C:\Users\yys\dev\pop-os`.
 
 This is a self-hosted project. No paid SaaS, no cloud services. Everything
 must run locally and be free/open-source.
@@ -29,6 +29,8 @@ must run locally and be free/open-source.
 ---
 
 ## Commands
+
+These work identically on Windows (PowerShell) and macOS (Terminal).
 
 - Start database:        `docker compose up -d`
 - Stop database (keep):  `docker compose down`
@@ -39,18 +41,30 @@ must run locally and be free/open-source.
 - Inspect data (GUI):    `npx prisma studio`
 - App + UI runs at:      http://localhost:3000
 
+### First-time setup on a new machine
+1. Install Node.js (v18+) and Docker Desktop
+2. `git clone https://github.com/popxicalLab/pop-os.git`
+3. Copy env file: `cp .env.example .env` (Mac) or `copy .env.example .env` (Windows)
+4. `docker compose up -d`
+5. `npm install`
+6. `npx prisma migrate deploy`  ← use `deploy` (not `dev`) on a fresh clone
+7. `npm run start:dev`
+
 ---
 
 ## CRITICAL workflow rule (Windows file lock)
 
-When changing `prisma/schema.prisma`, ALWAYS do it in this order:
+**Windows only.** When changing `prisma/schema.prisma`, ALWAYS do it in this order:
 1. **Stop** the dev server (Ctrl+C) — releases the Prisma engine file lock.
 2. Run `npx prisma migrate dev --name <name>`.
 3. **Restart** `npm run start:dev`.
 
 Running a migration while the dev server is live causes a Windows
 `EPERM ... rename query_engine-windows.dll.node` error. Stopping the server
-first avoids it. Do not skip this.
+first avoids it. Do not skip this on Windows.
+
+**macOS:** This file lock does not exist on Mac. Migrations can be run while
+the dev server is running — no need to stop it first.
 
 ---
 

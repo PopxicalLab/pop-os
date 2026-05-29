@@ -4,7 +4,7 @@ The foundation module of the Pop Group operating system. One record per
 person, with skill tags, employment type, and Warm Talent Pool status —
 everything else (Projects, Capacity, Assets) will link back to this.
 
-Stack: NestJS + TypeScript + Prisma + PostgreSQL.
+Stack: NestJS + TypeScript + Prisma ORM + PostgreSQL. + Tailwind (Frontend UI)
 
 ---
 
