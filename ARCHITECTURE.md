@@ -55,7 +55,11 @@ pop-os/
 │   └── migrations/            # Auto-generated SQL; never edit manually
 │
 ├── public/
-│   └── index.html             # The entire frontend (vanilla JS, no framework)
+│   ├── index.html             # Shell: HTML structure, shared utilities, theme, tab switching
+│   └── js/
+│       ├── people.js          # People / ELC tab logic
+│       ├── projects.js        # Projects tab logic
+│       └── capacity.js        # Capacity board tab logic
 │
 ├── src/
 │   ├── main.ts                # Bootstrap: starts NestJS, applies global pipes
@@ -177,21 +181,26 @@ All routes are prefixed `/api`.
 ## Data Model
 
 ```
-Person ──< PersonSkill >── Skill
-  │              │
-  │         SkillRatingChange (audit trail)
-  │
-  ├──< Project (as Producer)
-  ├──< Project (as PM)
-  └──< Capacity >── Project
+Company (enum: LPS / PXL)
+     │
+     ├── Person ──< PersonSkill >── Skill
+     │     │              │
+     │     │         SkillRatingChange (audit trail)
+     │     │
+     │     ├──< Project (as Producer)
+     │     ├──< Project (as PM)
+     │     └──< Capacity >── Project ── Company (enum)
+     │
+     └── Project
 ```
 
-- **Person** — one record per individual. Foundation of everything.
+- **Company** — enum `LPS` / `PXL`. Optional on both Person and Project. Drives the global header filter; untagged records appear under both companies.
+- **Person** — one record per individual. Foundation of everything. Has `company?` field.
 - **Skill** — studio-wide master list. Shared records, not free text.
 - **PersonSkill** — live current rating (1–5) for a person × skill pair.
 - **SkillRatingChange** — every score movement. The interview score is just the first entry (source = INTERVIEW).
-- **Project** — the spine. PPM quadrant, priority, status, producer/PM links, Drain approval gate, PPM recommendation inputs.
-- **Capacity** — one row per person × project × week. The Capacity Board. Enforces ≤ 100% total per person per week.
+- **Project** — the spine. PPM quadrant, priority, status, producer/PM links, Drain approval gate, PPM recommendation inputs. Has `company?` field.
+- **Capacity** — one row per person × project × week. The Capacity Board. Enforces ≤ 100% total per person per week. Filtered by project's company (not person's) so cross-company lending works correctly.
 
 ---
 
@@ -202,16 +211,43 @@ Person ──< PersonSkill >── Skill
 - Services throw `NotFoundException` / `ConflictException` / `BadRequestException` for clean HTTP errors.
 - DTOs validate at the boundary; services trust validated input.
 - `weekStart` in Capacity is always normalised to the Monday of the week at UTC midnight — done in the service, not the client.
+- **Company filter** — global state `window._company` (null = both). The shared `matchesFilter(company)` function in `index.html` is used by all module JS files. Untagged records (`company = null`) always pass the filter.
+- **Module summary strips** — every module tab should open with a compact stats bar above the main content (e.g. "42 active · 8 LPS · 34 PXL"). Implement when building or revisiting each module.
+- **Frontend modules** — each tab's JS lives in `public/js/<name>.js`. Adding a tab = new JS file + one `<script src>` line + tab button + panel div in `index.html`.
 
 ---
 
 ## Roadmap
 
-| # | Module         | Status  |
-|---|----------------|---------|
-| 1 | People / ELC   | Done    |
-| 2 | Projects       | Done    |
-| 3 | Capacity       | Done    |
-| 4 | Assets         | Next    |
-| 5 | PPM engine     | Future  |
-| 6 | Staffing engine| Future  |
+Six blueprint modules, built in dependency order.
+
+### Foundation
+| # | Module | Status |
+|---|--------|--------|
+| 1 | People / ELC (Talent Vault) | Done |
+| 2 | Projects (PPM Engine) | Done |
+| 3 | Capacity Board | Done |
+
+### Intelligence layer
+| # | Module | Status |
+|---|--------|--------|
+| 4 | Dashboard — global command centre tab | Next |
+| 5 | PPM recommendation engine | Future |
+| 6 | Staffing recommendation engine | Future |
+
+### Production layer
+| # | Module | Status |
+|---|--------|--------|
+| 7 | Assets — deliverables through SOP stages | Future |
+| 8 | Production Engine / Lane Routing | Future |
+
+### Financial layer
+| # | Module | Status |
+|---|--------|--------|
+| 9 | Financial Engine — man-day costing, actuals tracker | Future |
+
+### Growth & client layer
+| # | Module | Status |
+|---|--------|--------|
+| 10 | Sales & Growth Hub — CRM, lead-to-PPM scoring | Future |
+| 11 | Client Hub & DAM — Frame.io, Dropbox/Iconik, Studio Library | Future |

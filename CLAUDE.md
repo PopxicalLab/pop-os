@@ -169,35 +169,63 @@ PPM fields, and **Capacity** (weekly allocation board).
 
 ---
 
+## UI pattern: module summary strips
+
+Every module tab opens with a compact stats bar above the main content.
+Example: People tab shows "42 active · 8 LPS · 34 PXL · 5 warm pool" before
+the table. Implement the strip when building or revisiting each module.
+The global Dashboard tab is the cross-module command centre — not a per-module
+page. Each module's strip is its own mini-dashboard in context.
+
+---
+
 ## Roadmap (build order, and why)
 
-The order is driven by dependencies, not preference:
+The full vision has six blueprint modules. Build order is driven by
+dependencies — each layer feeds the next.
 
-1. **People / ELC** — DONE. The foundation; everything links to a Person.
-2. **Projects** — DONE. The spine. PPM quadrant/priority/status, producer/PM
-   links, Drain approval gate, PPM recommendation inputs (estimatedValue,
-   estimatedDuration, complexityScore, clientTier, marginTarget).
-3. **Capacity** — DONE. Weekly allocation board (Person × Project × week).
-   Role (MAIN/SUPPORT), pctWeek (1–100), 100% cap enforced per person per week.
-   Global company filter (LPS/PXL) applies here too — filters by project company
-   so cross-company (lent) people still appear when their project matches.
-4. **Dashboard** — NEXT. Home tab. Aggregates data from all modules: active
-   project count, who has capacity this week, leave/absence gaps, overdue
-   projects. Note: leave is not yet in the data model — Capacity only tracks
-   project allocations, not absence.
-5. **Assets** — deliverables that move through the SOP stages
-   (Brief → WIP → Internal Review → Revision → Final Delivery), with a
-   Creative Director sign-off at Internal Review. Belongs to a Project.
-6. **PPM recommendation engine** — uses the PPM input fields on Project plus
-   historical project outcomes to suggest quadrant and priority. Rule-based
-   scoring first, Claude API reasoning layer later.
-7. **Staffing recommendation engine** — given a project's quadrant/priority
-   and required skills, recommends who to assign based on current capacity
-   and skill ratings.
+### Foundation (done)
+1. **People / ELC** — DONE. Person records, skill ratings, audit trail.
+2. **Projects** — DONE. PPM quadrant/priority/status, producer/PM, Drain gate,
+   PPM recommendation inputs.
+3. **Capacity** — DONE. Weekly allocation board (Person × Project × week),
+   100% cap, MAIN/SUPPORT role, company filter.
 
-When a SkillRatingChange has source = PROJECT_COMPLETION, it will eventually
-link to the real Project record. The foreign key is intentionally deferred —
-do not add it until the staffing engine requires it.
+### Intelligence layer (next)
+4. **Dashboard** — NEXT. Global home tab (command centre). Active projects,
+   capacity overview this week, overdue work, leave gaps. Note: leave is not
+   yet in the data model — Capacity tracks allocations only, not absence.
+5. **PPM recommendation engine** — score projects automatically from PPM inputs.
+   Rule-based first, Claude API layer later.
+6. **Staffing recommendation engine** — recommend who to assign based on skill
+   ratings + current capacity.
+
+### Production layer
+7. **Assets** — deliverables through SOP stages (Brief → WIP → Internal Review
+   → Revision → Final Delivery). CD sign-off at Internal Review. Belongs to
+   a Project.
+8. **Production Engine / Lane Routing** — auto-route projects into workflow
+   lanes based on PPM quadrant: Template Factory (Gold), Innovation Lab
+   (Strategic Bet), Automated Stream (Filler), Gated Review (Drain).
+
+### Financial layer
+9. **Financial Engine** — man-day costing (salary + 20% overhead = floor price),
+   actuals vs. estimates tracker, margin protection. Depends on Capacity
+   (man-days) and People (salary data).
+
+### Growth & client layer
+10. **Sales & Growth Hub** — CRM layer, lead-to-PPM scoring, HubSpot/Pipedrive
+    sync. Every potential project pre-scored before proposal.
+11. **Client Hub & DAM** — project status "traffic lights" for clients,
+    Frame.io feedback integration, Studio Library (Dropbox/Iconik sync).
+
+### Deferred
+- Kakitangan.com sync (payroll + leave) — blocks the leave gap in Dashboard.
+  Add when the Financial Engine is ready.
+- `changedBy` on SkillRatingChange linking to a real Person — defer until
+  staffing engine requires it.
+- SkillRatingChange → Project foreign key — defer until staffing engine
+  requires it.
 
 ---
 
