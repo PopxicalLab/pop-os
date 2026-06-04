@@ -208,9 +208,10 @@ model Capacity {
   id         String       @id @default(cuid())
   personId   String
   projectId  String
-  weekStart  DateTime     // Monday 00:00:00 UTC — normalised in the service
-  role       CapacityRole
-  pctWeek    Float        // percentage of the week, 1–100
+  weekStart       DateTime     // Monday 00:00:00 UTC — normalised in the service
+  role            CapacityRole
+  pctWeek         Float        // percentage of the week, 1–140 (>100 = includes weekend days)
+  weekendApproved Boolean      @default(false) // true when producer approved working Sat/Sun
 
   person     Person       @relation(fields: [personId], references: [id], onDelete: Cascade)
   project    Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)

@@ -1,5 +1,6 @@
 import {
-  IsString, IsNotEmpty, IsEnum, IsDateString, IsNumber, Min, Max, IsOptional,
+  IsString, IsNotEmpty, IsEnum, IsDateString, IsNumber, Min, Max,
+  IsOptional, IsBoolean,
 } from 'class-validator';
 import { CapacityRole } from '@prisma/client';
 
@@ -17,15 +18,22 @@ export class CreateCapacityDto {
   @IsEnum(CapacityRole)
   role: CapacityRole;
 
-  // Whole or decimal percentages accepted; 1–100 enforced.
-  @IsNumber() @Min(1) @Max(100)
+  // 1–140: 100 = Mon–Fri full week; 101–140 = includes approved weekend days.
+  @IsNumber() @Min(1) @Max(140)
   pctWeek: number;
+
+  // Must be true when pctWeek > 100. Enforced in the service.
+  @IsOptional() @IsBoolean()
+  weekendApproved?: boolean;
 }
 
 export class UpdateCapacityDto {
   @IsOptional() @IsEnum(CapacityRole)
   role?: CapacityRole;
 
-  @IsOptional() @IsNumber() @Min(1) @Max(100)
+  @IsOptional() @IsNumber() @Min(1) @Max(140)
   pctWeek?: number;
+
+  @IsOptional() @IsBoolean()
+  weekendApproved?: boolean;
 }

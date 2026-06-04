@@ -49,7 +49,15 @@ export class CapacityService {
   }
 
   async create(dto: CreateCapacityDto) {
-    const weekStart = toMonday(new Date(dto.weekStart));
+    const weekStart         = toMonday(new Date(dto.weekStart));
+    const weekendApproved   = dto.weekendApproved ?? false;
+
+    // Guard: >100% requires explicit weekend approval.
+    if (dto.pctWeek > 100 && !weekendApproved) {
+      throw new BadRequestException(
+        `Allocating more than 100% requires weekend approval to be checked.`,
+      );
+    }
 
     // Guard: this person-project-week combo must not already exist.
     const clash = await this.prisma.capacity.findUnique({
@@ -57,25 +65,28 @@ export class CapacityService {
     });
     if (clash) throw new ConflictException('This person is already allocated to this project for that week.');
 
-    // Guard: a person's total across all projects cannot exceed 100% in a week.
+    // Guard: total across all projects cannot exceed 100% (weekday-only) or
+    // 140% (weekend approved — adds Sat + Sun at 20% each).
+    const weekCap = weekendApproved ? 140 : 100;
     const existing = await this.prisma.capacity.findMany({
       where: { personId: dto.personId, weekStart },
       select: { pctWeek: true },
     });
     const currentTotal = existing.reduce((sum, e) => sum + e.pctWeek, 0);
-    if (currentTotal + dto.pctWeek > 100) {
+    if (currentTotal + dto.pctWeek > weekCap) {
       throw new BadRequestException(
-        `Adding ${dto.pctWeek}% would take this person to ${currentTotal + dto.pctWeek}% this week (max 100%).`,
+        `Adding ${dto.pctWeek}% would take this person to ${currentTotal + dto.pctWeek}% this week (max ${weekCap}%).`,
       );
     }
 
     return this.prisma.capacity.create({
       data: {
-        personId:  dto.personId,
-        projectId: dto.projectId,
+        personId:       dto.personId,
+        projectId:      dto.projectId,
         weekStart,
-        role:      dto.role,
-        pctWeek:   dto.pctWeek,
+        role:           dto.role,
+        pctWeek:        dto.pctWeek,
+        weekendApproved,
       },
       include: WITH_DETAILS,
     });
@@ -84,16 +95,28 @@ export class CapacityService {
   async update(id: string, dto: UpdateCapacityDto) {
     const entry = await this.findOne(id);
 
-    // If changing pctWeek, re-check the person's total excluding this entry.
-    if (dto.pctWeek !== undefined) {
+    // Resolve the final weekendApproved state (incoming or existing).
+    const weekendApproved = dto.weekendApproved ?? entry.weekendApproved;
+    const newPct          = dto.pctWeek ?? entry.pctWeek;
+
+    // Guard: >100% requires weekend approval.
+    if (newPct > 100 && !weekendApproved) {
+      throw new BadRequestException(
+        `Allocating more than 100% requires weekend approval to be checked.`,
+      );
+    }
+
+    // Guard: re-check total excluding this entry.
+    if (dto.pctWeek !== undefined || dto.weekendApproved !== undefined) {
+      const weekCap = weekendApproved ? 140 : 100;
       const others = await this.prisma.capacity.findMany({
         where: { personId: entry.personId, weekStart: entry.weekStart, NOT: { id } },
         select: { pctWeek: true },
       });
       const othersTotal = others.reduce((sum, e) => sum + e.pctWeek, 0);
-      if (othersTotal + dto.pctWeek > 100) {
+      if (othersTotal + newPct > weekCap) {
         throw new BadRequestException(
-          `Changing to ${dto.pctWeek}% would put this person at ${othersTotal + dto.pctWeek}% this week (max 100%).`,
+          `Changing to ${newPct}% would put this person at ${othersTotal + newPct}% this week (max ${weekCap}%).`,
         );
       }
     }

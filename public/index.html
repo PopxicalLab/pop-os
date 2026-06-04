@@ -495,8 +495,16 @@
             <option value="MAIN">Main  (70–80%)</option>
             <option value="SUPPORT">Support  (20–30%)</option>
           </select>
-          <label class="form-label">% of week</label>
-          <input id="cap-pct" type="number" min="1" max="100" class="form-input" placeholder="e.g. 75" />
+          <label class="form-label">% of week <span class="text-muted font-normal">(1–140)</span></label>
+          <input id="cap-pct" type="number" min="1" max="140" class="form-input" placeholder="e.g. 75" />
+          <!-- Shown only when % > 100 — weekend work needs producer sign-off -->
+          <div id="cap-weekend-row" class="hidden mt-3 p-3 rounded-lg border border-warm/40 bg-warm/5">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input id="cap-weekend" type="checkbox" class="accent-warm w-4 h-4" />
+              <span class="text-xs text-warm font-semibold">Weekend approved by producer</span>
+            </label>
+            <p class="text-[11px] text-muted mt-1">Required when allocating more than 100% of a standard week.</p>
+          </div>
           <button id="cap-add"
             class="mt-4 w-full bg-accent text-bg font-semibold py-2.5 rounded-lg text-sm
                    hover:brightness-110 transition-all duration-150 cursor-pointer">
