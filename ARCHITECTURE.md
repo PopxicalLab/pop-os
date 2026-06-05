@@ -52,7 +52,8 @@ HTTP Request
 pop-os/
 ├── prisma/
 │   ├── schema.prisma          # Single source of truth for the DB shape
-│   └── migrations/            # Auto-generated SQL; never edit manually
+│   ├── migrations/            # Auto-generated SQL; never edit manually
+│   └── seed.js                # Demo seed: 11 people, 6 projects, capacity history, assets
 │
 ├── public/
 │   ├── index.html             # Shell: HTML structure, shared utilities, theme, tab switching
@@ -125,11 +126,6 @@ pop-os/
 │       ├── financial.service.ts
 │       ├── financial.controller.ts
 │       └── financial.module.ts
-│
-├── prisma/
-│   ├── schema.prisma          # Single source of truth for the DB shape
-│   ├── migrations/            # Auto-generated SQL; never edit manually
-│   └── seed.js                # Demo seed: 11 people, 6 projects, capacity history, assets
 │
 ├── docker-compose.yml         # Runs PostgreSQL locally
 ├── .env                       # DATABASE_URL (never committed)
@@ -243,8 +239,9 @@ Company (enum: LPS / PXL)
      │     ├──< Project (as Producer)
      │     ├──< Project (as PM)
      │     └──< Capacity >── Project ── Company (enum)
-     │
-     └── Project
+     │                            │
+     └── Project ─────────────────┤
+                                  └──< Asset (SOP stage pipeline)
 ```
 
 - **Company** — enum `LPS` / `PXL`. Optional on both Person and Project. Drives the global header filter; untagged records appear under both companies.

@@ -23,8 +23,9 @@ not just describe.
 - **Frontend:** vanilla JS, no framework, served by NestJS via `ServeStaticModule`.
   `public/index.html` is a thin shell (HTML structure, shared utilities, theme,
   tab switching). Each tab's logic lives in its own file under `public/js/`:
-  `people.js`, `projects.js`, `capacity.js`. Adding a new tab = new file + one
-  `<script src>` line in `index.html`. Keep it framework-free.
+  `people.js`, `projects.js`, `capacity.js`, `dashboard.js`, `assets.js`,
+  `production.js`, `financial.js`, `staffing.js`. Adding a new tab = new file +
+  one `<script src>` line in `index.html`. Keep it framework-free.
 - **OS:** Windows (primary) and macOS (secondary). Windows path: `C:\Users\yys\dev\pop-os`.
 
 This is a self-hosted project. No paid SaaS, no cloud services. Everything
@@ -105,8 +106,9 @@ Conventions already in use (keep them consistent):
 
 ## Data model (current state)
 
-Built so far: **People / ELC** with **rated skills**, **Projects** with full
-PPM fields, and **Capacity** (weekly allocation board).
+All models built: **People / ELC** with rated skills, **Projects** (PPM),
+**Capacity** (weekly board), **Assets** (SOP pipeline), plus salary on Person
+for the Financial Engine.
 
 - **Company** — enum: `LPS` (Lorrypop Studio) / `PXL` (Popxical Lab). Optional
   field on both Person and Project. Untagged records show under both companies
@@ -140,7 +142,7 @@ PPM fields, and **Capacity** (weekly allocation board).
   PPM inputs (for future recommendation engine): estimatedValue (Float),
   estimatedDuration (Int, weeks), complexityScore (Int, 1–5),
   clientTier (enum: NEW/RETURNING/KEY_ACCOUNT), marginTarget (Float, %).
-  Has many Capacity entries.
+  Has many Capacity entries and many Asset entries.
 
 - **Capacity** — the weekly allocation board. One row per person × project ×
   week. Fields: personId → Person, projectId → Project, weekStart (DateTime —
