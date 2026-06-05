@@ -230,6 +230,86 @@ async function main() {
   }
   console.log(`  ✓ ${assetData.length} assets`);
 
+  // ── Over-budget projects (for Financial Engine demo) ─────────────────────
+  // These projects were under-quoted or scope-crept. Their capacity cost
+  // exceeds the estimated value, giving negative margin in the Financial tab.
+  //
+  // Cost check (monthly salary × 12 × 1.2 / 260 = daily rate):
+  //   Shopee  — Priya+Lucas+Mei+Kai × 80% × 3 weeks = RM ~16,600 vs RM 14,000 → -RM 2,600
+  //   Digi    — Calvin+Tom+Kai+Maya × 70-80% × 5 weeks = RM ~37,500 vs RM 28,000 → -RM 9,500
+  //   Astro   — Huey+Priya+Mei+Lucas (mixed %) × 3 weeks = RM ~14,700 vs RM 12,000 → -RM 2,700
+
+  const shopee = await prisma.project.create({ data: {
+    name: 'Shopee 12.12 Campaign', client: 'Shopee', company: 'LPS',
+    quadrant: 'OPERATIONAL_FILLER', priority: 'P2', status: 'IN_PROGRESS',
+    deadline: weeksAhead(1), producerId: people['YJ'].id, pmId: people['Emily'].id,
+    estimatedValue: 14000, estimatedDuration: 3, complexityScore: 2,
+    clientTier: 'RETURNING', marginTarget: 25,
+  }});
+
+  const digi = await prisma.project.create({ data: {
+    name: 'Digi-Celcom Brand Refresh', client: 'Digi-Celcom', company: 'PXL',
+    quadrant: 'STRATEGIC_BET', priority: 'P1', status: 'INTERNAL_REVIEW',
+    deadline: weeksAhead(2), producerId: people['Huey'].id, pmId: people['Emily'].id,
+    estimatedValue: 28000, estimatedDuration: 8, complexityScore: 4,
+    clientTier: 'KEY_ACCOUNT', marginTarget: 30,
+  }});
+
+  const astro = await prisma.project.create({ data: {
+    name: 'Astro CNY 2025', client: 'Astro', company: 'LPS',
+    quadrant: 'GOLD', priority: 'P2', status: 'IN_PROGRESS',
+    deadline: weeksAgo(1), producerId: people['YJ'].id, pmId: people['Emily'].id,
+    estimatedValue: 12000, estimatedDuration: 3, complexityScore: 3,
+    clientTier: 'RETURNING', marginTarget: 30,
+  }});
+
+  // Capacity history for over-budget projects.
+  // Weeks chosen so they don't clash with existing Nike/Uniqlo/H&M allocations
+  // (which only go back 2 weeks).
+  const overBudgetAllocs = [
+    // ── Shopee — weeks 3–5 ago (Priya, Lucas, Mei, Kai all free those weeks)
+    ...[3, 4, 5].flatMap(w => [
+      { personId: people['Priya'].id, projectId: shopee.id, weekStart: weeksAgo(w), role: 'MAIN',    pctWeek: 80 },
+      { personId: people['Lucas'].id, projectId: shopee.id, weekStart: weeksAgo(w), role: 'MAIN',    pctWeek: 80 },
+      { personId: people['Mei'].id,   projectId: shopee.id, weekStart: weeksAgo(w), role: 'SUPPORT', pctWeek: 80 },
+      { personId: people['Kai'].id,   projectId: shopee.id, weekStart: weeksAgo(w), role: 'SUPPORT', pctWeek: 80 },
+    ]),
+    // ── Digi — weeks 7–11 ago (Calvin, Tom, Kai, Maya all free those weeks)
+    ...[7, 8, 9, 10, 11].flatMap(w => [
+      { personId: people['Calvin'].id, projectId: digi.id, weekStart: weeksAgo(w), role: 'MAIN',    pctWeek: 70 },
+      { personId: people['Tom'].id,    projectId: digi.id, weekStart: weeksAgo(w), role: 'MAIN',    pctWeek: 80 },
+      { personId: people['Kai'].id,    projectId: digi.id, weekStart: weeksAgo(w), role: 'SUPPORT', pctWeek: 80 },
+      { personId: people['Maya'].id,   projectId: digi.id, weekStart: weeksAgo(w), role: 'SUPPORT', pctWeek: 80 },
+    ]),
+    // ── Astro — weeks 6–8 ago (Huey, Priya, Mei, Lucas free; different people from Digi)
+    ...[6, 7, 8].flatMap(w => [
+      { personId: people['Huey'].id,  projectId: astro.id, weekStart: weeksAgo(w), role: 'SUPPORT', pctWeek: 50 },
+      { personId: people['Priya'].id, projectId: astro.id, weekStart: weeksAgo(w), role: 'MAIN',    pctWeek: 70 },
+      { personId: people['Mei'].id,   projectId: astro.id, weekStart: weeksAgo(w), role: 'MAIN',    pctWeek: 80 },
+      { personId: people['Lucas'].id, projectId: astro.id, weekStart: weeksAgo(w), role: 'SUPPORT', pctWeek: 50 },
+    ]),
+  ];
+
+  for (const a of overBudgetAllocs) {
+    await prisma.capacity.create({ data: a });
+  }
+
+  // A few assets on the over-budget projects to make the detail view richer.
+  const overBudgetAssets = [
+    { name: 'Main KV Animation',    projectId: shopee.id, stage: 'REVISION',        cdSignedOff: false, description: 'Client requested 3rd revision round' },
+    { name: 'Product Grid Banner',  projectId: shopee.id, stage: 'WIP',             cdSignedOff: false },
+    { name: 'Brand Identity Reel',  projectId: digi.id,   stage: 'INTERNAL_REVIEW', cdSignedOff: false, description: 'Awaiting CD sign-off — 2nd review round' },
+    { name: 'Icon Animation Set',   projectId: digi.id,   stage: 'WIP',             cdSignedOff: false },
+    { name: 'Campaign Launch Film', projectId: digi.id,   stage: 'REVISION',        cdSignedOff: false, description: 'Scope expanded after brief — now includes 3 cutdowns' },
+    { name: 'CNY Hero Film 30s',    projectId: astro.id,  stage: 'FINAL_DELIVERY',  cdSignedOff: true  },
+    { name: 'Social Cutdown 15s',   projectId: astro.id,  stage: 'FINAL_DELIVERY',  cdSignedOff: true  },
+  ];
+
+  for (const a of overBudgetAssets) {
+    await prisma.asset.create({ data: a });
+  }
+
+  console.log('  ✓ 3 over-budget projects + capacity history + assets');
   console.log('\n✅ Seed complete. Open http://localhost:3000 to explore.');
 }
 
