@@ -37,6 +37,7 @@ export class PeopleService {
         employmentType: dto.employmentType ?? 'FULL_TIME',
         warmPool: dto.warmPool ?? false,
         company: dto.company ?? null,
+        salary: dto.salary ?? null,
       },
     });
   }

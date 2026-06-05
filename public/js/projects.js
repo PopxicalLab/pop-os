@@ -163,8 +163,12 @@ async function showProjectDetail(id) {
     </div>
 
     <div class="mt-5 pb-5 border-b border-line">
-      <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-2">Assets</p>
-      <p class="text-xs text-muted">Coming soon — deliverables and their SOP stage will appear here.</p>
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted">Assets</p>
+        <button onclick="switchTab('assets')"
+          class="text-[11px] text-accent hover:underline cursor-pointer">Manage in Assets tab →</button>
+      </div>
+      <div id="proj-assets-${p.id}" class="text-xs text-muted">Loading…</div>
     </div>
 
     <div class="mt-5">
@@ -172,8 +176,35 @@ async function showProjectDetail(id) {
       <p class="text-xs text-muted">Coming soon — team allocations by week will appear here.</p>
     </div>`;
 
-  // Load PPM score asynchronously and inject it below the PPM inputs section.
+  // Load PPM score + assets asynchronously after the detail HTML is in the DOM.
   loadPpmBadge(id);
+  loadProjectAssets(id);
+}
+
+async function loadProjectAssets(projectId) {
+  const assets = await fetch('/api/assets?projectId=' + projectId).then(r => r.json()).catch(() => null);
+  const el = document.getElementById('proj-assets-' + projectId);
+  if (!el) return;
+
+  if (!assets || !assets.length) {
+    el.innerHTML = '<span class="text-muted">No assets yet. Add them in the Assets tab.</span>';
+    return;
+  }
+
+  el.innerHTML = assets.map(a => {
+    const stageCls   = (typeof STAGE_CLS   !== 'undefined' ? STAGE_CLS   : {})[a.stage] || 'bg-panel2 border-line text-muted';
+    const stageLabel = (typeof STAGE_LABEL !== 'undefined' ? STAGE_LABEL : {})[a.stage] || a.stage;
+    const cdBadge    = a.stage === 'INTERNAL_REVIEW'
+      ? (a.cdSignedOff
+          ? '<span class="text-[10px] text-accent font-semibold ml-1.5">CD ✓</span>'
+          : '<span class="text-[10px] text-warm font-semibold ml-1.5">CD pending</span>')
+      : '';
+    return `<div class="flex items-center gap-2 py-1.5 border-b border-line/40 last:border-0">
+      <span class="badge border ${stageCls} text-[10px] shrink-0">${stageLabel}</span>
+      <span class="text-xs text-ink flex-1">${esc(a.name)}</span>
+      ${cdBadge}
+    </div>`;
+  }).join('');
 }
 
 async function loadPpmBadge(projectId) {

@@ -98,6 +98,7 @@ async function addPerson() {
     employmentType: $('employmentType').value,
     warmPool:       $('warmPool').value === 'true',
     company:        $('company').value || undefined,
+    salary:         parseFloat($('salary').value) || undefined,
   };
   if (!body.name || !body.role || !body.department) {
     msg($('msg'), 'Name, role and department are required.', 'err'); return;

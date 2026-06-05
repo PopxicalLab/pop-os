@@ -193,6 +193,15 @@
         <button id="tab-btn-capacity"
           class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
           onclick="switchTab('capacity')">Capacity</button>
+        <button id="tab-btn-assets"
+          class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
+          onclick="switchTab('assets')">Assets</button>
+        <button id="tab-btn-production"
+          class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
+          onclick="switchTab('production')">Production</button>
+        <button id="tab-btn-financial"
+          class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
+          onclick="switchTab('financial')">Financial</button>
         <button id="tab-btn-staffing"
           class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
           onclick="switchTab('staffing')">Staffing</button>
@@ -291,6 +300,8 @@
             <option value="LPS">Lorrypop Studio (LPS)</option>
             <option value="PXL">Popxical Lab (PXL)</option>
           </select>
+          <label class="form-label">Annual salary (£) <span class="text-muted/60 font-normal">optional · used for costing</span></label>
+          <input id="salary" type="number" min="0" step="1000" class="form-input" placeholder="e.g. 45000" />
           <button id="add"
             class="mt-4 w-full bg-accent text-bg font-semibold py-2.5 rounded-lg text-sm
                    hover:brightness-110 transition-all duration-150 cursor-pointer">
@@ -574,6 +585,99 @@
   </div>
 
   <!-- ════════════════════════════════════════════════════
+       PANEL: ASSETS
+  ════════════════════════════════════════════════════ -->
+  <div class="panel hidden" id="tab-assets">
+    <div class="max-w-7xl mx-auto px-5 py-6 grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5 items-start">
+
+      <!-- Left: add form -->
+      <div class="bg-panel border border-line rounded-xl p-5">
+        <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-4">Add an asset</h2>
+        <label class="form-label" style="margin-top:0">Asset name</label>
+        <input id="asset-name" class="form-input" placeholder="e.g. Hero shot render" />
+        <label class="form-label">Project</label>
+        <select id="asset-project" class="form-input cursor-pointer">
+          <option value="">— select project —</option>
+        </select>
+        <label class="form-label">Description <span class="text-muted/60 font-normal">(optional)</span></label>
+        <input id="asset-desc" class="form-input" placeholder="Brief notes on this deliverable" />
+        <button id="asset-add"
+          class="mt-4 w-full bg-accent text-bg font-semibold py-2.5 rounded-lg text-sm
+                 hover:brightness-110 transition-all duration-150 cursor-pointer">
+          Add asset
+        </button>
+        <div id="asset-msg" class="text-xs mt-2 min-h-[18px]"></div>
+
+        <div class="mt-5 pt-4 border-t border-line">
+          <label class="form-label" style="margin-top:0">Filter by project</label>
+          <select id="asset-filter-project" class="form-input cursor-pointer">
+            <option value="">All projects</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Right: stage board -->
+      <div class="bg-panel border border-line rounded-xl p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">Assets</h2>
+          <div id="asset-stats" class="text-xs text-muted"></div>
+        </div>
+        <div id="asset-board">
+          <div class="text-center text-muted text-sm py-10">Switch to this tab to load assets.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════
+       PANEL: PRODUCTION
+  ════════════════════════════════════════════════════ -->
+  <div class="panel hidden" id="tab-production">
+    <div class="max-w-7xl mx-auto px-5 py-6">
+      <div id="prod-stats" class="text-sm px-5 py-3 mb-5 bg-panel border border-line rounded-xl text-muted">
+        Loading…
+      </div>
+      <div id="prod-board">
+        <div class="text-center text-muted text-sm py-10">Switch to this tab to load the board.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════
+       PANEL: FINANCIAL
+  ════════════════════════════════════════════════════ -->
+  <div class="panel hidden" id="tab-financial">
+    <div class="max-w-7xl mx-auto px-5 py-6">
+      <div id="fin-stats" class="text-sm px-5 py-3 mb-5 bg-panel border border-line rounded-xl text-muted">
+        Loading…
+      </div>
+      <div id="fin-content" class="bg-panel border border-line rounded-xl p-5">
+        <div class="overflow-x-auto -mx-5 px-5">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-line">
+                <th class="text-left pb-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Project</th>
+                <th class="text-left pb-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Producer</th>
+                <th class="text-right pb-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Est. Value</th>
+                <th class="text-right pb-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Cost to Date</th>
+                <th class="text-right pb-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Remaining</th>
+                <th class="text-right pb-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Margin</th>
+                <th class="text-right pb-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">vs Target</th>
+                <th class="text-center pb-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Health</th>
+              </tr>
+            </thead>
+            <tbody id="fin-table-body">
+              <tr><td colspan="8" class="py-10 text-center text-muted text-sm">Switch to this tab to load data.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="text-[11px] text-muted mt-4">Cost to date = capacity man-days × (annual salary + 20% overhead) / 260 working days. Requires salary set on each person.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════
        PANEL: STAFFING
   ════════════════════════════════════════════════════ -->
   <div class="panel hidden" id="tab-staffing">
@@ -694,10 +798,12 @@
       const active = ['dashboard', 'people', 'projects', 'capacity', 'staffing'].find(t =>
         !$('tab-' + t).classList.contains('hidden')
       );
-      if (active === 'dashboard') loadDashboard();
-      else if (active === 'people')   load();
-      else if (active === 'projects') loadProjects();
-      else if (active === 'capacity') loadCapacityBoard();
+      if (active === 'dashboard')   loadDashboard();
+      else if (active === 'people')      load();
+      else if (active === 'projects')    loadProjects();
+      else if (active === 'capacity')    loadCapacityBoard();
+      else if (active === 'production')  loadProductionLanes();
+      else if (active === 'financial')   loadFinancial();
       // staffing doesn't filter by company — all people shown regardless
     }
 
@@ -725,7 +831,7 @@
 
     // ── tab switching ────────────────────────────────────────────
     function switchTab(name) {
-      ['dashboard', 'people', 'projects', 'capacity', 'staffing'].forEach(t => {
+      ['dashboard', 'people', 'projects', 'capacity', 'assets', 'production', 'financial', 'staffing'].forEach(t => {
         const active = t === name;
         $('tab-btn-' + t).className = active
           ? 'px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 bg-panel text-ink'
@@ -734,7 +840,10 @@
       });
       if (name === 'capacity')  loadCapacityBoard();
       if (name === 'dashboard') loadDashboard();
-      if (name === 'staffing')  { initStaffingTab(); loadStaffingCandidates(); }
+      if (name === 'assets')     { loadAssetProjects().then(loadAssets); }
+      if (name === 'production') { loadProductionLanes(); }
+      if (name === 'financial')  { loadFinancial(); }
+      if (name === 'staffing')   { initStaffingTab(); loadStaffingCandidates(); }
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -850,6 +959,9 @@
   <script src="/js/projects.js"></script>
   <script src="/js/capacity.js"></script>
   <script src="/js/dashboard.js"></script>
+  <script src="/js/assets.js"></script>
+  <script src="/js/production.js"></script>
+  <script src="/js/financial.js"></script>
   <script src="/js/staffing.js"></script>
 
   <!-- Boot: load data for the default (Dashboard) tab + background pre-load for others -->

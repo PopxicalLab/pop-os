@@ -9,6 +9,8 @@ import {
   IsEnum,
   IsBoolean,
   IsOptional,
+  IsNumber,
+  Min,
 } from 'class-validator';
 import { EmploymentType, Company } from '@prisma/client';
 
@@ -41,6 +43,11 @@ export class CreatePersonDto {
   @IsEnum(Company)
   @IsOptional()
   company?: Company;
+
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  salary?: number; // annual salary in £, used for man-day costing
 }
 
 // For updates, every field is optional (you might change just one thing).
@@ -52,4 +59,5 @@ export class UpdatePersonDto {
   @IsEnum(EmploymentType) @IsOptional() employmentType?: EmploymentType;
   @IsBoolean() @IsOptional() warmPool?: boolean;
   @IsEnum(Company) @IsOptional() company?: Company;
+  @IsNumber() @Min(0) @IsOptional() salary?: number;
 }

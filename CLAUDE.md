@@ -150,6 +150,19 @@ PPM fields, and **Capacity** (weekly allocation board).
   projects in a week cannot exceed 100%. MAIN/SUPPORT is a convention
   (70–80% / 20–30%) but not a hard constraint — only the 100% cap is enforced.
 
+- **Asset** — one deliverable inside a project. Fields: name, description
+  (optional), projectId → Project, stage (enum: BRIEF/WIP/INTERNAL_REVIEW/
+  REVISION/FINAL_DELIVERY), cdSignedOff (bool — soft gate at Internal Review,
+  same pattern as the Drain gate), changedBy (free text for now; links to
+  Person later). No enforced stage sequence — a producer can move to any stage
+  freely. Assets appear in the project detail view and in the standalone Assets
+  tab (filterable by project).
+
+- **Person.salary** — optional `Float?` field added for the Financial Engine.
+  Annual salary in £. Used to compute daily rate: `salary × 1.2 / 260`.
+  Not displayed in the People table (sensitive); visible only in the Financial
+  tab and settable via the add-person form and seed.
+
 ### Skills design decisions (do not undo these without asking)
 
 - Ratings are whole numbers 1–5. (Half-steps were deliberately deferred.)
@@ -191,27 +204,34 @@ dependencies — each layer feeds the next.
 3. **Capacity** — DONE. Weekly allocation board (Person × Project × week),
    100% cap, MAIN/SUPPORT role, company filter.
 
-### Intelligence layer (next)
-4. **Dashboard** — NEXT. Global home tab (command centre). Active projects,
-   capacity overview this week, overdue work, leave gaps. Note: leave is not
+### Intelligence layer (done)
+4. **Dashboard** — DONE. Global home tab (command centre). Active projects,
+   this week's capacity, overdue alerts, unallocated people. Note: leave is not
    yet in the data model — Capacity tracks allocations only, not absence.
-5. **PPM recommendation engine** — score projects automatically from PPM inputs.
-   Rule-based first, Claude API layer later.
-6. **Staffing recommendation engine** — recommend who to assign based on skill
-   ratings + current capacity.
+5. **PPM recommendation engine** — DONE. Rule-based 2×2 scoring (value ×
+   complexity → quadrant recommendation + 0–100 score). Shown as a badge in
+   the project detail view. `GET /api/ppm` and `GET /api/ppm/:id`.
+6. **Staffing recommendation engine** — DONE. Ranks all active staff by
+   availability for a given project + week. Skill ratings shown alongside.
+   `GET /api/staffing/recommend?projectId=&weekStart=`.
 
-### Production layer
-7. **Assets** — deliverables through SOP stages (Brief → WIP → Internal Review
-   → Revision → Final Delivery). CD sign-off at Internal Review. Belongs to
-   a Project.
-8. **Production Engine / Lane Routing** — auto-route projects into workflow
-   lanes based on PPM quadrant: Template Factory (Gold), Innovation Lab
-   (Strategic Bet), Automated Stream (Filler), Gated Review (Drain).
+### Production layer (done)
+7. **Assets** — DONE. Deliverables through flexible SOP stages (Brief → WIP →
+   Internal Review → Revision → Final Delivery). CD sign-off soft gate at
+   Internal Review. Kanban-style board in its own tab; also shown in the
+   project detail view. `GET /api/assets`, `POST`, `PATCH`, `DELETE`.
+8. **Production Engine / Lane Routing** — DONE. Projects auto-routed into four
+   workflow lanes by quadrant: Template Factory (Gold), Innovation Lab
+   (Strategic Bet), Automated Stream (Filler), Gated Review (Drain). Each lane
+   carries guidance, review gates, and team-size expectations.
+   `GET /api/production/lanes`.
 
-### Financial layer
-9. **Financial Engine** — man-day costing (salary + 20% overhead = floor price),
-   actuals vs. estimates tracker, margin protection. Depends on Capacity
-   (man-days) and People (salary data).
+### Financial layer (done)
+9. **Financial Engine** — DONE. Man-day costing from capacity data (salary +
+   20% overhead / 260 working days = daily rate). Per-project cost-to-date,
+   remaining budget, gross margin vs target margin, RAG health indicator.
+   Requires `salary` set on each Person. `GET /api/financial/overview`,
+   `GET /api/financial/projects`. Demo seed included: `prisma/seed.js`.
 
 ### Growth & client layer
 10. **Sales & Growth Hub** — CRM layer, lead-to-PPM scoring, HubSpot/Pipedrive

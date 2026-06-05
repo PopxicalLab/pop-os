@@ -94,6 +94,7 @@ model Person {
   employmentType EmploymentType @default(FULL_TIME)
   warmPool       Boolean        @default(false) // true = in the Warm Talent Pool (alumni/rejected/freelance)
   company        Company?       // LPS or PXL — optional so existing records are unaffected
+  salary         Float?         // annual salary in £ — used by the Financial Engine for man-day costing
 
   // A person's rated skills (the live current scores).
   skills             PersonSkill[]
@@ -196,8 +197,22 @@ model Project {
   // Weekly capacity allocations for this project.
   capacityEntries Capacity[]
 
+  // Deliverables tracked through the SOP pipeline.
+  assets          Asset[]
+
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
+}
+
+// ── ASSET STAGE ──────────────────────────────────────────────────
+// The SOP pipeline for a single deliverable. Stages are flexible —
+// a producer can move an asset to any stage at any time.
+enum AssetStage {
+  BRIEF            // just created, work not started
+  WIP              // in active production
+  INTERNAL_REVIEW  // done, awaiting CD / director sign-off
+  REVISION         // feedback received, back into production
+  FINAL_DELIVERY   // approved and delivered
 }
 
 // ── CAPACITY ─────────────────────────────────────────────────────
@@ -221,4 +236,22 @@ model Capacity {
 
   // A person can only appear once per project per week.
   @@unique([personId, projectId, weekStart])
+}
+
+// ── ASSET ─────────────────────────────────────────────────────────
+// One deliverable inside a project. Moves through SOP stages freely
+// (no enforced sequence). CD sign-off is a soft gate at INTERNAL_REVIEW.
+model Asset {
+  id          String     @id @default(cuid())
+  name        String                         // e.g. "Hero shot render", "Social cut 15s"
+  description String?                        // optional notes / brief summary
+  projectId   String
+  stage       AssetStage @default(BRIEF)
+  cdSignedOff Boolean    @default(false)     // CD must acknowledge at INTERNAL_REVIEW
+  changedBy   String?                        // free text for now; links to Person later
+
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 }

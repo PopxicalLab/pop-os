@@ -58,8 +58,13 @@ pop-os/
 │   ├── index.html             # Shell: HTML structure, shared utilities, theme, tab switching
 │   └── js/
 │       ├── people.js          # People / ELC tab logic
-│       ├── projects.js        # Projects tab logic
-│       └── capacity.js        # Capacity board tab logic
+│       ├── projects.js        # Projects tab logic (includes PPM badge)
+│       ├── capacity.js        # Capacity board tab logic
+│       ├── dashboard.js       # Dashboard command centre tab logic
+│       ├── assets.js          # Assets kanban board tab logic
+│       ├── production.js      # Production lane board tab logic
+│       ├── financial.js       # Financial engine tab logic
+│       └── staffing.js        # Staffing recommender tab logic
 │
 ├── src/
 │   ├── main.ts                # Bootstrap: starts NestJS, applies global pipes
@@ -84,11 +89,47 @@ pop-os/
 │   │   ├── projects.controller.ts
 │   │   └── projects.module.ts
 │   │
-│   └── capacity/              # Feature module: Capacity Board
-│       ├── capacity.dto.ts
-│       ├── capacity.service.ts
-│       ├── capacity.controller.ts
-│       └── capacity.module.ts
+│   ├── capacity/              # Feature module: Capacity Board
+│   │   ├── capacity.dto.ts
+│   │   ├── capacity.service.ts
+│   │   ├── capacity.controller.ts
+│   │   └── capacity.module.ts
+│   │
+│   ├── dashboard/             # Feature module: Dashboard (read-only aggregation)
+│   │   ├── dashboard.service.ts
+│   │   ├── dashboard.controller.ts
+│   │   └── dashboard.module.ts
+│   │
+│   ├── ppm/                   # Feature module: PPM recommendation engine
+│   │   ├── ppm.service.ts
+│   │   ├── ppm.controller.ts
+│   │   └── ppm.module.ts
+│   │
+│   ├── staffing/              # Feature module: Staffing recommender
+│   │   ├── staffing.service.ts
+│   │   ├── staffing.controller.ts
+│   │   └── staffing.module.ts
+│   │
+│   ├── assets/                # Feature module: Assets (deliverables)
+│   │   ├── asset.dto.ts
+│   │   ├── assets.service.ts
+│   │   ├── assets.controller.ts
+│   │   └── assets.module.ts
+│   │
+│   ├── production/            # Feature module: Production lane routing
+│   │   ├── production.service.ts
+│   │   ├── production.controller.ts
+│   │   └── production.module.ts
+│   │
+│   └── financial/             # Feature module: Financial engine (man-day costing)
+│       ├── financial.service.ts
+│       ├── financial.controller.ts
+│       └── financial.module.ts
+│
+├── prisma/
+│   ├── schema.prisma          # Single source of truth for the DB shape
+│   ├── migrations/            # Auto-generated SQL; never edit manually
+│   └── seed.js                # Demo seed: 11 people, 6 projects, capacity history, assets
 │
 ├── docker-compose.yml         # Runs PostgreSQL locally
 ├── .env                       # DATABASE_URL (never committed)
@@ -170,11 +211,23 @@ All routes are prefixed `/api`.
 | Projects | POST   | `/api/projects`         | Create a project                   |
 | Projects | PATCH  | `/api/projects/:id`     | Update a project                   |
 | Projects | DELETE | `/api/projects/:id`     | Remove a project                   |
-| Capacity | GET    | `/api/capacity?week=`   | Board for a week (defaults: now)   |
-| Capacity | GET    | `/api/capacity/:id`     | Get one allocation                 |
-| Capacity | POST   | `/api/capacity`         | Add an allocation                  |
-| Capacity | PATCH  | `/api/capacity/:id`     | Update role or % on an allocation  |
-| Capacity | DELETE | `/api/capacity/:id`     | Remove an allocation               |
+| Capacity  | GET    | `/api/capacity?week=`                          | Board for a week (defaults: now)      |
+| Capacity  | GET    | `/api/capacity/:id`                            | Get one allocation                    |
+| Capacity  | POST   | `/api/capacity`                                | Add an allocation                     |
+| Capacity  | PATCH  | `/api/capacity/:id`                            | Update role or % on an allocation     |
+| Capacity  | DELETE | `/api/capacity/:id`                            | Remove an allocation                  |
+| Dashboard | GET    | `/api/dashboard`                               | Aggregated stats + this week summary  |
+| PPM       | GET    | `/api/ppm`                                     | Score all active projects             |
+| PPM       | GET    | `/api/ppm/:id`                                 | Score one project                     |
+| Staffing  | GET    | `/api/staffing/recommend?projectId=&weekStart=`| Ranked candidates for a project/week |
+| Assets    | GET    | `/api/assets?projectId=`                       | List assets (optionally filtered)     |
+| Assets    | GET    | `/api/assets/:id`                              | Get one asset                         |
+| Assets    | POST   | `/api/assets`                                  | Create an asset                       |
+| Assets    | PATCH  | `/api/assets/:id`                              | Update stage / sign-off / name        |
+| Assets    | DELETE | `/api/assets/:id`                              | Remove an asset                       |
+| Production| GET    | `/api/production/lanes`                        | Projects grouped by workflow lane     |
+| Financial | GET    | `/api/financial/overview`                      | Studio-wide cost summary this week    |
+| Financial | GET    | `/api/financial/projects`                      | Per-project cost, margin, RAG health  |
 
 ---
 
@@ -201,6 +254,8 @@ Company (enum: LPS / PXL)
 - **SkillRatingChange** — every score movement. The interview score is just the first entry (source = INTERVIEW).
 - **Project** — the spine. PPM quadrant, priority, status, producer/PM links, Drain approval gate, PPM recommendation inputs. Has `company?` field.
 - **Capacity** — one row per person × project × week. The Capacity Board. Enforces ≤ 100% total per person per week. Filtered by project's company (not person's) so cross-company lending works correctly.
+- **Asset** — one deliverable inside a project. Stage enum: BRIEF/WIP/INTERNAL_REVIEW/REVISION/FINAL_DELIVERY. Flexible — no enforced sequence. CD sign-off soft gate at Internal Review.
+- **Person.salary** — optional `Float?`. Annual salary in £, used by the Financial Engine. Daily rate = `salary × 1.2 / 260`.
 
 ---
 
@@ -231,20 +286,20 @@ Six blueprint modules, built in dependency order.
 ### Intelligence layer
 | # | Module | Status |
 |---|--------|--------|
-| 4 | Dashboard — global command centre tab | Next |
-| 5 | PPM recommendation engine | Future |
-| 6 | Staffing recommendation engine | Future |
+| 4 | Dashboard — global command centre tab | Done |
+| 5 | PPM recommendation engine | Done |
+| 6 | Staffing recommendation engine | Done |
 
 ### Production layer
 | # | Module | Status |
 |---|--------|--------|
-| 7 | Assets — deliverables through SOP stages | Future |
-| 8 | Production Engine / Lane Routing | Future |
+| 7 | Assets — deliverables through SOP stages | Done |
+| 8 | Production Engine / Lane Routing | Done |
 
 ### Financial layer
 | # | Module | Status |
 |---|--------|--------|
-| 9 | Financial Engine — man-day costing, actuals tracker | Future |
+| 9 | Financial Engine — man-day costing, actuals tracker | Done |
 
 ### Growth & client layer
 | # | Module | Status |

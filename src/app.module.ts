@@ -12,6 +12,9 @@ import { CapacityModule } from './capacity/capacity.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { PpmModule } from './ppm/ppm.module';
 import { StaffingModule } from './staffing/staffing.module';
+import { AssetsModule } from './assets/assets.module';
+import { ProductionModule } from './production/production.module';
+import { FinancialModule } from './financial/financial.module';
 
 @Module({
   imports: [
@@ -26,6 +29,9 @@ import { StaffingModule } from './staffing/staffing.module';
     DashboardModule,
     PpmModule,
     StaffingModule,
+    AssetsModule,
+    ProductionModule,
+    FinancialModule,
   ],
 })
 export class AppModule {}

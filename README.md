@@ -1,10 +1,13 @@
-# Pop OS — Step 1: People / ELC
+# Pop OS — Pop Group Studio Operating System
 
-The foundation module of the Pop Group operating system. One record per
-person, with skill tags, employment type, and Warm Talent Pool status —
-everything else (Projects, Capacity, Assets) will link back to this.
+The operating system for Pop Group. Replaces ad-hoc, reactive working with a
+structured system: prioritised projects, weekly capacity allocation, a standard
+production workflow, deliverable tracking, and a people/skills record.
 
-Stack: NestJS + TypeScript + Prisma ORM + PostgreSQL. + Tailwind (Frontend UI)
+**Modules built:** People / ELC · Projects (PPM) · Capacity Board · Dashboard ·
+PPM Recommendation Engine · Staffing Recommender · Assets
+
+Stack: NestJS + TypeScript + Prisma ORM + PostgreSQL + Tailwind CSS (CDN)
 
 ---
 
