@@ -181,8 +181,11 @@
         </div>
       </div>
       <nav class="flex gap-1 bg-bg/80 rounded-full p-1 border border-line">
-        <button id="tab-btn-people"
+        <button id="tab-btn-dashboard"
           class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 bg-panel text-ink"
+          onclick="switchTab('dashboard')">Dashboard</button>
+        <button id="tab-btn-people"
+          class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
           onclick="switchTab('people')">People / ELC</button>
         <button id="tab-btn-projects"
           class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
@@ -190,6 +193,9 @@
         <button id="tab-btn-capacity"
           class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
           onclick="switchTab('capacity')">Capacity</button>
+        <button id="tab-btn-staffing"
+          class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
+          onclick="switchTab('staffing')">Staffing</button>
       </nav>
       <!-- Day / night toggle -->
       <button id="mode-btn" onclick="toggleMode()" title="Toggle day / night"
@@ -208,9 +214,52 @@
   </header>
 
   <!-- ════════════════════════════════════════════════════
+       PANEL: DASHBOARD
+  ════════════════════════════════════════════════════ -->
+  <div class="panel" id="tab-dashboard">
+    <div class="max-w-7xl mx-auto px-5 py-6">
+
+      <!-- Stats strip -->
+      <div id="dash-stats"
+        class="text-sm px-5 py-3 mb-5 bg-panel border border-line rounded-xl text-muted">
+        Loading…
+      </div>
+
+      <!-- Three-column grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+        <!-- Active projects -->
+        <div class="bg-panel border border-line rounded-xl p-5">
+          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Active Projects</h2>
+          <div id="dash-active">
+            <div class="text-center text-muted text-sm py-8">Loading…</div>
+          </div>
+        </div>
+
+        <!-- This week's capacity -->
+        <div class="bg-panel border border-line rounded-xl p-5">
+          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">This Week</h2>
+          <div id="dash-week">
+            <div class="text-center text-muted text-sm py-8">Loading…</div>
+          </div>
+        </div>
+
+        <!-- Overdue / alerts -->
+        <div class="bg-panel border border-line rounded-xl p-5">
+          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Overdue / Alerts</h2>
+          <div id="dash-overdue">
+            <div class="text-center text-muted text-sm py-8">Loading…</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════
        PANEL: PEOPLE
   ════════════════════════════════════════════════════ -->
-  <div class="panel" id="tab-people">
+  <div class="panel hidden" id="tab-people">
     <div class="max-w-7xl mx-auto px-5 py-6 grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5 items-start">
 
       <div class="space-y-4">
@@ -524,6 +573,60 @@
     </div>
   </div>
 
+  <!-- ════════════════════════════════════════════════════
+       PANEL: STAFFING
+  ════════════════════════════════════════════════════ -->
+  <div class="panel hidden" id="tab-staffing">
+    <div class="max-w-7xl mx-auto px-5 py-6 grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5 items-start">
+
+      <!-- Left: controls -->
+      <div class="space-y-4">
+
+        <!-- Week navigator -->
+        <div class="bg-panel border border-line rounded-xl p-3 flex items-center gap-2">
+          <button onclick="staffingShiftWeek(-1)"
+            class="w-8 h-8 flex items-center justify-center rounded-lg text-muted
+                   hover:text-ink hover:bg-panel2 transition-colors cursor-pointer shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+            </svg>
+          </button>
+          <span id="staff-week-label" class="flex-1 text-center text-xs font-semibold text-ink"></span>
+          <button onclick="staffingShiftWeek(1)"
+            class="w-8 h-8 flex items-center justify-center rounded-lg text-muted
+                   hover:text-ink hover:bg-panel2 transition-colors cursor-pointer shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Project selector -->
+        <div class="bg-panel border border-line rounded-xl p-5">
+          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-4">Find Staff</h2>
+          <label class="form-label" style="margin-top:0">Project</label>
+          <select id="staff-project" class="form-input cursor-pointer">
+            <option value="">— select a project —</option>
+          </select>
+          <p class="text-xs text-muted mt-3">
+            Shows all active staff sorted by availability for the selected week.
+            Skills are included so you can match fit at a glance.
+          </p>
+        </div>
+
+      </div>
+
+      <!-- Right: candidate results -->
+      <div class="bg-panel border border-line rounded-xl p-5">
+        <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-4">Candidates</h2>
+        <div id="staff-results">
+          <div class="text-center text-muted text-sm py-10">Select a project to see candidate recommendations.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
   <script>
     // ── shared utilities — available to all module JS files ──────
     const $ = (id) => document.getElementById(id);
@@ -588,12 +691,14 @@
     function setCompanyFilter(co) {
       window._company = (window._company === co) ? null : co; // toggle off if already active
       updateFilterUI();
-      const active = ['people', 'projects', 'capacity'].find(t =>
+      const active = ['dashboard', 'people', 'projects', 'capacity', 'staffing'].find(t =>
         !$('tab-' + t).classList.contains('hidden')
       );
-      if (active === 'people')   load();
+      if (active === 'dashboard') loadDashboard();
+      else if (active === 'people')   load();
       else if (active === 'projects') loadProjects();
       else if (active === 'capacity') loadCapacityBoard();
+      // staffing doesn't filter by company — all people shown regardless
     }
 
     function updateFilterUI() {
@@ -620,14 +725,16 @@
 
     // ── tab switching ────────────────────────────────────────────
     function switchTab(name) {
-      ['people', 'projects', 'capacity'].forEach(t => {
+      ['dashboard', 'people', 'projects', 'capacity', 'staffing'].forEach(t => {
         const active = t === name;
         $('tab-btn-' + t).className = active
           ? 'px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 bg-panel text-ink'
           : 'px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink';
         $('tab-' + t).classList.toggle('hidden', !active);
       });
-      if (name === 'capacity') loadCapacityBoard();
+      if (name === 'capacity')  loadCapacityBoard();
+      if (name === 'dashboard') loadDashboard();
+      if (name === 'staffing')  { initStaffingTab(); loadStaffingCandidates(); }
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -742,8 +849,15 @@
   <script src="/js/people.js"></script>
   <script src="/js/projects.js"></script>
   <script src="/js/capacity.js"></script>
+  <script src="/js/dashboard.js"></script>
+  <script src="/js/staffing.js"></script>
 
-  <!-- Boot: kick off initial data load for the default (People) tab -->
-  <script>loadSkills().then(load).then(loadProjects);</script>
+  <!-- Boot: load data for the default (Dashboard) tab + background pre-load for others -->
+  <script>
+    loadDashboard();
+    loadSkills();
+    load();
+    loadProjects();
+  </script>
 </body>
 </html>

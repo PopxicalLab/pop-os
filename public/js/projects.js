@@ -156,6 +156,10 @@ async function showProjectDetail(id) {
         ${field('Client tier',   p.clientTier ? CLIENT_TIER_LABEL[p.clientTier] : null)}
         ${field('Margin target', p.marginTarget      != null ? p.marginTarget + '%' : null)}
       </div>
+      <div class="mt-3 pt-3 border-t border-line/60">
+        <p class="text-[10px] font-semibold uppercase tracking-widest text-muted mb-1.5">PPM recommendation</p>
+        <div id="ppm-rec-${p.id}" class="text-xs text-muted">Calculating…</div>
+      </div>
     </div>
 
     <div class="mt-5 pb-5 border-b border-line">
@@ -167,6 +171,49 @@ async function showProjectDetail(id) {
       <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-2">Capacity</p>
       <p class="text-xs text-muted">Coming soon — team allocations by week will appear here.</p>
     </div>`;
+
+  // Load PPM score asynchronously and inject it below the PPM inputs section.
+  loadPpmBadge(id);
+}
+
+async function loadPpmBadge(projectId) {
+  const ppm = await fetch('/api/ppm/' + projectId).then(r => r.json()).catch(() => null);
+  if (!ppm) return;
+
+  const el = document.getElementById('ppm-rec-' + projectId);
+  if (!el) return;
+
+  if (!ppm.recommendedQuadrant) {
+    el.innerHTML = `<p class="text-xs text-muted">Add estimated value and complexity to unlock recommendation.</p>`;
+    return;
+  }
+
+  const recCls   = QUADRANT_CLS[ppm.recommendedQuadrant]   || 'bg-panel2 text-muted';
+  const recLabel = QUADRANT_LABEL[ppm.recommendedQuadrant] || ppm.recommendedQuadrant;
+  const curLabel = QUADRANT_LABEL[ppm.currentQuadrant]     || ppm.currentQuadrant;
+  const matchHtml = ppm.match
+    ? `<span class="text-xs text-accent font-semibold">✓ Matches current quadrant</span>`
+    : `<span class="text-xs text-warm font-semibold">Currently set to ${curLabel}</span>`;
+
+  const scoreBar = ppm.score != null ? `
+    <div class="flex items-center gap-2 mt-2">
+      <div class="flex-1 h-1.5 bg-line rounded-full overflow-hidden">
+        <div class="h-full bg-accent rounded-full" style="width:${ppm.score}%"></div>
+      </div>
+      <span class="text-xs text-muted w-12 text-right">score ${ppm.score}/100</span>
+    </div>` : '';
+
+  const missing = ppm.missingFields.length
+    ? `<p class="text-[11px] text-muted mt-1">Missing: ${ppm.missingFields.join(', ')}</p>`
+    : '';
+
+  el.innerHTML = `
+    <div class="flex items-center gap-2 flex-wrap">
+      <span class="text-xs text-muted">Recommended:</span>
+      <span class="badge ${recCls}">${recLabel}</span>
+      ${matchHtml}
+    </div>
+    ${scoreBar}${missing}`;
 }
 
 // ── project list ─────────────────────────────────────────────

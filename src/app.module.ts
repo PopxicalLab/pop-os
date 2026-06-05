@@ -9,6 +9,9 @@ import { PeopleModule } from './people/people.module';
 import { SkillsModule } from './skills/skills.module';
 import { ProjectsModule } from './projects/projects.module';
 import { CapacityModule } from './capacity/capacity.module';
+import { DashboardModule } from './dashboard/dashboard.module';
+import { PpmModule } from './ppm/ppm.module';
+import { StaffingModule } from './staffing/staffing.module';
 
 @Module({
   imports: [
@@ -20,6 +23,9 @@ import { CapacityModule } from './capacity/capacity.module';
     SkillsModule,
     ProjectsModule,
     CapacityModule,
+    DashboardModule,
+    PpmModule,
+    StaffingModule,
   ],
 })
 export class AppModule {}
