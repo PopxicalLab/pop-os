@@ -16,7 +16,7 @@ function complexityDots(n) {
 
 function fmtValue(v) {
   if (v == null) return '<span class="text-muted">—</span>';
-  return '£' + Number(v).toLocaleString('en-GB', { maximumFractionDigits: 0 });
+  return 'RM ' + Number(v).toLocaleString('en-MY', { maximumFractionDigits: 0 });
 }
 
 const CLIENT_TIER_LABEL = { NEW: 'New', RETURNING: 'Returning', KEY_ACCOUNT: 'Key acct' };

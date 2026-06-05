@@ -47,7 +47,7 @@ export class CreatePersonDto {
   @IsNumber()
   @Min(0)
   @IsOptional()
-  salary?: number; // annual salary in £, used for man-day costing
+  salary?: number; // annual salary in RM, used for man-day costing
 }
 
 // For updates, every field is optional (you might change just one thing).

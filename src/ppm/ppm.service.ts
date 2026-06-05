@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 
-// £50 k is the midpoint for value normalisation: at or above = "high value".
+// RM50 k is the midpoint for value normalisation: at or above = "high value".
 // Adjust this constant as the studio's average project size changes.
 const VALUE_MIDPOINT = 50_000;
 
@@ -59,7 +59,7 @@ export class PpmService {
     if (marginTarget    == null) missingFields.push('marginTarget');
 
     // Each component scores 0–100.
-    // valueScore: £0 → 0, £50k → 50, £100k+ → 100.
+    // valueScore: RM0 → 0, RM50k → 50, RM100k+ → 100.
     const valueScore  = estimatedValue  != null
       ? Math.min((estimatedValue / VALUE_MIDPOINT) * 50, 100)
       : null;

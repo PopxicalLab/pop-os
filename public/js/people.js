@@ -19,6 +19,77 @@ const SOURCES = {
 let SKILLS = [];
 let PEOPLE = [];
 
+const EMP_LABEL = {
+  FULL_TIME: 'Full-time', CONTRACT: 'Contract',
+  FREELANCE: 'Freelance', INTERN: 'Intern',
+};
+
+function fmtMYR(n) {
+  if (n == null) return '<span class="text-muted">—</span>';
+  return 'RM ' + Number(n).toLocaleString('en-MY', { maximumFractionDigits: 0 });
+}
+
+// ── column visibility (same pattern as Projects tab) ─────────
+
+const PEOPLE_COLS = [
+  { id: 'role',   label: 'Role',            def: true  },
+  { id: 'dept',   label: 'Dept',            def: true  },
+  { id: 'type',   label: 'Employment type', def: false },
+  { id: 'start',  label: 'Start date',      def: false },
+  { id: 'salary', label: 'Salary',          def: false },
+  { id: 'skills', label: 'Skills',          def: true  },
+];
+
+function getPeopleColVis() {
+  const saved = JSON.parse(localStorage.getItem('pop-os-people-cols') || 'null') || {};
+  const vis = {};
+  PEOPLE_COLS.forEach(c => { vis[c.id] = c.id in saved ? saved[c.id] : c.def; });
+  return vis;
+}
+
+function applyPeopleColVisibility() {
+  const vis = getPeopleColVis();
+  PEOPLE_COLS.forEach(c => {
+    document.querySelectorAll(`[data-pcol="${c.id}"]`).forEach(el => {
+      el.classList.toggle('hidden', !vis[c.id]);
+    });
+  });
+}
+
+function togglePeopleCol(id, visible) {
+  const vis = getPeopleColVis();
+  vis[id] = visible;
+  localStorage.setItem('pop-os-people-cols', JSON.stringify(vis));
+  applyPeopleColVisibility();
+}
+
+function buildPeopleColPicker() {
+  const vis = getPeopleColVis();
+  $('people-col-picker').innerHTML = PEOPLE_COLS.map(c => `
+    <label class="flex items-center gap-2.5 px-3 py-2 hover:bg-panel2/60 cursor-pointer">
+      <input type="checkbox" ${vis[c.id] ? 'checked' : ''}
+        onchange="togglePeopleCol('${c.id}', this.checked)"
+        class="accent-accent w-3.5 h-3.5 cursor-pointer" />
+      <span class="text-xs text-ink">${c.label}</span>
+    </label>`).join('');
+}
+
+function togglePeopleColPicker() {
+  const picker = $('people-col-picker');
+  if (picker.classList.contains('hidden')) {
+    buildPeopleColPicker();
+    picker.classList.remove('hidden');
+    setTimeout(() => document.addEventListener('click', function h(e) {
+      if (!picker.contains(e.target) && !e.target.closest('button[onclick="togglePeopleColPicker()"]')) {
+        picker.classList.add('hidden');
+        document.removeEventListener('click', h);
+      }
+    }), 0);
+  } else {
+    picker.classList.add('hidden');
+  }
+}
+
 async function loadSkills() {
   SKILLS = await (await fetch('/api/skills')).json();
   $('skillList').innerHTML = SKILLS.length
@@ -64,13 +135,20 @@ async function load() {
       : '<span class="badge bg-accent/15 text-accent">Active</span>';
     const companyBadge = coBadge(p.company);
 
+    const startDate = p.startDate
+      ? new Date(p.startDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
+      : '—';
+
     const tr = document.createElement('tr');
     tr.className = 'border-b border-line hover:bg-panel2/40 transition-colors';
     tr.innerHTML = `
       <td class="py-3 px-2 font-medium whitespace-nowrap">${esc(p.name)}${companyBadge}</td>
-      <td class="py-3 px-2 text-muted text-xs whitespace-nowrap">${esc(p.role)}</td>
-      <td class="py-3 px-2 text-muted text-xs whitespace-nowrap">${esc(p.department)}</td>
-      <td class="py-3 px-2">
+      <td data-pcol="role"   class="py-3 px-2 text-muted text-xs whitespace-nowrap">${esc(p.role)}</td>
+      <td data-pcol="dept"   class="py-3 px-2 text-muted text-xs whitespace-nowrap">${esc(p.department)}</td>
+      <td data-pcol="type"   class="py-3 px-2 text-muted text-xs whitespace-nowrap">${EMP_LABEL[p.employmentType] || p.employmentType}</td>
+      <td data-pcol="start"  class="py-3 px-2 text-muted text-xs whitespace-nowrap">${startDate}</td>
+      <td data-pcol="salary" class="py-3 px-2 text-xs whitespace-nowrap">${fmtMYR(p.salary)}</td>
+      <td data-pcol="skills" class="py-3 px-2">
         <div class="flex flex-wrap gap-1">${skills}</div>
         <div class="mt-2">
           <button class="btn-del" data-assign="${p.id}">+ rate a skill</button>
@@ -86,6 +164,7 @@ async function load() {
   rows.querySelectorAll('[data-del]').forEach(b => b.onclick = () => removePerson(b.dataset.del));
   rows.querySelectorAll('[data-assign]').forEach(b => b.onclick = () => showAssign(b.dataset.assign));
   rows.querySelectorAll('[data-ps]').forEach(b => b.onclick = () => showChange(b.dataset.ps, b));
+  applyPeopleColVisibility();
   populatePersonDropdowns();
 }
 

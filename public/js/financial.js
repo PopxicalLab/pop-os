@@ -4,9 +4,9 @@
 //             fmtValue, QUADRANT_CLS, QUADRANT_LABEL  (projects.js)
 // ══════════════════════════════════════════════════════════════
 
-function fmtGBP(n) {
+function fmtMYR(n) {
   if (n == null) return '<span class="text-muted">—</span>';
-  return '£' + Math.round(n).toLocaleString('en-GB');
+  return 'RM ' + Math.round(n).toLocaleString('en-MY');
 }
 
 function healthBadge(health) {
@@ -41,9 +41,9 @@ async function loadFinancial() {
 
 function renderFinancialOverview(o) {
   $('fin-stats').innerHTML =
-    `<span class="text-ink font-semibold">${fmtGBP(o.weekCost)}</span><span class="text-muted"> studio cost this week</span>` +
+    `<span class="text-ink font-semibold">${fmtMYR(o.weekCost)}</span><span class="text-muted"> studio cost this week</span>` +
     ` <span class="text-line mx-2">·</span> ` +
-    `<span class="text-ink font-semibold">${fmtGBP(o.totalPipelineValue)}</span><span class="text-muted"> pipeline value</span>` +
+    `<span class="text-ink font-semibold">${fmtMYR(o.totalPipelineValue)}</span><span class="text-muted"> pipeline value</span>` +
     (o.avgTargetMargin != null
       ? ` <span class="text-line mx-2">·</span> <span class="text-ink font-semibold">${o.avgTargetMargin}%</span><span class="text-muted"> avg target margin</span>`
       : '') +
@@ -86,13 +86,13 @@ function renderFinancialProjects(rows) {
         </div>
       </td>
       <td class="py-3 px-3 text-xs text-muted">${p.producer ? esc(p.producer.name) : '—'}</td>
-      <td class="py-3 px-3 text-sm text-right">${fmtGBP(r.estimatedValue)}</td>
+      <td class="py-3 px-3 text-sm text-right">${fmtMYR(r.estimatedValue)}</td>
       <td class="py-3 px-3 text-sm text-right">
-        ${fmtGBP(r.costToDate)}${missingNote}
+        ${fmtMYR(r.costToDate)}${missingNote}
         <p class="text-[10px] text-muted">${r.totalManDays}d · ${r.weeksTracked}w</p>
       </td>
       <td class="py-3 px-3 text-sm text-right ${remaining != null && remaining < 0 ? 'text-warm font-semibold' : 'text-muted'}">
-        ${remaining != null ? fmtGBP(remaining) : '—'}
+        ${remaining != null ? fmtMYR(remaining) : '—'}
       </td>
       <td class="py-3 px-3 text-sm text-right">
         <span class="${marginColour(r.grossMargin)}">${r.grossMargin != null ? r.grossMargin + '%' : '—'}</span>
