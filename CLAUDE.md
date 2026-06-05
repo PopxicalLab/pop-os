@@ -161,9 +161,9 @@ for the Financial Engine.
   tab (filterable by project).
 
 - **Person.salary** — optional `Float?` field added for the Financial Engine.
-  Annual salary in RM. Used to compute daily rate: `salary × 1.2 / 260`.
-  Not displayed in the People table (sensitive); visible only in the Financial
-  tab and settable via the add-person form and seed.
+  Monthly salary in RM (Malaysian convention). Used to compute daily rate:
+  `salary × 12 × 1.2 / 260`. Not displayed in the People table (sensitive);
+  visible only in the Financial tab and settable via the add-person form and seed.
 
 ### Skills design decisions (do not undo these without asking)
 

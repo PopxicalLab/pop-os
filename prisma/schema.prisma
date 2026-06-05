@@ -94,7 +94,7 @@ model Person {
   employmentType EmploymentType @default(FULL_TIME)
   warmPool       Boolean        @default(false) // true = in the Warm Talent Pool (alumni/rejected/freelance)
   company        Company?       // LPS or PXL — optional so existing records are unaffected
-  salary         Float?         // annual salary in £ — used by the Financial Engine for man-day costing
+  salary         Float?         // monthly salary in RM — used by the Financial Engine for man-day costing
 
   // A person's rated skills (the live current scores).
   skills             PersonSkill[]

@@ -2,7 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 
 // Studio cost assumptions — adjust as the business evolves.
-const OVERHEAD_MULTIPLIER  = 1.20; // salary + 20% employer overhead
+const OVERHEAD_MULTIPLIER   = 1.20; // salary + 20% employer overhead
+const MONTHS_PER_YEAR       =  12;
 const WORKING_DAYS_PER_YEAR = 260; // 52 weeks × 5 days
 const WORKING_DAYS_PER_WEEK =   5;
 
@@ -10,8 +11,9 @@ const WORKING_DAYS_PER_WEEK =   5;
 const AMBER_THRESHOLD = 0.60;
 const RED_THRESHOLD   = 0.85;
 
-function dailyRate(salary: number): number {
-  return (salary * OVERHEAD_MULTIPLIER) / WORKING_DAYS_PER_YEAR;
+// salary is stored as monthly; multiply by 12 to get annual before dividing by working days.
+function dailyRate(monthlySalary: number): number {
+  return (monthlySalary * MONTHS_PER_YEAR * OVERHEAD_MULTIPLIER) / WORKING_DAYS_PER_YEAR;
 }
 
 function manDaysFromPct(pctWeek: number): number {

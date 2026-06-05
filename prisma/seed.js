@@ -44,16 +44,16 @@ async function main() {
 
   // ── People ───────────────────────────────────────────────────────────────
   const peopleData = [
-    { name: 'YJ',    role: 'Producer',          department: 'Production', employmentType: 'FULL_TIME',  company: 'LPS', salary: 65000, startDate: '2019-03-01' },
-    { name: 'Huey',  role: 'Producer',          department: 'Production', employmentType: 'FULL_TIME',  company: 'PXL', salary: 65000, startDate: '2020-06-15' },
-    { name: 'Emily', role: 'Project Manager',   department: 'Production', employmentType: 'FULL_TIME',  company: 'LPS', salary: 55000, startDate: '2021-01-10' },
-    { name: 'Calvin',role: 'Creative Director', department: 'Creative',   employmentType: 'FULL_TIME',  company: 'LPS', salary: 78000, startDate: '2018-07-01' },
-    { name: 'Tom',   role: '3D Director',       department: '3D',         employmentType: 'FULL_TIME',  company: 'PXL', salary: 74000, startDate: '2019-09-01' },
-    { name: 'Maya',  role: '3D Artist',         department: '3D',         employmentType: 'FULL_TIME',  company: 'LPS', salary: 46000, startDate: '2022-02-14' },
-    { name: 'Kai',   role: '3D Artist',         department: '3D',         employmentType: 'FULL_TIME',  company: 'PXL', salary: 44000, startDate: '2022-08-01' },
-    { name: 'Priya', role: 'Motion Designer',   department: 'Motion',     employmentType: 'FULL_TIME',  company: 'LPS', salary: 49000, startDate: '2023-03-06' },
-    { name: 'Lucas', role: 'Concept Artist',    department: 'Creative',   employmentType: 'CONTRACT',   company: 'PXL', salary: 72000, startDate: '2024-01-15' },
-    { name: 'Mei',   role: 'Animator',          department: '3D',         employmentType: 'FREELANCE',  company: null,  salary: 60000, startDate: '2024-06-01', warmPool: false },
+    { name: 'YJ',    role: 'Producer',          department: 'Production', employmentType: 'FULL_TIME',  company: 'LPS', salary:  9000, startDate: '2019-03-01' },
+    { name: 'Huey',  role: 'Producer',          department: 'Production', employmentType: 'FULL_TIME',  company: 'PXL', salary:  9000, startDate: '2020-06-15' },
+    { name: 'Emily', role: 'Project Manager',   department: 'Production', employmentType: 'FULL_TIME',  company: 'LPS', salary:  6500, startDate: '2021-01-10' },
+    { name: 'Calvin',role: 'Creative Director', department: 'Creative',   employmentType: 'FULL_TIME',  company: 'LPS', salary: 13000, startDate: '2018-07-01' },
+    { name: 'Tom',   role: '3D Director',       department: '3D',         employmentType: 'FULL_TIME',  company: 'PXL', salary: 12000, startDate: '2019-09-01' },
+    { name: 'Maya',  role: '3D Artist',         department: '3D',         employmentType: 'FULL_TIME',  company: 'LPS', salary:  5500, startDate: '2022-02-14' },
+    { name: 'Kai',   role: '3D Artist',         department: '3D',         employmentType: 'FULL_TIME',  company: 'PXL', salary:  5000, startDate: '2022-08-01' },
+    { name: 'Priya', role: 'Motion Designer',   department: 'Motion',     employmentType: 'FULL_TIME',  company: 'LPS', salary:  6000, startDate: '2023-03-06' },
+    { name: 'Lucas', role: 'Concept Artist',    department: 'Creative',   employmentType: 'CONTRACT',   company: 'PXL', salary:  7500, startDate: '2024-01-15' },
+    { name: 'Mei',   role: 'Animator',          department: '3D',         employmentType: 'FREELANCE',  company: null,  salary:  6500, startDate: '2024-06-01', warmPool: false },
   ];
 
   const people = {};

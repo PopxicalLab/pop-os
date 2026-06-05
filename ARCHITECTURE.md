@@ -252,7 +252,7 @@ Company (enum: LPS / PXL)
 - **Project** — the spine. PPM quadrant, priority, status, producer/PM links, Drain approval gate, PPM recommendation inputs. Has `company?` field.
 - **Capacity** — one row per person × project × week. The Capacity Board. Enforces ≤ 100% total per person per week. Filtered by project's company (not person's) so cross-company lending works correctly.
 - **Asset** — one deliverable inside a project. Stage enum: BRIEF/WIP/INTERNAL_REVIEW/REVISION/FINAL_DELIVERY. Flexible — no enforced sequence. CD sign-off soft gate at Internal Review.
-- **Person.salary** — optional `Float?`. Annual salary in RM, used by the Financial Engine. Daily rate = `salary × 1.2 / 260`.
+- **Person.salary** — optional `Float?`. Monthly salary in RM (Malaysian convention), used by the Financial Engine. Daily rate = `salary × 12 × 1.2 / 260`.
 
 ---
 
