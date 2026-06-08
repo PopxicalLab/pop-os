@@ -98,8 +98,27 @@ async function showAccountDetail(id) {
             ${c.email ? `<p class="text-[11px] text-muted">${esc(c.email)}</p>` : ''}
             ${c.phone ? `<p class="text-[11px] text-muted">${esc(c.phone)}</p>` : ''}
           </div>
+          <button class="btn-del shrink-0 text-[11px]" onclick="deleteContact('${c.id}','${a.id}')">×</button>
         </div>`).join('')
     : '<p class="text-xs text-muted py-2">No contacts.</p>';
+
+  const addContactHtml = `
+    <div class="mt-3 pt-3 border-t border-line/40">
+      <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-2">Add contact</p>
+      <input id="new-contact-name" class="form-input text-xs mb-1.5" placeholder="Full name *" style="margin-top:0" />
+      <input id="new-contact-title" class="form-input text-xs mb-1.5" placeholder="Title / role" style="margin-top:0" />
+      <input id="new-contact-email" class="form-input text-xs mb-1.5" placeholder="Email" style="margin-top:0" />
+      <input id="new-contact-phone" class="form-input text-xs mb-1.5" placeholder="Phone" style="margin-top:0" />
+      <label class="flex items-center gap-2 text-xs text-muted cursor-pointer mb-2">
+        <input type="checkbox" id="new-contact-vip" class="accent-yellow-400" /> VIP contact
+      </label>
+      <button onclick="addContact('${a.id}')"
+        class="w-full bg-accent text-bg text-xs font-semibold py-1.5 rounded-lg
+               hover:brightness-110 transition-all cursor-pointer">
+        Add contact
+      </button>
+      <div id="contact-msg" class="text-xs mt-1.5 min-h-[16px]"></div>
+    </div>`;
 
   $('client-detail').innerHTML = `
     <button onclick="$('client-detail').innerHTML='';$('clients-list-panel').classList.remove('hidden');$('client-detail').classList.add('hidden')"
@@ -119,6 +138,7 @@ async function showAccountDetail(id) {
       <div>
         <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-2">Contacts (${a.contacts.length})</p>
         ${contactsHtml}
+        ${addContactHtml}
       </div>
       <div>
         <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-2">Leads (${a.leads.length})</p>
@@ -166,6 +186,38 @@ async function deleteAccount(id) {
   if (!confirm('Remove this account? Linked leads and contacts will also be removed.')) return;
   await fetch('/api/accounts/' + id, { method: 'DELETE' });
   loadClients();
+}
+
+async function addContact(accountId) {
+  const name = $('new-contact-name').value.trim();
+  const msgEl = $('contact-msg');
+  if (!name) { msg(msgEl, 'Name is required.', 'err'); return; }
+
+  const res = await fetch('/api/contacts', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name,
+      accountId,
+      title: $('new-contact-title').value.trim() || undefined,
+      email: $('new-contact-email').value.trim() || undefined,
+      phone: $('new-contact-phone').value.trim() || undefined,
+      vip:   $('new-contact-vip').checked || undefined,
+    }),
+  });
+
+  if (res.ok) {
+    msg(msgEl, 'Contact added.', 'ok');
+    showAccountDetail(accountId); // refresh detail view
+  } else {
+    const e = await res.json().catch(() => ({}));
+    msg(msgEl, [].concat(e.message || 'Failed').join(', '), 'err');
+  }
+}
+
+async function deleteContact(contactId, accountId) {
+  if (!confirm('Remove this contact?')) return;
+  await fetch('/api/contacts/' + contactId, { method: 'DELETE' });
+  showAccountDetail(accountId);
 }
 
 $('acc-add').addEventListener('click', addAccount);
