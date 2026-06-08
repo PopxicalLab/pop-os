@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(git push *)",
-      "Bash(git commit -m ' *)"
+      "Bash(git commit -m ' *)",
+      "mcp__claude_ai_Airtable__list_bases",
+      "mcp__claude_ai_Airtable__list_tables_for_base",
+      "mcp__claude_ai_Airtable__list_records_for_table",
+      "mcp__claude_ai_Airtable__get_table_schema"
     ]
   }
 }

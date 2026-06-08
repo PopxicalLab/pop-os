@@ -196,6 +196,12 @@
         <button id="tab-btn-assets"
           class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
           onclick="switchTab('assets')">Assets</button>
+        <button id="tab-btn-sales"
+          class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
+          onclick="switchTab('sales')">Sales</button>
+        <button id="tab-btn-clients"
+          class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
+          onclick="switchTab('clients')">Clients</button>
         <button id="tab-btn-production"
           class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
           onclick="switchTab('production')">Production</button>
@@ -650,6 +656,125 @@
   </div>
 
   <!-- ════════════════════════════════════════════════════
+       PANEL: SALES
+  ════════════════════════════════════════════════════ -->
+  <div class="panel hidden" id="tab-sales">
+    <div class="max-w-7xl mx-auto px-5 py-6 grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5 items-start">
+
+      <!-- Left: add lead form -->
+      <div class="bg-panel border border-line rounded-xl p-5">
+        <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-4">Add a lead</h2>
+        <label class="form-label" style="margin-top:0">Lead name</label>
+        <input id="lead-name" class="form-input" placeholder="e.g. Petronas Brand Film" />
+        <label class="form-label">Account</label>
+        <select id="lead-account" class="form-input cursor-pointer"><option value="">— no account —</option></select>
+        <label class="form-label">Status</label>
+        <select id="lead-status" class="form-input cursor-pointer">
+          <option value="QUALIFICATION">Qualification</option>
+          <option value="PROPOSAL">Proposal</option>
+          <option value="NEGOTIATION">Negotiation</option>
+          <option value="WON">Won</option>
+          <option value="LOST">Lost</option>
+        </select>
+        <label class="form-label">Priority</label>
+        <select id="lead-priority" class="form-input cursor-pointer">
+          <option value="VERY_HIGH">Very high</option>
+          <option value="HIGH">High</option>
+          <option value="MEDIUM" selected>Medium</option>
+          <option value="LOW">Low</option>
+        </select>
+        <label class="form-label">Est. value (RM)</label>
+        <input id="lead-value" type="number" min="0" step="1000" class="form-input" placeholder="e.g. 50000" />
+        <label class="form-label">Closed by</label>
+        <select id="lead-closed-by" class="form-input cursor-pointer"><option value="">— unassigned —</option></select>
+        <label class="form-label">Company</label>
+        <select id="lead-company" class="form-input cursor-pointer">
+          <option value="">— not set —</option>
+          <option value="LPS">LPS</option>
+          <option value="PXL">PXL</option>
+        </select>
+        <button id="lead-add"
+          class="mt-4 w-full bg-accent text-bg font-semibold py-2.5 rounded-lg text-sm
+                 hover:brightness-110 transition-all duration-150 cursor-pointer">
+          Add lead
+        </button>
+        <div id="sales-msg" class="text-xs mt-2 min-h-[18px]"></div>
+      </div>
+
+      <!-- Right: pipeline board -->
+      <div class="bg-panel border border-line rounded-xl p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">Pipeline</h2>
+          <div id="sales-stats" class="text-xs text-muted"></div>
+        </div>
+        <div id="sales-board">
+          <div class="text-center text-muted text-sm py-10">Switch to this tab to load the pipeline.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════
+       PANEL: CLIENTS
+  ════════════════════════════════════════════════════ -->
+  <div class="panel hidden" id="tab-clients">
+    <div class="max-w-7xl mx-auto px-5 py-6 grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5 items-start">
+
+      <!-- Left: add account form -->
+      <div class="bg-panel border border-line rounded-xl p-5">
+        <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-4">Add an account</h2>
+        <label class="form-label" style="margin-top:0">Company name</label>
+        <input id="acc-name" class="form-input" placeholder="e.g. Petronas" />
+        <label class="form-label">Industry</label>
+        <input id="acc-industry" class="form-input" placeholder="e.g. Direct Client" />
+        <label class="form-label">Size</label>
+        <select id="acc-size" class="form-input cursor-pointer">
+          <option value="">— not set —</option>
+          <option>1-10</option>
+          <option>11-50</option>
+          <option>51-100</option>
+          <option>101-500</option>
+          <option>501-1,000</option>
+          <option>1,000+</option>
+        </select>
+        <label class="form-label">Website</label>
+        <input id="acc-website" class="form-input" placeholder="https://..." />
+        <label class="form-label">Company</label>
+        <select id="acc-company" class="form-input cursor-pointer">
+          <option value="">— not set —</option>
+          <option value="LPS">LPS</option>
+          <option value="PXL">PXL</option>
+        </select>
+        <button id="acc-add"
+          class="mt-4 w-full bg-accent text-bg font-semibold py-2.5 rounded-lg text-sm
+                 hover:brightness-110 transition-all duration-150 cursor-pointer">
+          Add account
+        </button>
+        <div id="acc-msg" class="text-xs mt-2 min-h-[18px]"></div>
+      </div>
+
+      <!-- Right: account list + detail -->
+      <div class="bg-panel border border-line rounded-xl p-5">
+        <div id="clients-list-panel">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">Accounts</h2>
+              <div id="clients-stats" class="text-xs text-muted mt-0.5"></div>
+            </div>
+            <input id="client-search" class="form-input w-48 text-xs" placeholder="Search accounts…" style="margin-top:0" />
+          </div>
+          <div id="clients-list">
+            <div class="text-center text-muted text-sm py-10">Switch to this tab to load clients.</div>
+          </div>
+        </div>
+        <div id="client-detail" class="hidden"></div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════
        PANEL: PRODUCTION
   ════════════════════════════════════════════════════ -->
   <div class="panel hidden" id="tab-production">
@@ -821,6 +946,8 @@
       else if (active === 'people')      load();
       else if (active === 'projects')    loadProjects();
       else if (active === 'capacity')    loadCapacityBoard();
+      else if (active === 'sales')       loadSales();
+      else if (active === 'clients')     loadClients();
       else if (active === 'production')  loadProductionLanes();
       else if (active === 'financial')   loadFinancial();
       // staffing doesn't filter by company — all people shown regardless
@@ -850,7 +977,7 @@
 
     // ── tab switching ────────────────────────────────────────────
     function switchTab(name) {
-      ['dashboard', 'people', 'projects', 'capacity', 'assets', 'production', 'financial', 'staffing'].forEach(t => {
+      ['dashboard', 'people', 'projects', 'capacity', 'assets', 'sales', 'clients', 'production', 'financial', 'staffing'].forEach(t => {
         const active = t === name;
         $('tab-btn-' + t).className = active
           ? 'px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 bg-panel text-ink'
@@ -860,6 +987,8 @@
       if (name === 'capacity')  loadCapacityBoard();
       if (name === 'dashboard') loadDashboard();
       if (name === 'assets')     { loadAssetProjects().then(loadAssets); }
+      if (name === 'sales')      { initSalesTab().then(loadSales); }
+      if (name === 'clients')    { loadClients(); }
       if (name === 'production') { loadProductionLanes(); }
       if (name === 'financial')  { loadFinancial(); }
       if (name === 'staffing')   { initStaffingTab(); loadStaffingCandidates(); }
@@ -979,6 +1108,8 @@
   <script src="/js/capacity.js"></script>
   <script src="/js/dashboard.js"></script>
   <script src="/js/assets.js"></script>
+  <script src="/js/sales.js"></script>
+  <script src="/js/clients.js"></script>
   <script src="/js/production.js"></script>
   <script src="/js/financial.js"></script>
   <script src="/js/staffing.js"></script>

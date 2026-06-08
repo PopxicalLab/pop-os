@@ -106,6 +106,9 @@ model Person {
   // Weekly capacity allocations across projects.
   capacityEntries    Capacity[]
 
+  // Leads this person closed (as the winning or losing salesperson).
+  leadsWon           Lead[]      @relation("LeadClosedBy")
+
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 }
@@ -194,14 +197,109 @@ model Project {
   clientTier        ClientTier? // how established the relationship is
   marginTarget      Float?     // target gross margin as a percentage (0–100)
 
+  // The client company this project belongs to (replaces free-text client field over time).
+  accountId   String?
+  account     Account?        @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
   // Weekly capacity allocations for this project.
   capacityEntries Capacity[]
 
   // Deliverables tracked through the SOP pipeline.
   assets          Asset[]
 
+  // The lead that originated this project (set when a won lead is converted).
+  lead            Lead?
+
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
+}
+
+// ── SALES ENUMS ──────────────────────────────────────────────────
+
+// Where a lead sits in the sales pipeline.
+enum LeadStatus {
+  QUALIFICATION  // first contact, assessing fit
+  PROPOSAL       // quote / brief sent
+  NEGOTIATION    // terms being agreed
+  WON            // deal confirmed
+  LOST           // deal not taken forward
+}
+
+// How urgently the sales team is prioritising this lead.
+enum LeadPriority {
+  VERY_HIGH
+  HIGH
+  MEDIUM
+  LOW
+}
+
+// ── ACCOUNT ──────────────────────────────────────────────────────
+// A client company. Single source of truth — leads AND projects link here.
+model Account {
+  id          String   @id @default(cuid())
+  name        String
+  industry    String?  // e.g. "Advertising Agency", "Direct Client", "Event"
+  size        String?  // e.g. "1-10", "11-50", "51-100", "501-1,000"
+  website     String?
+  address     String?
+  company     Company? // which studio manages this account
+  airtableId  String?  @unique // original Airtable record ID — prevents duplicate imports
+
+  contacts  Contact[]
+  leads     Lead[]
+  projects  Project[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ── CONTACT ──────────────────────────────────────────────────────
+// A person at a client company. Can be linked to leads.
+model Contact {
+  id         String   @id @default(cuid())
+  name       String
+  accountId  String
+  email      String?
+  phone      String?
+  title      String?  // job title
+  department String?
+  vip        Boolean  @default(false) // key decision-maker flag
+  airtableId String?  @unique
+
+  account Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  leads   Lead[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ── LEAD ─────────────────────────────────────────────────────────
+// A sales opportunity. Converts to a Project when won.
+model Lead {
+  id             String       @id @default(cuid())
+  name           String
+  accountId      String?
+  contactId      String?
+  status         LeadStatus   @default(QUALIFICATION)
+  priority       LeadPriority @default(MEDIUM)
+  estimatedValue Float?
+  invoicedPct    Int          @default(0) // 0 / 30 / 50 / 70 / 100
+  paidPct        Int          @default(0) // 0 / 20 / 25 / 30 / 40 / 50 / 60 / 70 / 80 / 100
+  paymentDate    DateTime?
+  completed      Boolean      @default(false)
+  notes          String?
+  closedById     String?      // who won or lost this deal
+  projectId      String?      @unique // set when converted to a Project
+  company        Company?
+  airtableId     String?      @unique
+
+  account   Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  closedBy  Person?  @relation("LeadClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
+  project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ── ASSET STAGE ──────────────────────────────────────────────────

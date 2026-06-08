@@ -6,6 +6,7 @@ import { CreateProjectDto, UpdateProjectDto } from './project.dto';
 const WITH_PEOPLE = {
   producer: { select: { id: true, name: true, role: true } },
   pm:       { select: { id: true, name: true, role: true } },
+  account:  { select: { id: true, name: true, industry: true } },
 } as const;
 
 @Injectable()

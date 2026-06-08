@@ -5,7 +5,8 @@
       "Bash(npx prisma *)",
       "PowerShell(Get-Process *)",
       "PowerShell(Stop-Process *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(git commit -m ' *)"
     ]
   }
 }
