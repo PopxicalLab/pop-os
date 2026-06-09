@@ -29,6 +29,22 @@ function fmtMYR(n) {
   return 'RM ' + Number(n).toLocaleString('en-MY', { maximumFractionDigits: 0 });
 }
 
+function isAdmin() {
+  try { return JSON.parse(localStorage.getItem('pop-os-user') || '{}').role === 'ADMIN'; } catch { return false; }
+}
+
+// Lock icon SVG — filled green if linked, outline grey if not
+function lockIcon(linked) {
+  return linked
+    ? `<svg class="w-4 h-4 text-emerald-400" fill="currentColor" viewBox="0 0 24 24">
+         <path d="M12 1a5 5 0 00-5 5v2H5a2 2 0 00-2 2v10a2 2 0 002 2h14a2 2 0 002-2V10a2 2 0 00-2-2h-2V6a5 5 0 00-5-5zm0 2a3 3 0 013 3v2H9V6a3 3 0 013-3zm0 9a2 2 0 110 4 2 2 0 010-4z"/>
+       </svg>`
+    : `<svg class="w-4 h-4 text-line hover:text-muted transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+           d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+       </svg>`;
+}
+
 // ── column visibility (same pattern as Projects tab) ─────────
 
 const PEOPLE_COLS = [
@@ -156,6 +172,17 @@ async function load() {
         <div id="area-${p.id}"></div>
       </td>
       <td class="py-3 px-2 whitespace-nowrap">${statusBadge}</td>
+      <td class="py-3 px-2 whitespace-nowrap text-center">
+        ${isAdmin()
+          ? `<button title="${p.user ? 'Login: ' + p.user.email : 'No login — click to create'}"
+               data-login="${p.id}" data-has-login="${p.user ? '1' : '0'}"
+               class="inline-flex items-center justify-center w-7 h-7 rounded-lg
+                      hover:bg-panel2 transition-colors cursor-pointer">
+               ${lockIcon(!!p.user)}
+             </button>`
+          : (p.user ? lockIcon(true) : '')
+        }
+      </td>
       <td class="py-3 px-2 whitespace-nowrap">
         <button class="btn-del" data-del="${p.id}">Remove</button>
       </td>`;
@@ -164,6 +191,10 @@ async function load() {
   rows.querySelectorAll('[data-del]').forEach(b => b.onclick = () => removePerson(b.dataset.del));
   rows.querySelectorAll('[data-assign]').forEach(b => b.onclick = () => showAssign(b.dataset.assign));
   rows.querySelectorAll('[data-ps]').forEach(b => b.onclick = () => showChange(b.dataset.ps, b));
+  rows.querySelectorAll('[data-login]').forEach(b => {
+    const person = PEOPLE.find(p => p.id === b.dataset.login);
+    b.onclick = () => openLoginModal(person);
+  });
   applyPeopleColVisibility();
   populatePersonDropdowns();
 }
@@ -336,3 +367,100 @@ function populatePersonDropdowns() {
 }
 
 $('add').addEventListener('click', addPerson);
+
+// ── Login modal ───────────────────────────────────────────────────────────────
+
+function openLoginModal(person) {
+  // Build modal if it doesn't exist yet
+  let modal = $('login-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'login-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center';
+    document.body.appendChild(modal);
+  }
+
+  if (person.user) {
+    // Already linked — show info only
+    modal.innerHTML = `
+      <div class="absolute inset-0 bg-bg/80 backdrop-blur-sm" onclick="closeLoginModal()"></div>
+      <div class="relative bg-panel border border-line rounded-2xl p-6 w-full max-w-sm mx-4 z-10">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-semibold text-ink">Login account</h2>
+          <button onclick="closeLoginModal()" class="text-muted hover:text-ink text-lg leading-none cursor-pointer">×</button>
+        </div>
+        <div class="flex items-center gap-2 mb-4">
+          <div>${lockIcon(true)}</div>
+          <div>
+            <p class="text-xs font-semibold text-ink">${esc(person.name)}</p>
+            <p class="text-[11px] text-muted">${esc(person.user.email)}</p>
+          </div>
+        </div>
+        <div class="bg-panel2 rounded-lg p-3 text-xs text-muted space-y-1">
+          <p>Role: <span class="text-ink font-medium">${person.user.role}</span></p>
+          <p>Status: <span class="${person.user.active ? 'text-emerald-400' : 'text-warm'} font-medium">${person.user.active ? 'Active' : 'Disabled'}</span></p>
+        </div>
+        <p class="text-[11px] text-muted mt-3">To change the password or role, use the admin User Manager (your name → Manage users).</p>
+      </div>`;
+  } else {
+    // No login yet — show create form
+    const ROLE_OPTS = ['PRODUCER','SALES','FINANCE','ADMIN'].map(r =>
+      `<option value="${r}"${r === 'PRODUCER' ? ' selected' : ''}>${r[0] + r.slice(1).toLowerCase()}</option>`
+    ).join('');
+
+    modal.innerHTML = `
+      <div class="absolute inset-0 bg-bg/80 backdrop-blur-sm" onclick="closeLoginModal()"></div>
+      <div class="relative bg-panel border border-line rounded-2xl p-6 w-full max-w-sm mx-4 z-10">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-semibold text-ink">Create login for ${esc(person.name)}</h2>
+          <button onclick="closeLoginModal()" class="text-muted hover:text-ink text-lg leading-none cursor-pointer">×</button>
+        </div>
+        <label class="block text-xs text-muted font-medium mb-1.5">Email</label>
+        <input id="lm-email" class="form-input text-xs mb-3" style="margin-top:0"
+          placeholder="name@pop.studio" />
+        <label class="block text-xs text-muted font-medium mb-1.5">Password</label>
+        <input id="lm-pw" type="password" class="form-input text-xs mb-3" style="margin-top:0"
+          placeholder="Min 6 characters" />
+        <label class="block text-xs text-muted font-medium mb-1.5">Role</label>
+        <select id="lm-role" class="form-input text-xs cursor-pointer mb-4" style="margin-top:0">
+          ${ROLE_OPTS}
+        </select>
+        <button onclick="createPersonLogin('${person.id}')"
+          class="w-full bg-accent text-bg text-xs font-semibold py-2.5 rounded-lg
+                 hover:brightness-110 transition-all cursor-pointer">
+          Create login
+        </button>
+        <div id="lm-msg" class="text-xs mt-2 min-h-[16px]"></div>
+      </div>`;
+  }
+
+  modal.classList.remove('hidden');
+}
+
+function closeLoginModal() {
+  const modal = $('login-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function createPersonLogin(personId) {
+  const email = $('lm-email').value.trim();
+  const pw    = $('lm-pw').value;
+  const role  = $('lm-role').value;
+  const msgEl = $('lm-msg');
+
+  if (!email || !pw) { msg(msgEl, 'Email and password are required.', 'err'); return; }
+
+  const person = PEOPLE.find(p => p.id === personId);
+  const res = await fetch('/api/users', {
+    method: 'POST',
+    body: JSON.stringify({ name: person?.name || '', email, password: pw, role, personId }),
+  });
+
+  if (res.ok) {
+    msg(msgEl, 'Login created.', 'ok');
+    setTimeout(() => { closeLoginModal(); load(); }, 800);
+  } else {
+    const e = await res.json().catch(() => ({}));
+    msg(msgEl, [].concat(e.message || 'Failed').join(', '), 'err');
+  }
+}

@@ -108,6 +108,7 @@ model Person {
 
   // Leads this person closed (as the winning or losing salesperson).
   leadsWon           Lead[]      @relation("LeadClosedBy")
+  user               User?       // login account, if this person has one
 
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -210,8 +211,25 @@ model Project {
   // The lead that originated this project (set when a won lead is converted).
   lead            Lead?
 
+  accountingDocuments AccountingDocument[] // quotations and invoices tied to this project
+
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
+}
+
+// ── ACCOUNTING DOCUMENT ENUMS ────────────────────────────────────
+// What kind of Autocount document this is.
+enum DocType {
+  QUOTATION
+  SALES_INVOICE
+  PURCHASE_INVOICE
+}
+
+// Whether the document is still active, has been voided, or is fully paid.
+enum DocStatus {
+  ACTIVE
+  VOID
+  PAID
 }
 
 // ── SALES ENUMS ──────────────────────────────────────────────────
@@ -243,7 +261,8 @@ model Account {
   website     String?
   address     String?
   company     Company? // which studio manages this account
-  airtableId  String?  @unique // original Airtable record ID — prevents duplicate imports
+  airtableId          String?  @unique // original Airtable record ID — prevents duplicate imports
+  autocountDebtorCode String?           // Autocount debtor code (e.g. "300-A001") — set once, reused for all quotes/invoices
 
   contacts  Contact[]
   leads     Lead[]
@@ -293,6 +312,8 @@ model Lead {
   company        Company?
   airtableId     String?      @unique
 
+  accountingDocuments AccountingDocument[] // quotations and invoices generated from this lead
+
   account   Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
   contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
   closedBy  Person?  @relation("LeadClosedBy", fields: [closedById], references: [id], onDelete: SetNull)
@@ -336,6 +357,33 @@ model Capacity {
   @@unique([personId, projectId, weekStart])
 }
 
+// ── USER ROLES ───────────────────────────────────────────────────
+// Controls what each user can see and do in Pop OS.
+enum Role {
+  ADMIN    // full access to everything
+  PRODUCER // projects, capacity, assets, production, people, staffing
+  SALES    // sales pipeline and clients only
+  FINANCE  // financial tab + read-only projects
+}
+
+// ── USER ─────────────────────────────────────────────────────────
+// App login accounts. Separate from Person — a Person is a studio
+// staff record; a User is a Pop OS login credential.
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String   // bcrypt hash — never store plain text
+  role      Role     @default(PRODUCER)
+  active    Boolean  @default(true)
+  // Optional link to a Person record — set when a staff member gets a login.
+  // Enables the future personal dashboard (My week, My projects, My skills).
+  personId  String?  @unique
+  person    Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 // ── ASSET ─────────────────────────────────────────────────────────
 // One deliverable inside a project. Moves through SOP stages freely
 // (no enforced sequence). CD sign-off is a soft gate at INTERNAL_REVIEW.
@@ -352,4 +400,36 @@ model Asset {
 
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
+}
+
+// ── ACCOUNTING DOCUMENT ───────────────────────────────────────────
+// One Autocount document (quotation, invoice, purchase invoice) tied
+// to a project. Multiple documents per project are normal — milestone
+// billing, revised quotes, partial invoices all create separate rows.
+// The dueDate drives the payment alert system in the Dashboard.
+model AccountingDocument {
+  id           String    @id @default(cuid())
+  projectId    String?   // null only if created from a lead before conversion
+  leadId       String?   // the lead that originated this document (quotations)
+
+  docType      DocType
+  docNo        String    // Autocount document number, e.g. "QT_0626-004"
+  docDate      DateTime
+  dueDate      DateTime? // null for C.O.D. or unparseable terms; otherwise docDate + term days
+  amount       Float?    // estimated value at time of push — sync later if needed
+
+  debtorCode   String?   // Autocount debtor/creditor account code
+  debtorName   String?
+  creditTerm   String?   // stored as-is: "C.O.D.", "NET 30", etc.
+  notes        String?
+
+  status       DocStatus @default(ACTIVE)
+  // Set when the 10-day dashboard reminder has been shown — prevents repeat alerts.
+  notifiedAt   DateTime?
+
+  project      Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  lead         Lead?     @relation(fields: [leadId],    references: [id], onDelete: SetNull)
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }

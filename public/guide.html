@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pop OS — Getting Started Guide</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { colors: {
+        bg: '#111009', panel: '#191814', panel2: '#201e19',
+        line: '#2c2920', ink: '#e4e0d4', muted: '#857f73',
+        accent: '#d4a23a', warm: '#c05535',
+      }}}
+    };
+  </script>
+  <style>
+    body { background: #111009; color: #e4e0d4; font-family: system-ui, sans-serif; }
+    @media print {
+      body { background: white; color: #111; }
+      .no-print { display: none; }
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-bg text-ink">
+
+  <!-- Header -->
+  <div class="border-b border-line bg-panel">
+    <div class="max-w-3xl mx-auto px-6 py-5 flex items-center justify-between">
+      <div>
+        <h1 class="text-xl font-bold text-ink">Pop OS</h1>
+        <p class="text-sm text-muted mt-0.5">Getting Started — Director's Guide</p>
+      </div>
+      <div class="flex gap-3 no-print">
+        <button onclick="window.print()"
+          class="text-xs bg-panel2 border border-line text-muted px-3 py-1.5 rounded-lg hover:text-ink cursor-pointer">
+          Print / Save PDF
+        </button>
+        <a href="/login.html"
+          class="text-xs bg-accent/20 border border-accent/40 text-accent px-3 py-1.5 rounded-lg hover:bg-accent/30">
+          Go to Login →
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="max-w-3xl mx-auto px-6 py-10 space-y-12">
+
+    <!-- Welcome -->
+    <section>
+      <h2 class="text-2xl font-bold text-ink mb-3">Welcome to Pop OS</h2>
+      <p class="text-muted leading-relaxed">
+        Pop OS is Pop Group's internal operating system — a single place to see every active project,
+        who's working on what, where the money is, and what needs attention today.
+        This guide walks you through logging in and the sections most relevant to you as a director.
+      </p>
+    </section>
+
+    <!-- Step 1: Login -->
+    <section>
+      <div class="flex items-center gap-3 mb-4">
+        <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">1</span>
+        <h2 class="text-lg font-semibold text-ink">Logging In</h2>
+      </div>
+      <div class="bg-panel border border-line rounded-xl p-6 space-y-4">
+        <p class="text-muted text-sm">Open a browser and go to:</p>
+        <div class="bg-panel2 border border-line rounded-lg px-4 py-3 font-mono text-accent text-sm">
+          http://192.168.1.40:3000/login.html
+        </div>
+        <p class="text-muted text-sm">Use the credentials your admin has set up for you. If you haven't received them yet, ask the team admin.</p>
+        <div class="bg-panel2 border border-line rounded-lg p-4 space-y-2">
+          <p class="text-xs text-muted font-semibold uppercase tracking-wider">Your account access level</p>
+          <div class="grid grid-cols-2 gap-3 text-sm mt-2">
+            <div class="bg-panel border border-line rounded-lg p-3">
+              <p class="font-semibold text-ink">FINANCE</p>
+              <p class="text-xs text-muted mt-1">Financial dashboard + read-only project view</p>
+            </div>
+            <div class="bg-panel border border-line rounded-lg p-3">
+              <p class="font-semibold text-ink">ADMIN</p>
+              <p class="text-xs text-muted mt-1">Full access to everything including user management</p>
+            </div>
+          </div>
+        </div>
+        <p class="text-xs text-muted">After logging in you'll be taken to the Dashboard. Your name appears in the top-right corner.</p>
+      </div>
+    </section>
+
+    <!-- Step 2: Dashboard -->
+    <section>
+      <div class="flex items-center gap-3 mb-4">
+        <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">2</span>
+        <h2 class="text-lg font-semibold text-ink">The Dashboard</h2>
+      </div>
+      <div class="bg-panel border border-line rounded-xl p-6 space-y-4">
+        <p class="text-muted text-sm leading-relaxed">
+          The Dashboard is your daily health check. It loads automatically when you log in.
+          Three panels show what matters right now:
+        </p>
+        <div class="space-y-3">
+          <div class="flex gap-3">
+            <div class="w-2 h-2 rounded-full bg-accent mt-1.5 shrink-0"></div>
+            <div>
+              <p class="text-sm font-medium text-ink">Active Projects</p>
+              <p class="text-xs text-muted mt-0.5">Every live project with its priority, quadrant, status, and deadline. Red deadline = overdue.</p>
+            </div>
+          </div>
+          <div class="flex gap-3">
+            <div class="w-2 h-2 rounded-full bg-accent mt-1.5 shrink-0"></div>
+            <div>
+              <p class="text-sm font-medium text-ink">This Week</p>
+              <p class="text-xs text-muted mt-0.5">Who is allocated to what this week, and at what percentage. Unallocated staff are flagged at the bottom.</p>
+            </div>
+          </div>
+          <div class="flex gap-3">
+            <div class="w-2 h-2 rounded-full bg-accent mt-1.5 shrink-0"></div>
+            <div>
+              <p class="text-sm font-medium text-ink">Overdue / Alerts</p>
+              <p class="text-xs text-muted mt-0.5">Projects past their deadline. These need immediate attention.</p>
+            </div>
+          </div>
+          <div class="flex gap-3">
+            <div class="w-2 h-2 rounded-full bg-warm mt-1.5 shrink-0"></div>
+            <div>
+              <p class="text-sm font-medium text-ink">Payment Alerts <span class="text-warm text-xs">(new)</span></p>
+              <p class="text-xs text-muted mt-0.5">Invoices due within 10 days, with the producer responsible listed. This panel only appears when there are upcoming payments.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 3: Financial tab -->
+    <section>
+      <div class="flex items-center gap-3 mb-4">
+        <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">3</span>
+        <h2 class="text-lg font-semibold text-ink">Financial Dashboard</h2>
+      </div>
+      <div class="bg-panel border border-line rounded-xl p-6 space-y-5">
+        <p class="text-muted text-sm leading-relaxed">
+          Click <strong class="text-ink">Financial</strong> in the top navigation to open the Finance Dashboard.
+          This is designed specifically for the finance view — the first thing you see is the money position.
+        </p>
+
+        <!-- KPI Cards -->
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-muted mb-3">Top row — 4 KPI cards</p>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="bg-panel2 border border-line rounded-lg p-4">
+              <p class="text-xs text-muted">Outstanding AR</p>
+              <p class="text-lg font-bold text-ink mt-1">RM X,XXX</p>
+              <p class="text-xs text-muted mt-1">Total value of active unpaid invoices</p>
+            </div>
+            <div class="bg-panel2 border border-line rounded-lg p-4">
+              <p class="text-xs text-muted">Overdue</p>
+              <p class="text-lg font-bold text-warm mt-1">RM X,XXX</p>
+              <p class="text-xs text-muted mt-1">Invoices past their payment term — turns red when non-zero</p>
+            </div>
+            <div class="bg-panel2 border border-line rounded-lg p-4">
+              <p class="text-xs text-muted">Total Invoiced</p>
+              <p class="text-lg font-bold text-ink mt-1">RM X,XXX</p>
+              <p class="text-xs text-muted mt-1">Cumulative value of all invoices raised</p>
+            </div>
+            <div class="bg-panel2 border border-line rounded-lg p-4">
+              <p class="text-xs text-muted">Collected</p>
+              <p class="text-lg font-bold text-emerald-400 mt-1">RM X,XXX</p>
+              <p class="text-xs text-muted mt-1">Total paid — shown as % of invoiced</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Alert panels -->
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-muted mb-3">Second row — payment alerts</p>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="bg-panel2 border border-warm/30 rounded-lg p-4">
+              <p class="text-xs font-semibold text-warm mb-2">Overdue Invoices</p>
+              <p class="text-xs text-muted">Lists every invoice past its due date — invoice number, project name, amount, how many days overdue, and which producer to contact.</p>
+            </div>
+            <div class="bg-panel2 border border-yellow-500/30 rounded-lg p-4">
+              <p class="text-xs font-semibold text-yellow-400 mb-2">Due Within 10 Days</p>
+              <p class="text-xs text-muted">Upcoming invoices with a countdown. Forward to the producer to start chasing payment now.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pipeline + Health -->
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-muted mb-3">Third row — pipeline &amp; project health</p>
+          <div class="grid grid-cols-2 gap-3">
+            <div class="bg-panel2 border border-line rounded-lg p-4">
+              <p class="text-xs font-semibold text-muted mb-2">Sales Pipeline</p>
+              <p class="text-xs text-muted">Total value of active leads broken down by stage (Qualification → Proposal → Negotiation → Won).</p>
+            </div>
+            <div class="bg-panel2 border border-line rounded-lg p-4">
+              <p class="text-xs font-semibold text-muted mb-2">Project Health</p>
+              <p class="text-xs text-muted">
+                <span class="text-emerald-400 font-medium">Green</span> = on track ·
+                <span class="text-yellow-400 font-medium">Amber</span> = cost &gt; 60% of value ·
+                <span class="text-warm font-medium">Red</span> = cost &gt; 85% of value
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-panel2 border border-line rounded-lg p-4">
+          <p class="text-xs font-semibold text-muted mb-2">Bottom — Project Cost Breakdown</p>
+          <p class="text-xs text-muted">Full table of every active project: estimated value, man-day cost to date, budget remaining, gross margin, and how it compares to the target margin. Sorted worst-first (red projects at the top).</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 4: Navigation -->
+    <section>
+      <div class="flex items-center gap-3 mb-4">
+        <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">4</span>
+        <h2 class="text-lg font-semibold text-ink">Navigation Overview</h2>
+      </div>
+      <div class="bg-panel border border-line rounded-xl p-6">
+        <p class="text-muted text-sm mb-4">The top navigation is grouped into five areas. Some areas are only visible based on your role.</p>
+        <div class="space-y-3">
+          <div class="flex gap-3 items-start">
+            <span class="text-xs bg-panel2 border border-line text-muted px-2 py-0.5 rounded font-mono shrink-0 mt-0.5">Dashboard</span>
+            <p class="text-xs text-muted">Studio health at a glance — projects, capacity, alerts.</p>
+          </div>
+          <div class="flex gap-3 items-start">
+            <span class="text-xs bg-panel2 border border-line text-muted px-2 py-0.5 rounded font-mono shrink-0 mt-0.5">Sales ▾</span>
+            <p class="text-xs text-muted">Sales pipeline (leads by stage) and client accounts. Sales role only.</p>
+          </div>
+          <div class="flex gap-3 items-start">
+            <span class="text-xs bg-panel2 border border-line text-muted px-2 py-0.5 rounded font-mono shrink-0 mt-0.5">Production ▾</span>
+            <p class="text-xs text-muted">Projects, Assets (deliverables), Production engine, and Capacity board.</p>
+          </div>
+          <div class="flex gap-3 items-start">
+            <span class="text-xs bg-panel2 border border-line text-accent px-2 py-0.5 rounded font-mono shrink-0 mt-0.5 border-accent/40">Financial</span>
+            <p class="text-xs text-muted">Finance dashboard — AR position, overdue invoices, project margins. Finance + Admin only.</p>
+          </div>
+          <div class="flex gap-3 items-start">
+            <span class="text-xs bg-panel2 border border-line text-muted px-2 py-0.5 rounded font-mono shrink-0 mt-0.5">HR ▾</span>
+            <p class="text-xs text-muted">People (staff records + skills) and Staffing recommendations.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 5: Autocount -->
+    <section>
+      <div class="flex items-center gap-3 mb-4">
+        <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">5</span>
+        <h2 class="text-lg font-semibold text-ink">Autocount Integration</h2>
+      </div>
+      <div class="bg-panel border border-line rounded-xl p-6 space-y-4">
+        <p class="text-muted text-sm leading-relaxed">
+          Pop OS is connected to your Autocount Cloud account. Quotations and invoices can be created directly from Pop OS —
+          they appear in Autocount automatically with the correct client and amount pre-filled.
+        </p>
+        <div class="space-y-3">
+          <div class="flex gap-3">
+            <div class="w-2 h-2 rounded-full bg-sky-400 mt-1.5 shrink-0"></div>
+            <div>
+              <p class="text-sm font-medium text-ink">Push Quotation (from Sales tab)</p>
+              <p class="text-xs text-muted mt-0.5">On a WON lead, click <em>"↑ Push quotation"</em>. Select the Autocount debtor and confirm. The quotation number (e.g. QT_0626-004) appears on the lead card.</p>
+            </div>
+          </div>
+          <div class="flex gap-3">
+            <div class="w-2 h-2 rounded-full bg-sky-400 mt-1.5 shrink-0"></div>
+            <div>
+              <p class="text-sm font-medium text-ink">Push Invoice (from Projects tab)</p>
+              <p class="text-xs text-muted mt-0.5">Open a project's detail view and click <em>"↑ Push invoice"</em>. The invoice is created in Autocount and tracked here with its due date.</p>
+            </div>
+          </div>
+          <div class="flex gap-3">
+            <div class="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 shrink-0"></div>
+            <div>
+              <p class="text-sm font-medium text-ink">Mark as Paid / Void</p>
+              <p class="text-xs text-muted mt-0.5">In the project detail's "Accounting Documents" section, use the dropdown on any document to mark it Paid or Void. This updates the Finance Dashboard immediately.</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-panel2 border border-line rounded-lg p-4">
+          <p class="text-xs text-warm font-semibold mb-1">Important</p>
+          <p class="text-xs text-muted">Pop OS initiates documents in Autocount but does not replace it. Tax calculations, bank reconciliation, and financial statements all remain in Autocount. Pop OS just adds project context.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tips -->
+    <section>
+      <div class="flex items-center gap-3 mb-4">
+        <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">6</span>
+        <h2 class="text-lg font-semibold text-ink">Quick Tips</h2>
+      </div>
+      <div class="bg-panel border border-line rounded-xl p-6">
+        <div class="space-y-3 text-sm">
+          <div class="flex gap-2">
+            <span class="text-accent shrink-0">→</span>
+            <p class="text-muted">Use the <strong class="text-ink">LPS / PXL</strong> buttons in the header to filter everything by studio.</p>
+          </div>
+          <div class="flex gap-2">
+            <span class="text-accent shrink-0">→</span>
+            <p class="text-muted">The Finance Dashboard refreshes every time you click the Financial tab — you always see live data.</p>
+          </div>
+          <div class="flex gap-2">
+            <span class="text-accent shrink-0">→</span>
+            <p class="text-muted">Red dots in Project Health = cost has exceeded 85% of estimated value. That project needs attention.</p>
+          </div>
+          <div class="flex gap-2">
+            <span class="text-accent shrink-0">→</span>
+            <p class="text-muted">Payment alerts with a producer name listed — that producer is the right person to chase the client.</p>
+          </div>
+          <div class="flex gap-2">
+            <span class="text-accent shrink-0">→</span>
+            <p class="text-muted">Click any project name in the Projects tab for a full detail view: PPM recommendation, assets, cost breakdown, and accounting documents.</p>
+          </div>
+          <div class="flex gap-2">
+            <span class="text-accent shrink-0">→</span>
+            <p class="text-muted">To sign out, click your name in the top-right and select "Sign out".</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <div class="pt-4 border-t border-line text-center">
+      <p class="text-xs text-muted">Pop OS · Internal use only · Pop Group</p>
+      <p class="text-xs text-muted mt-1">
+        Questions? Contact your system admin or open
+        <a href="https://github.com/popxicalLab/pop-os/issues" class="text-accent hover:underline" target="_blank">a GitHub issue</a>.
+      </p>
+    </div>
+
+  </div>
+</body>
+</html>

@@ -19,13 +19,19 @@ not just describe.
 - **Framework:** NestJS (v10)
 - **ORM:** Prisma (v5)
 - **Database:** PostgreSQL 16, run via Docker (docker-compose.yml)
-- **UI Framework:** tailwind
+- **UI Framework:** Tailwind CSS (CDN)
 - **Frontend:** vanilla JS, no framework, served by NestJS via `ServeStaticModule`.
   `public/index.html` is a thin shell (HTML structure, shared utilities, theme,
-  tab switching). Each tab's logic lives in its own file under `public/js/`:
-  `people.js`, `projects.js`, `capacity.js`, `dashboard.js`, `assets.js`,
-  `production.js`, `financial.js`, `staffing.js`. Adding a new tab = new file +
-  one `<script src>` line in `index.html`. Keep it framework-free.
+  tab switching, auth check, global fetch wrapper). Each tab's logic lives in its
+  own file under `public/js/`:
+  `dashboard.js`, `sales.js`, `clients.js`, `projects.js`, `assets.js`,
+  `production.js`, `capacity.js`, `financial.js`, `people.js`, `staffing.js`.
+  Adding a new tab = new file + one `<script src>` line in `index.html`.
+  Keep it framework-free.
+- **Auth:** JWT (`@nestjs/jwt`). Global `JwtAuthGuard` via `APP_GUARD`. Routes
+  marked `@Public()` skip the guard. Token stored in `localStorage` as
+  `pop-os-token`. `window.fetch` is overridden in `index.html` to inject the
+  Bearer token on every request — no changes needed in individual tab JS files.
 - **OS:** Windows (primary) and macOS (secondary). Windows path: `C:\Users\yys\dev\pop-os`.
 
 This is a self-hosted project. No paid SaaS, no cloud services. Everything
@@ -45,15 +51,27 @@ These work identically on Windows (PowerShell) and macOS (Terminal).
 - Start dev server:      `npm run start:dev`  (auto-restarts on save)
 - Inspect data (GUI):    `npx prisma studio`
 - App + UI runs at:      http://localhost:3000
+- Login page:            http://localhost:3000/login.html
 
 ### First-time setup on a new machine
 1. Install Node.js (v18+) and Docker Desktop
 2. `git clone https://github.com/popxicalLab/pop-os.git`
 3. Copy env file: `cp .env.example .env` (Mac) or `copy .env.example .env` (Windows)
-4. `docker compose up -d`
-5. `npm install`
-6. `npx prisma migrate deploy`  ← use `deploy` (not `dev`) on a fresh clone
-7. `npm run start:dev`
+4. Fill in `.env` — at minimum `DATABASE_URL`, `JWT_SECRET`, and Autocount vars
+5. `docker compose up -d`
+6. `npm install`
+7. `npx prisma migrate deploy`  ← use `deploy` (not `dev`) on a fresh clone
+8. `node prisma/seed.js`        ← seed demo project/people data
+9. `node prisma/seed-users.js`  ← seed default login accounts
+10. `npm run start:dev`
+
+### Default login accounts (change passwords after first login)
+| Email | Password | Role |
+|---|---|---|
+| admin@pop.studio | popOS@admin1 | ADMIN — full access |
+| producer@pop.studio | popOS@1234 | PRODUCER |
+| sales@pop.studio | popOS@1234 | SALES |
+| finance@pop.studio | popOS@1234 | FINANCE |
 
 ---
 
@@ -68,8 +86,8 @@ Running a migration while the dev server is live causes a Windows
 `EPERM ... rename query_engine-windows.dll.node` error. Stopping the server
 first avoids it. Do not skip this on Windows.
 
-**macOS:** This file lock does not exist on Mac. Migrations can be run while
-the dev server is running — no need to stop it first.
+**macOS / Linux server:** This file lock does not exist. Migrations can be run
+while the dev server is running — no need to stop it first.
 
 ---
 
@@ -101,168 +119,214 @@ Conventions already in use (keep them consistent):
 - DTOs validate everything; `main.ts` runs a global ValidationPipe with
   `whitelist: true, transform: true`.
 - API routes are prefixed `/api`.
+- All routes are JWT-guarded by default. Mark public routes with `@Public()`.
+
+---
+
+## Auth & roles
+
+Four roles, enforced on both backend (controller guards) and frontend (tab
+visibility via `TAB_ACCESS` map in `index.html`):
+
+| Role | Access |
+|---|---|
+| ADMIN | Everything — users, all tabs, Autocount push |
+| PRODUCER | Projects, Capacity, Assets, Production, People, Staffing, Dashboard |
+| SALES | Sales + Clients only |
+| FINANCE | Financial tab + read-only Projects |
+
+**User vs Person distinction:** `User` = login credential. `Person` = production
+staff record (ELC). They are separate models. A `User` optionally links to a
+`Person` via `personId` FK — set via the lock icon on People tab (admin only).
+This link enables the future "My week" personal dashboard for staff.
+
+**Lock icon on People tab:** Filled green = person has a login. Outline grey = no
+login. Click (admin only) to create a login or view the linked account.
 
 ---
 
 ## Data model (current state)
 
-All models built: **People / ELC** with rated skills, **Projects** (PPM),
-**Capacity** (weekly board), **Assets** (SOP pipeline), plus salary on Person
-for the Financial Engine.
+- **Company** — enum: `LPS` / `PXL`. Optional on Person, Project, Account, Lead.
+  Global filter in the header filters all tabs simultaneously.
 
-- **Company** — enum: `LPS` (Lorrypop Studio) / `PXL` (Popxical Lab). Optional
-  field on both Person and Project. Untagged records show under both companies
-  in the global filter. Cross-company allocations are valid (a PXL person can
-  work on an LPS project). The header logo buttons act as a global filter;
-  the active company filters People, Projects, and the Capacity board
-  simultaneously.
+- **Person** — staff record. Fields: name, role, department, startDate,
+  employmentType, warmPool, company, salary (monthly RM, optional). Has many
+  PersonSkill, Capacity, and optionally one User.
 
-- **Person** — one record per individual. Fields: name, role, department,
-  startDate, employmentType (enum: FULL_TIME/CONTRACT/FREELANCE/INTERN),
-  warmPool (bool — Warm Talent Pool / alumni), company (Company? — optional).
-  Has many PersonSkill and Capacity entries.
+- **Skill / PersonSkill / SkillRatingChange** — see Skills design decisions below.
 
-- **Skill** — the studio-wide master list of skills (name is unique).
-  Skills are NOT free text on a person; they are shared records, so
-  "Rigging" is always spelled the same and is queryable.
+- **Project** — spine of the system. PPM fields, producer/PM links, Drain gate,
+  accountId (optional link to Account), autocountInvoiceRef (deprecated — use
+  AccountingDocument instead).
 
-- **PersonSkill** — junction: person + skill + current `rating` (Int, 1–5).
-  Unique on (personId, skillId). The `rating` is the CURRENT/live score.
+- **Capacity** — weekly board. One row per person × project × week. 100% cap
+  enforced in service. weekStart always Monday 00:00 UTC.
 
-- **SkillRatingChange** — audit trail. One row per score movement:
-  oldRating (null for the first entry), newRating, source (enum), changedBy
-  (free text for now), note, createdAt.
+- **Asset** — deliverable through SOP stages. CD sign-off soft gate at
+  INTERNAL_REVIEW.
 
-- **Project** — the spine of the production system. Fields: name, client,
-  company (Company? — optional), quadrant (enum: GOLD/STRATEGIC_BET/
-  OPERATIONAL_FILLER/DRAIN), priority (enum: P1/P2/P3), status (enum:
-  BRIEF/IN_PROGRESS/INTERNAL_REVIEW/DELIVERED/ON_HOLD/CANCELLED), deadline,
-  producerId → Person, pmId → Person, drainApprovedByExec (bool),
-  drainApprovedByProducer (bool).
-  PPM inputs (for future recommendation engine): estimatedValue (Float),
-  estimatedDuration (Int, weeks), complexityScore (Int, 1–5),
-  clientTier (enum: NEW/RETURNING/KEY_ACCOUNT), marginTarget (Float, %).
-  Has many Capacity entries and many Asset entries.
+- **Account** — client company. Has `autocountDebtorCode` (Autocount debtor
+  account code — set once, reused for all quotes/invoices for that client).
+  Has many Contact, Lead, Project.
 
-- **Capacity** — the weekly allocation board. One row per person × project ×
-  week. Fields: personId → Person, projectId → Project, weekStart (DateTime —
-  always Monday 00:00 UTC, normalised in the service), role (enum: MAIN/
-  SUPPORT), pctWeek (Float, 1–100). Unique on (personId, projectId, weekStart).
-  Business rules enforced in the service: a person's total pctWeek across all
-  projects in a week cannot exceed 100%. MAIN/SUPPORT is a convention
-  (70–80% / 20–30%) but not a hard constraint — only the 100% cap is enforced.
+- **Contact** — person at a client company. Linked to Account and Lead.
 
-- **Asset** — one deliverable inside a project. Fields: name, description
-  (optional), projectId → Project, stage (enum: BRIEF/WIP/INTERNAL_REVIEW/
-  REVISION/FINAL_DELIVERY), cdSignedOff (bool — soft gate at Internal Review,
-  same pattern as the Drain gate), changedBy (free text for now; links to
-  Person later). No enforced stage sequence — a producer can move to any stage
-  freely. Assets appear in the project detail view and in the standalone Assets
-  tab (filterable by project).
+- **Lead** — sales opportunity. Status: QUALIFICATION → PROPOSAL → NEGOTIATION →
+  WON → LOST. `convertToProject` endpoint creates a Project from a WON lead.
+  Has many AccountingDocument (quotations pushed to Autocount).
 
-- **Person.salary** — optional `Float?` field added for the Financial Engine.
-  Monthly salary in RM (Malaysian convention). Used to compute daily rate:
-  `salary × 12 × 1.2 / 260`. Not displayed in the People table (sensitive);
-  visible only in the Financial tab and settable via the add-person form and seed.
+- **AccountingDocument** — one Autocount document per row (QUOTATION,
+  SALES_INVOICE, PURCHASE_INVOICE). Linked to Project and/or Lead. Fields:
+  docNo (e.g. "QT_0626-004"), docDate, dueDate (calculated from credit term),
+  amount, debtorCode, creditTerm, status (ACTIVE/PAID/VOID), notifiedAt.
+  - `dueDate` drives the Dashboard payment alerts and Finance Dashboard overdue panel.
+  - Multiple documents per project are normal (milestone billing, revised quotes).
+  - When a lead converts to a project, existing AccountingDocuments are
+    auto-linked to the new project.
+
+- **User** — login credential. Fields: email, name, password (bcrypt), role,
+  active, personId (optional FK to Person). Seeded via `prisma/seed-users.js`.
 
 ### Skills design decisions (do not undo these without asking)
 
 - Ratings are whole numbers 1–5. (Half-steps were deliberately deferred.)
 - A skill score is a TRAJECTORY, not a snapshot. Every change writes a
-  SkillRatingChange row. The CURRENT rating lives on PersonSkill; its history
-  lives in SkillRatingChange. Keep current + history updated together in a
-  transaction so they can never drift apart.
-- The **interview score is simply the first history entry** with
-  source = INTERVIEW. There is no separate "interview" mechanism. A score
-  starts at interview, then moves up/down after hire.
+  SkillRatingChange row. CURRENT rating lives on PersonSkill; history in
+  SkillRatingChange. Always update both in a transaction.
+- The interview score is the first history entry with source = INTERVIEW.
 - RatingSource enum: INTERVIEW, PROJECT_COMPLETION, MANUAL_ADJUSTMENT.
-- **RULE: a MANUAL_ADJUSTMENT requires a `note`.** Other sources may omit it.
-  Enforced in the DTO (class-validator `@ValidateIf` + `@IsNotEmpty`) AND
-  reflected in the UI (note field shows/required only for manual). Keep both.
-- `changedBy` is free text for now; it will later become a link to a Person.
-  Don't wire that link until the broader structure is in place.
+- MANUAL_ADJUSTMENT requires a `note`. Enforced in DTO and UI.
+
+---
+
+## Autocount Cloud integration
+
+Pop Group's accounting system. Pop OS is the **initiator** — it creates documents
+in Autocount based on project context. Autocount remains the source of truth for
+all financial data (double-entry, tax, bank reconciliation, etc.).
+
+**Credentials** are in `.env`:
+```
+AUTOCOUNT_BASE_URL
+AUTOCOUNT_ACCOUNT_BOOK_ID   # 60777
+AUTOCOUNT_KEY_ID
+AUTOCOUNT_API_KEY
+AUTOCOUNT_DEFAULT_LOCATION  # HQ
+AUTOCOUNT_DEFAULT_CREDIT_TERM  # C.O.D.
+```
+
+**Auth:** `Key-ID` and `API-Key` request headers (not `KeyId`/`ApiKey` —
+the hyphens are required, as defined in the Swagger security scheme).
+
+**Integration points:**
+1. WON lead → `POST /api/autocount/leads/:id/quotation` → creates Quotation in
+   Autocount, persists as AccountingDocument.
+2. Project → `POST /api/autocount/projects/:id/invoice` → creates Sales Invoice,
+   persists as AccountingDocument.
+3. `GET /api/autocount/debtors` → lists Autocount debtors for the picker modal.
+4. `PATCH /api/autocount/documents/:id/status` → mark PAID or VOID.
+5. `GET /api/autocount/due-soon` → docs due within N days (also in dashboard).
+
+**Document response pattern:** Autocount returns `201 Created` with no body.
+The document number is in the `Location` response header as a query param:
+`Location: https://…/quotation?docNo=QT_0626-004`
+Extract with `new URL(header).searchParams.get('docNo')`.
 
 ---
 
 ## UI pattern: module summary strips
 
 Every module tab opens with a compact stats bar above the main content.
-Example: People tab shows "42 active · 8 LPS · 34 PXL · 5 warm pool" before
-the table. Implement the strip when building or revisiting each module.
-The global Dashboard tab is the cross-module command centre — not a per-module
-page. Each module's strip is its own mini-dashboard in context.
+The global Dashboard is the cross-module command centre. Each module's strip
+is its own mini-dashboard in context.
+
+**Navigation** uses grouped dropdowns:
+- Dashboard (direct)
+- Sales ▾ → Sales pipeline, Clients
+- Production ▾ → Projects, Assets, Production engine, Capacity
+- Financial (direct — FINANCE + ADMIN only)
+- HR ▾ → People, Staffing
 
 ---
 
 ## Roadmap (build order, and why)
 
-The full vision has six blueprint modules. Build order is driven by
-dependencies — each layer feeds the next.
-
 ### Foundation (done)
-1. **People / ELC** — DONE. Person records, skill ratings, audit trail.
-2. **Projects** — DONE. PPM quadrant/priority/status, producer/PM, Drain gate,
-   PPM recommendation inputs.
-3. **Capacity** — DONE. Weekly allocation board (Person × Project × week),
-   100% cap, MAIN/SUPPORT role, company filter.
+1. **People / ELC** — DONE.
+2. **Projects** — DONE.
+3. **Capacity** — DONE.
 
 ### Intelligence layer (done)
-4. **Dashboard** — DONE. Global home tab (command centre). Active projects,
-   this week's capacity, overdue alerts, unallocated people. Note: leave is not
-   yet in the data model — Capacity tracks allocations only, not absence.
-5. **PPM recommendation engine** — DONE. Rule-based 2×2 scoring (value ×
-   complexity → quadrant recommendation + 0–100 score). Shown as a badge in
-   the project detail view. `GET /api/ppm` and `GET /api/ppm/:id`.
-6. **Staffing recommendation engine** — DONE. Ranks all active staff by
-   availability for a given project + week. Skill ratings shown alongside.
-   `GET /api/staffing/recommend?projectId=&weekStart=`.
+4. **Dashboard** — DONE. Payment alerts section added (AccountingDocuments due
+   within 10 days, with producer name to chase).
+5. **PPM recommendation engine** — DONE.
+6. **Staffing recommendation engine** — DONE.
 
 ### Production layer (done)
-7. **Assets** — DONE. Deliverables through flexible SOP stages (Brief → WIP →
-   Internal Review → Revision → Final Delivery). CD sign-off soft gate at
-   Internal Review. Kanban-style board in its own tab; also shown in the
-   project detail view. `GET /api/assets`, `POST`, `PATCH`, `DELETE`.
-8. **Production Engine / Lane Routing** — DONE. Projects auto-routed into four
-   workflow lanes by quadrant: Template Factory (Gold), Innovation Lab
-   (Strategic Bet), Automated Stream (Filler), Gated Review (Drain). Each lane
-   carries guidance, review gates, and team-size expectations.
-   `GET /api/production/lanes`.
+7. **Assets** — DONE.
+8. **Production Engine / Lane Routing** — DONE.
 
 ### Financial layer (done)
-9. **Financial Engine** — DONE. Man-day costing from capacity data (salary +
-   20% overhead / 260 working days = daily rate). Per-project cost-to-date,
-   remaining budget, gross margin vs target margin, RAG health indicator.
-   Requires `salary` set on each Person. `GET /api/financial/overview`,
-   `GET /api/financial/projects`. Demo seed included: `prisma/seed.js`.
+9. **Financial Engine** — DONE. Man-day costing. `GET /api/financial/overview`,
+   `GET /api/financial/projects`, `GET /api/financial/dashboard`.
+   Finance Dashboard: AR KPI cards, overdue invoices, due-soon panel,
+   pipeline by stage, project health RAG, recent Autocount documents.
 
-### Growth & client layer
-10. **Sales & Growth Hub** — CRM layer, lead-to-PPM scoring, HubSpot/Pipedrive
-    sync. Every potential project pre-scored before proposal.
-11. **Client Hub & DAM** — project status "traffic lights" for clients,
-    Frame.io feedback integration, Studio Library (Dropbox/Iconik sync).
+### Auth & access control (done)
+- **JWT auth** — DONE. Login page at `/login.html`. 4 roles. Global guard.
+  `POST /api/auth/login`, `GET /api/auth/me`.
+- **Users module** — DONE. `GET/POST/PATCH/DELETE /api/users` (admin only).
+  User manager modal in the header (admin).
+- **Person ↔ User link** — DONE. Lock icon on People tab lets admin create a
+  login for a staff member.
+
+### Growth & client layer (done)
+10. **Sales & Growth Hub** — DONE. Accounts, Contacts, Leads. Pipeline board.
+    Lead → Project conversion. `POST /api/leads/:id/convert`.
+11. **Client Hub** — DONE. Account detail view with contacts, linked leads and
+    projects.
+
+### Accounting integration (done)
+- **Autocount Cloud** — DONE. Push quotations from WON leads, invoices from
+  projects. AccountingDocument model tracks all documents with due dates.
+  Finance Dashboard shows AR position, overdue alerts, pipeline, health.
 
 ### Deferred
-- Kakitangan.com sync (payroll + leave) — blocks the leave gap in Dashboard.
-  Add when the Financial Engine is ready.
-- `changedBy` on SkillRatingChange linking to a real Person — defer until
-  staffing engine requires it.
-- SkillRatingChange → Project foreign key — defer until staffing engine
-  requires it.
+- Kakitangan.com sync (payroll + leave).
+- Email notifications (nodemailer + SMTP) for payment due alerts — in-app alerts
+  exist today; email needs SMTP config.
+- `changedBy` on SkillRatingChange linking to a real Person.
+- STAFF role personal dashboard ("My week, My projects, My skills").
 
 ---
 
-## Ownership / domain rules (from the Action Plan — useful context)
+## Deployment (on-premise server)
+
+Server: `192.168.1.40` (Debian), user `yeo`, managed by PM2.
+
+```bash
+# On the server
+cd ~/pop-os
+git pull
+npm install
+npx prisma migrate deploy
+node prisma/seed-users.js   # safe: skips if users already exist
+pm2 restart pop-os
+```
+
+Server `.env` must include all vars from `.env.example` plus Autocount credentials.
+The server does NOT use Docker — PostgreSQL runs natively via the system package.
+
+---
+
+## Ownership / domain rules
 
 - Only Producers (YJ, Huey) set/change project priority.
-- PM (Emily) owns delivery, workflow compliance, the Change Request process,
-  and is the first escalation point.
-- Creative Director (Calvin) signs off creative; 3D Director (Tom) signs off
-  3D technical. Directors own quality, not scheduling.
-- A "Drain" = low budget / high complexity / high maintenance → two signatures.
-- Client changes go through a formal Change Request (impact assessed before
-  execution), not silently absorbed.
-
-These inform validation and workflow logic but don't all need building now.
+- PM (Emily) owns delivery, workflow compliance, Change Request process.
+- Creative Director (Calvin) signs off creative; 3D Director (Tom) signs off 3D.
+- A "Drain" = low budget / high complexity → two-signature approval.
+- Client changes go through a formal Change Request, not silently absorbed.
 
 ---
 

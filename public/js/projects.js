@@ -171,14 +171,27 @@ async function showProjectDetail(id) {
       <div id="proj-assets-${p.id}" class="text-xs text-muted">Loading…</div>
     </div>
 
-    <div class="mt-5">
+    <div class="mt-5 pb-5 border-b border-line">
       <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-2">Capacity</p>
       <p class="text-xs text-muted">Coming soon — team allocations by week will appear here.</p>
+    </div>
+
+    <div class="mt-5">
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted">Accounting Documents</p>
+        <button onclick="openInvoiceModal('${p.id}', '${esc(p.name)}', '${esc((p.account?.autocountDebtorCode) || '')}')"
+          class="text-[11px] bg-sky-500/15 border border-sky-500/30 text-sky-400 px-2 py-0.5 rounded-lg
+                 hover:bg-sky-500/25 transition-colors cursor-pointer">
+          ↑ Push invoice
+        </button>
+      </div>
+      <div id="proj-docs-${p.id}" class="text-xs text-muted">Loading…</div>
     </div>`;
 
-  // Load PPM score + assets asynchronously after the detail HTML is in the DOM.
+  // Load PPM score, assets, and accounting docs asynchronously.
   loadPpmBadge(id);
   loadProjectAssets(id);
+  loadProjectDocs(id);
 }
 
 async function loadProjectAssets(projectId) {
@@ -205,6 +218,130 @@ async function loadProjectAssets(projectId) {
       ${cdBadge}
     </div>`;
   }).join('');
+}
+
+async function loadProjectDocs(projectId) {
+  const docs = await fetch('/api/autocount/projects/' + projectId + '/documents')
+    .then(r => r.json()).catch(() => null);
+  const el = document.getElementById('proj-docs-' + projectId);
+  if (!el) return;
+
+  if (!docs || !docs.length) {
+    el.innerHTML = '<span class="text-muted">No accounting documents yet. Use ↑ Push invoice to create one in Autocount.</span>';
+    return;
+  }
+
+  const DOC_TYPE_LABEL = { QUOTATION: 'Quotation', SALES_INVOICE: 'Invoice', PURCHASE_INVOICE: 'PO Invoice' };
+  const STATUS_CLS = {
+    ACTIVE: 'bg-sky-500/15 border-sky-500/30 text-sky-400',
+    PAID:   'bg-emerald-500/15 border-emerald-500/30 text-emerald-400',
+    VOID:   'bg-panel2 border-line text-muted',
+  };
+
+  el.innerHTML = `<table class="w-full text-[11px]">
+    <thead><tr class="text-muted border-b border-line">
+      <th class="text-left pb-1.5 font-medium">Type</th>
+      <th class="text-left pb-1.5 font-medium">Doc No</th>
+      <th class="text-left pb-1.5 font-medium">Date</th>
+      <th class="text-left pb-1.5 font-medium">Due</th>
+      <th class="text-right pb-1.5 font-medium">Amount</th>
+      <th class="text-left pb-1.5 font-medium pl-2">Status</th>
+      <th class="pb-1.5"></th>
+    </tr></thead>
+    <tbody>
+      ${docs.map(d => {
+        const date = new Date(d.docDate).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+        const due  = d.dueDate ? new Date(d.dueDate).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '—';
+        const overdue = d.dueDate && d.status === 'ACTIVE' && new Date(d.dueDate) < new Date();
+        const dueCls  = overdue ? 'text-warm font-semibold' : '';
+        const amt     = d.amount != null ? 'RM ' + Math.round(d.amount).toLocaleString('en-MY') : '—';
+        const stCls   = STATUS_CLS[d.status] || '';
+        return `<tr class="border-b border-line/40 last:border-0">
+          <td class="py-1.5 pr-2">${DOC_TYPE_LABEL[d.docType] || d.docType}</td>
+          <td class="py-1.5 pr-2 font-mono text-ink">${esc(d.docNo)}</td>
+          <td class="py-1.5 pr-2">${date}</td>
+          <td class="py-1.5 pr-2 ${dueCls}">${due}${overdue ? ' ⚠' : ''}</td>
+          <td class="py-1.5 text-right text-ink pr-2">${amt}</td>
+          <td class="py-1.5 pl-2">
+            <span class="badge border ${stCls} text-[10px]">${d.status}</span>
+          </td>
+          <td class="py-1.5 pl-1">
+            ${d.status === 'ACTIVE' ? `
+              <select onchange="updateDocStatus('${d.id}', this.value, '${projectId}')"
+                class="bg-panel border border-line text-muted text-[10px] px-1 py-0.5 rounded cursor-pointer">
+                <option value="">— mark —</option>
+                <option value="PAID">Paid</option>
+                <option value="VOID">Void</option>
+              </select>` : ''}
+          </td>
+        </tr>`;
+      }).join('')}
+    </tbody>
+  </table>`;
+}
+
+async function updateDocStatus(docId, status, projectId) {
+  if (!status) return;
+  if (!confirm(`Mark this document as ${status}?`)) return;
+  const res = await fetch(`/api/autocount/documents/${docId}/status`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status }),
+  });
+  if (res.ok) loadProjectDocs(projectId);
+}
+
+// ── invoice push modal (mirrors quote modal in sales.js) ─────────
+
+let _projDebtors    = [];
+let _invoiceProject = null;
+
+async function openInvoiceModal(projectId, projectName, preselectedDebtorCode) {
+  if (!_projDebtors.length) {
+    _projDebtors = await fetch('/api/autocount/debtors').then(r => r.json()).catch(() => []);
+  }
+  const options = _projDebtors.map(d =>
+    `<option value="${esc(d.accNo)}" ${d.accNo === preselectedDebtorCode ? 'selected' : ''}>
+       ${esc(d.companyName)} (${esc(d.accNo)})
+     </option>`
+  ).join('');
+
+  _invoiceProject = projectId;
+  $('invoice-modal-title').textContent = projectName;
+  $('invoice-debtor-sel').innerHTML    = `<option value="">— select debtor —</option>${options}`;
+  $('invoice-modal-msg').textContent   = '';
+  $('invoice-modal').classList.remove('hidden');
+}
+
+function closeInvoiceModal() {
+  $('invoice-modal').classList.add('hidden');
+  _invoiceProject = null;
+}
+
+async function submitInvoice() {
+  const debtorCode = $('invoice-debtor-sel').value;
+  const msgEl      = $('invoice-modal-msg');
+  if (!debtorCode) { msgEl.textContent = 'Please select a debtor.'; msgEl.className = 'text-xs text-warm'; return; }
+
+  $('invoice-submit-btn').disabled = true;
+  msgEl.textContent = 'Creating invoice…'; msgEl.className = 'text-xs text-muted';
+
+  const res = await fetch(`/api/autocount/projects/${_invoiceProject}/invoice`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ debtorCode }),
+  });
+
+  $('invoice-submit-btn').disabled = false;
+
+  if (res.ok) {
+    const data = await res.json();
+    msgEl.textContent = `Done! Invoice ${data.docNo} created in Autocount.`;
+    msgEl.className   = 'text-xs text-emerald-400';
+    setTimeout(() => { closeInvoiceModal(); loadProjectDocs(_invoiceProject); }, 1500);
+  } else {
+    const e = await res.json().catch(() => ({}));
+    msgEl.textContent = e.message || 'Failed.';
+    msgEl.className   = 'text-xs text-warm';
+  }
 }
 
 async function loadPpmBadge(projectId) {

@@ -3,6 +3,7 @@
 // Safe to re-run — skips if people already exist.
 // ─────────────────────────────────────────────────────────────────────────────
 const { PrismaClient } = require('@prisma/client');
+const bcrypt = require('bcrypt');
 const prisma = new PrismaClient();
 
 // Helper: Monday of the current ISO week at UTC midnight.
@@ -310,6 +311,30 @@ async function main() {
   }
 
   console.log('  ✓ 3 over-budget projects + capacity history + assets');
+  // ── Seed default users ──────────────────────────────────────────────────────
+  const existingUsers = await prisma.user.count();
+  if (existingUsers === 0) {
+    const users = [
+      { email: 'admin@pop.studio',    name: 'Admin',    role: 'ADMIN',    password: 'popOS@admin1'  },
+      { email: 'producer@pop.studio', name: 'Producer', role: 'PRODUCER', password: 'popOS@1234'    },
+      { email: 'sales@pop.studio',    name: 'Sales',    role: 'SALES',    password: 'popOS@1234'    },
+      { email: 'finance@pop.studio',  name: 'Finance',  role: 'FINANCE',  password: 'popOS@1234'    },
+    ];
+    for (const u of users) {
+      await prisma.user.create({
+        data: { ...u, password: await bcrypt.hash(u.password, 12) },
+      });
+    }
+    console.log('\n🔐 Default login accounts created:');
+    console.log('   admin@pop.studio    / popOS@admin1   (ADMIN)');
+    console.log('   producer@pop.studio / popOS@1234     (PRODUCER)');
+    console.log('   sales@pop.studio    / popOS@1234     (SALES)');
+    console.log('   finance@pop.studio  / popOS@1234     (FINANCE)');
+    console.log('   ⚠  Change passwords after first login!');
+  } else {
+    console.log('  Users already exist — skipping user seed.');
+  }
+
   console.log('\n✅ Seed complete. Open http://localhost:3000 to explore.');
 }
 

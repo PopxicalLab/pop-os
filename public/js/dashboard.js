@@ -59,7 +59,7 @@ async function loadDashboard() {
 }
 
 function renderDashboard(data) {
-  const { stats, activeProjects, overdueProjects, thisWeek } = data;
+  const { stats, activeProjects, overdueProjects, paymentAlerts, thisWeek } = data;
 
   // Apply company filter.
   const filtered   = activeProjects.filter(p => matchesFilter(p.company));
@@ -81,6 +81,9 @@ function renderDashboard(data) {
     `<span class="text-ink font-semibold">${allocFil.length ? new Set(allocFil.map(a => a.personId)).size : 0}</span><span class="text-muted"> allocated this week</span>` +
     (freeFil.length
       ? ` <span class="text-line mx-2">·</span> <span class="text-muted">${freeFil.length} unallocated</span>`
+      : '') +
+    (paymentAlerts && paymentAlerts.length
+      ? ` <span class="text-line mx-2">·</span> <span class="text-warm font-semibold">${paymentAlerts.length} payment${paymentAlerts.length > 1 ? 's' : ''} due</span>`
       : '');
 
   // ── panel: active projects ───────────────────────────────────
@@ -175,4 +178,37 @@ function renderDashboard(data) {
       </div>`;
     }).join('');
   }
+
+  // ── panel: payment alerts ────────────────────────────────────
+  const payEl = $('dash-payments');
+  if (!payEl) return; // panel may not exist in older HTML builds
+  if (!paymentAlerts || !paymentAlerts.length) {
+    payEl.innerHTML = '<div class="text-center text-muted text-sm py-8">No payments due in the next 10 days.</div>';
+    return;
+  }
+
+  const now = new Date();
+  payEl.innerHTML = paymentAlerts.map(d => {
+    const due      = new Date(d.dueDate);
+    const daysLeft = Math.ceil((due - now) / 86400000);
+    const overdue  = daysLeft < 0;
+    const urgency  = overdue ? 'text-warm font-bold'
+                   : daysLeft <= 3 ? 'text-warm font-semibold'
+                   : 'text-yellow-400 font-semibold';
+    const dueLabel = overdue ? `${Math.abs(daysLeft)}d overdue` : `due in ${daysLeft}d`;
+    const amt      = d.amount != null ? ` · RM ${Math.round(d.amount).toLocaleString('en-MY')}` : '';
+    const DOC_LABEL = { QUOTATION: 'Quote', SALES_INVOICE: 'Invoice', PURCHASE_INVOICE: 'PO' };
+
+    return `<div class="flex items-start gap-2 py-2.5 border-b border-line/60 last:border-0">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="badge bg-sky-500/15 border-sky-500/30 text-sky-400 text-[10px]">${DOC_LABEL[d.docType] || d.docType}</span>
+          <span class="font-mono text-xs text-ink">${esc(d.docNo)}</span>
+          <span class="text-xs ${urgency}">${dueLabel}${amt}</span>
+        </div>
+        ${d.project ? `<p class="text-sm font-medium text-ink mt-0.5 truncate">${esc(d.project.name)}</p>` : ''}
+        ${d.project?.producer ? `<p class="text-xs text-muted mt-0.5">Producer: ${esc(d.project.producer.name)} — chase payment now</p>` : ''}
+      </div>
+    </div>`;
+  }).join('');
 }

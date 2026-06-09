@@ -89,6 +89,77 @@ export class FinancialService {
     });
   }
 
+  // ── Finance Dashboard ────────────────────────────────────────────
+  // One call that returns everything a finance boss needs at a glance:
+  // AR position, overdue invoices, due-soon alerts, pipeline, project health.
+  async getFinanceDashboard() {
+    const now         = new Date();
+    const alertCutoff = new Date(now);
+    alertCutoff.setDate(alertCutoff.getDate() + 10);
+
+    const [allDocs, leads, projectCosts] = await Promise.all([
+      this.prisma.accountingDocument.findMany({
+        include: {
+          project: {
+            select: {
+              id: true, name: true,
+              producer: { select: { id: true, name: true } },
+            },
+          },
+          lead: { select: { id: true, name: true } },
+        },
+        orderBy: { dueDate: 'asc' },
+      }),
+      // All leads except LOST — we want the full pipeline view.
+      this.prisma.lead.findMany({
+        where:  { status: { not: 'LOST' } },
+        select: { estimatedValue: true, status: true },
+      }),
+      this.getProjectCosts(),
+    ]);
+
+    const invoices        = allDocs.filter(d => d.docType === 'SALES_INVOICE');
+    const activeInvoices  = invoices.filter(d => d.status === 'ACTIVE');
+    const paidInvoices    = invoices.filter(d => d.status === 'PAID');
+    const overdueInvoices = activeInvoices.filter(d => d.dueDate && d.dueDate < now);
+    const dueSoonInvoices = activeInvoices.filter(d => d.dueDate && d.dueDate >= now && d.dueDate <= alertCutoff);
+
+    const sum = (arr: typeof invoices) => arr.reduce((s, d) => s + (d.amount ?? 0), 0);
+
+    // Pipeline value bucketed by lead status.
+    const pipelineByStage: Record<string, number> = {};
+    for (const l of leads) {
+      pipelineByStage[l.status] = (pipelineByStage[l.status] ?? 0) + (l.estimatedValue ?? 0);
+    }
+
+    // Project health counts for the RAG summary tile.
+    const health = { green: 0, amber: 0, red: 0, unknown: 0 };
+    for (const p of projectCosts) {
+      health[p.health as keyof typeof health] = (health[p.health as keyof typeof health] ?? 0) + 1;
+    }
+
+    // Recent documents (last 10 pushed to Autocount).
+    const recentDocs = allDocs
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .slice(0, 10);
+
+    return {
+      ar: {
+        totalInvoiced: sum(invoices),
+        totalPaid:     sum(paidInvoices),
+        outstanding:   sum(activeInvoices),
+        overdueAmount: sum(overdueInvoices),
+      },
+      overdueInvoices,
+      dueSoonInvoices,
+      pipelineByStage,
+      health,
+      recentDocs,
+      // Pass active quotation count so the boss can see proposals in flight.
+      activeQuotations: allDocs.filter(d => d.docType === 'QUOTATION' && d.status === 'ACTIVE').length,
+    };
+  }
+
   // Studio-wide summary: total capacity cost this week, total active project value.
   async getOverview() {
     const now       = new Date();

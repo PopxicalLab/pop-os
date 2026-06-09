@@ -27,11 +27,13 @@ const PIPELINE_STAGES = ['QUALIFICATION', 'PROPOSAL', 'NEGOTIATION', 'WON', 'LOS
 
 let _salesAccounts = [];
 let _salesPeople   = [];
+let _autocountDebtors = [];
 
 async function initSalesTab() {
-  [_salesAccounts, _salesPeople] = await Promise.all([
+  [_salesAccounts, _salesPeople, _autocountDebtors] = await Promise.all([
     fetch('/api/accounts').then(r => r.json()).catch(() => []),
     fetch('/api/people').then(r => r.json()).catch(() => []),
+    fetch('/api/autocount/debtors').then(r => r.json()).catch(() => []),
   ]);
 
   const accSel = $('lead-account');
@@ -115,6 +117,10 @@ function renderSalesPipeline(leads) {
   $('sales-board').querySelectorAll('[data-lead-del]').forEach(b => {
     b.onclick = () => deleteLead(b.dataset.leadDel);
   });
+
+  $('sales-board').querySelectorAll('[data-lead-quote]').forEach(b => {
+    b.onclick = () => openQuoteModal(b.dataset.leadQuote, b.dataset.leadName, b.dataset.debtor);
+  });
 }
 
 function renderLeadCard(l) {
@@ -134,6 +140,25 @@ function renderLeadCard(l) {
                       px-2 py-1 rounded-lg hover:bg-emerald-500/25 transition-colors cursor-pointer font-semibold"
               data-lead-convert="${l.id}">→ Create project</button>`
     : (l.projectId ? `<p class="text-[11px] text-emerald-400 mt-1.5">✓ Project created</p>` : '');
+
+  // Show existing quotation badges + always allow pushing another.
+  const quotations = (l.accountingDocuments || []).filter(d => d.docType === 'QUOTATION');
+  const quotationBadges = quotations.map(d => {
+    const statusCls = d.status === 'VOID' ? 'text-muted line-through' : d.status === 'PAID' ? 'text-emerald-400' : 'text-sky-400';
+    const due = d.dueDate ? ` · due ${new Date(d.dueDate).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}` : '';
+    return `<span class="${statusCls} text-[11px]">📄 ${esc(d.docNo)}${due}</span>`;
+  }).join('<br>');
+
+  const quotationBtn = l.status === 'WON'
+    ? `<div class="mt-1 space-y-0.5">
+         ${quotationBadges}
+         <button class="w-full text-[11px] bg-sky-500/15 border border-sky-500/30 text-sky-400
+                        px-2 py-1 rounded-lg hover:bg-sky-500/25 transition-colors cursor-pointer mt-1"
+                 data-lead-quote="${l.id}" data-lead-name="${esc(l.name)}" data-debtor="${esc(l.account?.autocountDebtorCode || '')}">
+           ↑ Push quotation
+         </button>
+       </div>`
+    : '';
 
   const statusSel = PIPELINE_STAGES.map(s =>
     `<option value="${s}"${l.status === s ? ' selected' : ''}>${LEAD_STATUS_LABEL[s]}</option>`
@@ -158,6 +183,7 @@ function renderLeadCard(l) {
       ${statusSel}
     </select>
     ${convertBtn}
+    ${quotationBtn}
   </div>`;
 }
 
@@ -212,3 +238,52 @@ async function deleteLead(id) {
 }
 
 $('lead-add').addEventListener('click', addLead);
+
+// ── Autocount quotation modal ──────────────────────────────────
+
+function openQuoteModal(leadId, leadName, preselectedDebtorCode) {
+  const options = _autocountDebtors.map(d =>
+    `<option value="${esc(d.accNo)}" data-credit="${esc(d.creditTerm)}"${d.accNo === preselectedDebtorCode ? ' selected' : ''}>
+       ${esc(d.companyName)} (${esc(d.accNo)})
+     </option>`
+  ).join('');
+
+  $('quote-modal-title').textContent  = leadName;
+  $('quote-debtor-sel').innerHTML     = `<option value="">— select debtor —</option>${options}`;
+  $('quote-modal-lead-id').value      = leadId;
+  $('quote-modal-msg').textContent    = '';
+  $('quote-modal').classList.remove('hidden');
+}
+
+function closeQuoteModal() {
+  $('quote-modal').classList.add('hidden');
+}
+
+async function submitQuote() {
+  const leadId     = $('quote-modal-lead-id').value;
+  const debtorCode = $('quote-debtor-sel').value;
+  const msgEl      = $('quote-modal-msg');
+
+  if (!debtorCode) { msgEl.textContent = 'Please select a debtor.'; msgEl.className = 'text-xs text-warm'; return; }
+
+  $('quote-submit-btn').disabled = true;
+  msgEl.textContent = 'Creating quotation…'; msgEl.className = 'text-xs text-muted';
+
+  const res = await fetch(`/api/autocount/leads/${leadId}/quotation`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ debtorCode }),
+  });
+
+  $('quote-submit-btn').disabled = false;
+
+  if (res.ok) {
+    const data = await res.json();
+    msgEl.textContent = `Done! Quotation ${data.docNo} created in Autocount.`;
+    msgEl.className   = 'text-xs text-emerald-400';
+    setTimeout(() => { closeQuoteModal(); loadSales(); }, 1500);
+  } else {
+    const e = await res.json().catch(() => ({}));
+    msgEl.textContent = e.message || 'Failed to create quotation.';
+    msgEl.className   = 'text-xs text-warm';
+  }
+}

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pop OS — Sign in</title>
+  <link rel="icon" type="image/png" href="/lps-logo.png" />
+  <script>
+    try {
+      const mode = localStorage.getItem('pop-os-mode') || 'dark';
+      const bg = mode === 'light' ? '#f5f2ec' : '#111009';
+      document.write('<style>body{background-color:' + bg + '}</style>');
+    } catch(e) {}
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    (function() {
+      const DARK  = { bg:'#111009', panel:'#191814', panel2:'#201e19', line:'#2c2920', ink:'#e4e0d4', muted:'#857f73', accent:'#d4a23a', warm:'#c05535' };
+      const LIGHT = { bg:'#f5f2ec', panel:'#fdfcf9', panel2:'#ece8e0', line:'#d8d2c8', ink:'#1a1814', muted:'#7a7468', accent:'#b8871e', warm:'#b04525' };
+      const mode  = localStorage.getItem('pop-os-mode') || 'dark';
+      window._theme = mode === 'light' ? LIGHT : DARK;
+      tailwind.config = { theme: { extend: { colors: window._theme } } };
+    })();
+  </script>
+</head>
+<body class="bg-bg min-h-screen flex items-center justify-center px-4">
+
+  <div class="w-full max-w-sm">
+
+    <!-- Logo -->
+    <div class="flex items-center gap-3 justify-center mb-8">
+      <img src="/lps-logo.png" class="h-9 w-auto object-contain" alt="Pop OS" />
+      <div>
+        <p class="text-lg font-bold text-ink leading-tight tracking-tight">Pop OS</p>
+        <p class="text-xs text-muted leading-tight">Pop Group Studio</p>
+      </div>
+    </div>
+
+    <!-- Card -->
+    <div class="bg-panel border border-line rounded-2xl p-8">
+      <h1 class="text-base font-semibold text-ink mb-6">Sign in</h1>
+
+      <label class="block text-xs text-muted font-medium mb-1.5">Email</label>
+      <input id="email" type="email" autofocus
+        class="w-full bg-panel2 border border-line text-ink placeholder-muted/60
+               px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:border-accent/70
+               transition-colors duration-150 mb-4"
+        placeholder="you@pop.studio"
+        onkeydown="if(event.key==='Enter') document.getElementById('password').focus()" />
+
+      <label class="block text-xs text-muted font-medium mb-1.5">Password</label>
+      <input id="password" type="password"
+        class="w-full bg-panel2 border border-line text-ink placeholder-muted/60
+               px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:border-accent/70
+               transition-colors duration-150 mb-6"
+        placeholder="••••••••"
+        onkeydown="if(event.key==='Enter') login()" />
+
+      <button onclick="login()"
+        class="w-full bg-accent text-bg font-semibold py-2.5 rounded-lg text-sm
+               hover:brightness-110 transition-all duration-150 cursor-pointer">
+        Sign in
+      </button>
+
+      <div id="err" class="text-xs text-warm mt-3 min-h-[18px] text-center"></div>
+    </div>
+
+    <p class="text-center text-xs text-muted mt-6">Pop Group Studio Operating System</p>
+  </div>
+
+  <script>
+    // If already logged in, go straight to the app
+    if (localStorage.getItem('pop-os-token')) {
+      window.location.replace('/');
+    }
+
+    async function login() {
+      const email    = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const errEl    = document.getElementById('err');
+      errEl.textContent = '';
+
+      if (!email || !password) { errEl.textContent = 'Enter your email and password.'; return; }
+
+      const btn = document.querySelector('button');
+      btn.disabled = true;
+      btn.textContent = 'Signing in…';
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          errEl.textContent = data.message || 'Invalid email or password.';
+          btn.disabled = false;
+          btn.textContent = 'Sign in';
+          return;
+        }
+        localStorage.setItem('pop-os-token', data.token);
+        localStorage.setItem('pop-os-user', JSON.stringify(data.user));
+        window.location.replace('/');
+      } catch {
+        errEl.textContent = 'Could not reach the server. Is Pop OS running?';
+        btn.disabled = false;
+        btn.textContent = 'Sign in';
+      }
+    }
+  </script>
+</body>
+</html>

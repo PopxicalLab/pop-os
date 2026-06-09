@@ -1,8 +1,5 @@
-// The ROOT module ties the whole app together. Right now it pulls in
-// the People module and serves the static web page from /public.
-// As we add Projects, Capacity, Assets, etc., each gets its own module
-// and gets imported here.
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { PeopleModule } from './people/people.module';
@@ -18,13 +15,19 @@ import { FinancialModule } from './financial/financial.module';
 import { AccountsModule } from './accounts/accounts.module';
 import { ContactsModule } from './contacts/contacts.module';
 import { LeadsModule } from './leads/leads.module';
+import { AutocountModule } from './autocount/autocount.module';
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
+import { JwtAuthGuard } from './auth/jwt.guard';
 
 @Module({
   imports: [
-    // Serves the index.html UI at http://localhost:3000
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'public'),
     }),
+    // Auth first — exports JwtModule so the global guard can use JwtService
+    AuthModule,
+    UsersModule,
     PeopleModule,
     SkillsModule,
     ProjectsModule,
@@ -38,6 +41,12 @@ import { LeadsModule } from './leads/leads.module';
     AccountsModule,
     ContactsModule,
     LeadsModule,
+    AutocountModule,
+  ],
+  providers: [
+    // Register JwtAuthGuard globally — every API route requires a valid JWT
+    // unless the route handler is decorated with @Public().
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
   ],
 })
 export class AppModule {}

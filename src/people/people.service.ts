@@ -8,11 +8,15 @@ import { CreatePersonDto, UpdatePersonDto } from './person.dto';
 export class PeopleService {
   constructor(private prisma: PrismaService) {}
 
-  // List everyone, newest first, with their rated skills.
+  // List everyone, newest first, with their rated skills and login status.
   findAll() {
     return this.prisma.person.findMany({
       orderBy: { createdAt: 'desc' },
-      include: { skills: { include: { skill: true } } },
+      include: {
+        skills: { include: { skill: true } },
+        // Include safe user fields only — never expose password
+        user: { select: { id: true, email: true, role: true, active: true } },
+      },
     });
   }
 
@@ -20,7 +24,10 @@ export class PeopleService {
   async findOne(id: string) {
     const person = await this.prisma.person.findUnique({
       where: { id },
-      include: { skills: { include: { skill: true } } },
+      include: {
+        skills: { include: { skill: true } },
+        user: { select: { id: true, email: true, role: true, active: true } },
+      },
     });
     if (!person) throw new NotFoundException(`Person ${id} not found`);
     return person;

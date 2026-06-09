@@ -3,10 +3,15 @@ import { PrismaService } from '../prisma.service';
 import { CreateLeadDto, UpdateLeadDto } from './lead.dto';
 
 const WITH_RELATIONS = {
-  account:  { select: { id: true, name: true, industry: true } },
+  account:  { select: { id: true, name: true, industry: true, autocountDebtorCode: true } },
   contact:  { select: { id: true, name: true, title: true } },
   closedBy: { select: { id: true, name: true } },
   project:  { select: { id: true, name: true, status: true } },
+  // Include accounting docs so the lead card can show pushed quotation badges.
+  accountingDocuments: {
+    select: { id: true, docType: true, docNo: true, docDate: true, dueDate: true, amount: true, status: true },
+    orderBy: { docDate: 'desc' as const },
+  },
 } as const;
 
 @Injectable()
@@ -89,6 +94,13 @@ export class LeadsService {
 
     await this.prisma.lead.update({
       where: { id },
+      data:  { projectId: project.id },
+    });
+
+    // Any AccountingDocuments created from this lead before conversion are now also
+    // linked to the new project so they appear in the project detail view.
+    await this.prisma.accountingDocument.updateMany({
+      where: { leadId: id, projectId: null },
       data:  { projectId: project.id },
     });
 

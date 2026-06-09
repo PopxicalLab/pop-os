@@ -7,6 +7,9 @@ import { FinancialService } from './financial.service';
 export class FinancialController {
   constructor(private readonly financial: FinancialService) {}
 
+  @Get('dashboard')
+  getDashboard() { return this.financial.getFinanceDashboard(); }
+
   @Get('overview')
   getOverview() { return this.financial.getOverview(); }
 

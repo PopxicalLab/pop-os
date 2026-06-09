@@ -56,6 +56,13 @@
       .badge {
         @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold;
       }
+      .nav-sub-item {
+        @apply w-full text-left px-4 py-2 text-xs text-muted hover:text-ink hover:bg-panel2
+               transition-colors duration-150 cursor-pointer;
+      }
+      .nav-sub-item.active {
+        @apply text-ink font-semibold;
+      }
     }
   </style>
 </head>
@@ -180,38 +187,68 @@
           <p class="text-[10px] text-muted leading-tight hidden sm:block">Pop Group Studio</p>
         </div>
       </div>
-      <nav class="flex gap-1 bg-bg/80 rounded-full p-1 border border-line">
+      <!-- Grouped nav — 5 top-level items, sub-tabs in dropdowns -->
+      <nav class="flex items-center gap-1 bg-bg/80 rounded-full p-1 border border-line">
+
+        <!-- Dashboard (direct) -->
         <button id="tab-btn-dashboard"
           class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 bg-panel text-ink"
           onclick="switchTab('dashboard')">Dashboard</button>
-        <button id="tab-btn-people"
-          class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
-          onclick="switchTab('people')">People / ELC</button>
-        <button id="tab-btn-projects"
-          class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
-          onclick="switchTab('projects')">Projects</button>
-        <button id="tab-btn-capacity"
-          class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
-          onclick="switchTab('capacity')">Capacity</button>
-        <button id="tab-btn-assets"
-          class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
-          onclick="switchTab('assets')">Assets</button>
-        <button id="tab-btn-sales"
-          class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
-          onclick="switchTab('sales')">Sales</button>
-        <button id="tab-btn-clients"
-          class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
-          onclick="switchTab('clients')">Clients</button>
-        <button id="tab-btn-production"
-          class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
-          onclick="switchTab('production')">Production</button>
+
+        <!-- Sales group -->
+        <div class="relative" id="grp-sales">
+          <button id="grp-btn-sales" onclick="toggleNavGroup('sales')"
+            class="flex items-center gap-1 px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink">
+            Sales
+            <svg class="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+          <div id="grp-drop-sales" class="hidden absolute left-0 top-full mt-1 w-36 bg-panel border border-line rounded-xl shadow-lg z-50 py-1">
+            <button id="tab-btn-sales"     onclick="pickNavTab('sales')"    class="nav-sub-item">Sales pipeline</button>
+            <button id="tab-btn-clients"   onclick="pickNavTab('clients')"  class="nav-sub-item">Clients</button>
+          </div>
+        </div>
+
+        <!-- Production group -->
+        <div class="relative" id="grp-production">
+          <button id="grp-btn-production" onclick="toggleNavGroup('production')"
+            class="flex items-center gap-1 px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink">
+            Production
+            <svg class="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+          <div id="grp-drop-production" class="hidden absolute left-0 top-full mt-1 w-36 bg-panel border border-line rounded-xl shadow-lg z-50 py-1">
+            <button id="tab-btn-projects"   onclick="pickNavTab('projects')"   class="nav-sub-item">Projects</button>
+            <button id="tab-btn-assets"     onclick="pickNavTab('assets')"     class="nav-sub-item">Assets</button>
+            <button id="tab-btn-production" onclick="pickNavTab('production')" class="nav-sub-item">Lanes</button>
+            <button id="tab-btn-capacity"   onclick="pickNavTab('capacity')"   class="nav-sub-item">Capacity</button>
+          </div>
+        </div>
+
+        <!-- Financial (direct — single item group) -->
         <button id="tab-btn-financial"
           class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
           onclick="switchTab('financial')">Financial</button>
-        <button id="tab-btn-staffing"
-          class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
-          onclick="switchTab('staffing')">Staffing</button>
+
+        <!-- HR group -->
+        <div class="relative" id="grp-hr">
+          <button id="grp-btn-hr" onclick="toggleNavGroup('hr')"
+            class="flex items-center gap-1 px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink">
+            HR
+            <svg class="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+          <div id="grp-drop-hr" class="hidden absolute left-0 top-full mt-1 w-36 bg-panel border border-line rounded-xl shadow-lg z-50 py-1">
+            <button id="tab-btn-people"   onclick="pickNavTab('people')"   class="nav-sub-item">People / ELC</button>
+            <button id="tab-btn-staffing" onclick="pickNavTab('staffing')" class="nav-sub-item">Staffing</button>
+          </div>
+        </div>
+
       </nav>
+
       <!-- Day / night toggle -->
       <button id="mode-btn" onclick="toggleMode()" title="Toggle day / night"
         class="ml-auto w-8 h-8 flex items-center justify-center rounded-lg text-muted
@@ -225,6 +262,32 @@
             d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
         </svg>
       </button>
+      <!-- User badge + logout -->
+      <div class="relative shrink-0" id="user-menu-wrap">
+        <button id="user-btn" onclick="toggleUserMenu()"
+          class="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-line text-xs text-muted
+                 hover:text-ink hover:bg-panel2 transition-colors cursor-pointer">
+          <span id="user-name-label">…</span>
+          <span id="user-role-badge" class="badge text-[10px]"></span>
+          <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div id="user-menu"
+          class="hidden absolute right-0 top-full mt-1 w-52 bg-panel border border-line rounded-xl shadow-lg z-50 py-1">
+          <div class="px-4 py-2 border-b border-line">
+            <p id="user-email-label" class="text-[11px] text-muted truncate"></p>
+          </div>
+          <button id="user-manage-btn" onclick="openUserManager()" style="display:none"
+            class="w-full text-left px-4 py-2 text-xs text-ink hover:bg-panel2 transition-colors cursor-pointer">
+            Manage users
+          </button>
+          <button onclick="logout()"
+            class="w-full text-left px-4 py-2 text-xs text-warm hover:bg-panel2 transition-colors cursor-pointer">
+            Sign out
+          </button>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -268,6 +331,19 @@
         </div>
 
       </div>
+
+      <!-- Payment alerts row (full width, only visible when there are due payments) -->
+      <div id="dash-payments-wrap" class="mt-5">
+        <div class="bg-panel border border-line rounded-xl p-5">
+          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">
+            Payment Alerts <span class="text-warm">· Due within 10 days</span>
+          </h2>
+          <div id="dash-payments">
+            <div class="text-center text-muted text-sm py-8">Loading…</div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -792,11 +868,62 @@
        PANEL: FINANCIAL
   ════════════════════════════════════════════════════ -->
   <div class="panel hidden" id="tab-financial">
-    <div class="max-w-7xl mx-auto px-5 py-6">
-      <div id="fin-stats" class="text-sm px-5 py-3 mb-5 bg-panel border border-line rounded-xl text-muted">
+    <div class="max-w-7xl mx-auto px-5 py-6 space-y-5">
+
+      <!-- Stats strip (studio cost / pipeline) -->
+      <div id="fin-stats" class="text-sm px-5 py-3 bg-panel border border-line rounded-xl text-muted">
         Loading…
       </div>
+
+      <!-- ── AR KPI cards ─────────────────────────────────────── -->
+      <div id="fin-kpi" class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- populated by loadFinanceDashboard() -->
+        <div class="bg-panel border border-line rounded-xl p-5 text-center text-muted text-sm">Loading…</div>
+      </div>
+
+      <!-- ── Alerts row: overdue + due soon ──────────────────── -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="bg-panel border border-line rounded-xl p-5">
+          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-warm mb-3">Overdue Invoices</h2>
+          <div id="fin-overdue">
+            <div class="text-center text-muted text-sm py-6">Loading…</div>
+          </div>
+        </div>
+        <div class="bg-panel border border-line rounded-xl p-5">
+          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-yellow-400 mb-3">Due Within 10 Days</h2>
+          <div id="fin-due-soon">
+            <div class="text-center text-muted text-sm py-6">Loading…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Pipeline + Health row ───────────────────────────── -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="bg-panel border border-line rounded-xl p-5">
+          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Sales Pipeline</h2>
+          <div id="fin-pipeline">
+            <div class="text-center text-muted text-sm py-6">Loading…</div>
+          </div>
+        </div>
+        <div class="bg-panel border border-line rounded-xl p-5">
+          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Project Health</h2>
+          <div id="fin-health">
+            <div class="text-center text-muted text-sm py-6">Loading…</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Recent Autocount documents ─────────────────────── -->
+      <div class="bg-panel border border-line rounded-xl p-5">
+        <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Recent Documents</h2>
+        <div id="fin-recent-docs">
+          <div class="text-center text-muted text-sm py-6">Loading…</div>
+        </div>
+      </div>
+
+      <!-- ── Project cost breakdown (existing) ──────────────── -->
       <div id="fin-content" class="bg-panel border border-line rounded-xl p-5">
+        <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-4">Project Cost Breakdown</h2>
         <div class="overflow-x-auto -mx-5 px-5">
           <table class="w-full text-sm">
             <thead>
@@ -818,6 +945,7 @@
         </div>
         <p class="text-[11px] text-muted mt-4">Cost to date = capacity man-days × (annual salary + 20% overhead) / 260 working days. Requires salary set on each person.</p>
       </div>
+
     </div>
   </div>
 
@@ -976,16 +1104,45 @@
     }
 
     // ── tab switching ────────────────────────────────────────────
+    const ALL_TABS = ['dashboard','sales','clients','projects','assets','production','capacity','financial','people','staffing'];
+
+    // Which group each tab belongs to (for highlighting the group button)
+    const TAB_GROUP = {
+      dashboard: null,
+      sales: 'sales', clients: 'sales',
+      projects: 'production', assets: 'production', production: 'production', capacity: 'production',
+      financial: null,
+      people: 'hr', staffing: 'hr',
+    };
+
     function switchTab(name) {
-      ['dashboard', 'people', 'projects', 'capacity', 'assets', 'sales', 'clients', 'production', 'financial', 'staffing'].forEach(t => {
-        const active = t === name;
-        $('tab-btn-' + t).className = active
+      ALL_TABS.forEach(t => {
+        const btn = $('tab-btn-' + t);
+        if (btn) btn.classList.toggle('active', t === name);
+        $('tab-' + t).classList.toggle('hidden', t !== name);
+      });
+      // Highlight the active group button
+      ['sales','production','hr'].forEach(g => {
+        const gbtn = $('grp-btn-' + g);
+        if (!gbtn) return;
+        const grpActive = TAB_GROUP[name] === g;
+        gbtn.className = gbtn.className
+          .replace(/bg-panel text-ink|text-muted hover:text-ink/g, '')
+          .trim();
+        gbtn.className += grpActive
+          ? ' bg-panel text-ink'
+          : ' text-muted hover:text-ink';
+      });
+      // Direct tabs (dashboard, financial)
+      ['dashboard','financial'].forEach(t => {
+        const btn = $('tab-btn-' + t);
+        if (!btn) return;
+        btn.className = (name === t)
           ? 'px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 bg-panel text-ink'
           : 'px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink';
-        $('tab-' + t).classList.toggle('hidden', !active);
       });
-      if (name === 'capacity')  loadCapacityBoard();
-      if (name === 'dashboard') loadDashboard();
+      if (name === 'capacity')   loadCapacityBoard();
+      if (name === 'dashboard')  loadDashboard();
       if (name === 'assets')     { loadAssetProjects().then(loadAssets); }
       if (name === 'sales')      { initSalesTab().then(loadSales); }
       if (name === 'clients')    { loadClients(); }
@@ -993,6 +1150,30 @@
       if (name === 'financial')  { loadFinancial(); }
       if (name === 'staffing')   { initStaffingTab(); loadStaffingCandidates(); }
     }
+
+    // ── group dropdown nav ────────────────────────────────────────
+    const GROUPS = ['sales','production','hr'];
+
+    function toggleNavGroup(g) {
+      const isOpen = !$('grp-drop-' + g).classList.contains('hidden');
+      closeAllNavGroups();
+      if (!isOpen) $('grp-drop-' + g).classList.remove('hidden');
+    }
+
+    function closeAllNavGroups() {
+      GROUPS.forEach(g => $('grp-drop-' + g)?.classList.add('hidden'));
+    }
+
+    function pickNavTab(name) {
+      closeAllNavGroups();
+      switchTab(name);
+    }
+
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', function(e) {
+      const inNav = e.target.closest('nav');
+      if (!inNav) closeAllNavGroups();
+    });
 
     // ══════════════════════════════════════════════════════════════
     // THEME SETTINGS
@@ -1100,6 +1281,163 @@
       location.reload();
     }
 
+    // ══════════════════════════════════════════════════════════════
+    // AUTH — token check, fetch wrapper, role visibility
+    // ══════════════════════════════════════════════════════════════
+
+    // Which tabs each role can see. ADMIN sees everything.
+    const TAB_ACCESS = {
+      dashboard:  ['ADMIN','PRODUCER','SALES','FINANCE'],
+      sales:      ['ADMIN','SALES'],
+      clients:    ['ADMIN','SALES'],
+      projects:   ['ADMIN','PRODUCER','FINANCE'],
+      assets:     ['ADMIN','PRODUCER'],
+      production: ['ADMIN','PRODUCER'],
+      capacity:   ['ADMIN','PRODUCER'],
+      financial:  ['ADMIN','FINANCE'],
+      people:     ['ADMIN','PRODUCER'],
+      staffing:   ['ADMIN','PRODUCER'],
+    };
+
+    const ROLE_LABEL = { ADMIN:'Admin', PRODUCER:'Producer', SALES:'Sales', FINANCE:'Finance' };
+    const ROLE_CLS   = {
+      ADMIN:    'bg-warm/15 text-warm border border-warm/30',
+      PRODUCER: 'bg-accent/15 text-accent border border-accent/30',
+      SALES:    'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30',
+      FINANCE:  'bg-sky-500/15 text-sky-400 border border-sky-500/30',
+    };
+
+    // Redirect to login if no token
+    const _token = localStorage.getItem('pop-os-token');
+    if (!_token) { window.location.replace('/login.html'); }
+
+    // Intercept all fetch() calls to inject the Bearer token automatically.
+    // This means none of the tab JS files need to know about auth.
+    const _origFetch = window.fetch;
+    window.fetch = function(url, opts = {}) {
+      if (typeof url === 'string' && url.startsWith('/api') && _token) {
+        opts = { ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers || {}), Authorization: 'Bearer ' + _token } };
+      }
+      return _origFetch(url, opts).then(res => {
+        if (res.status === 401) { logout(); }
+        return res;
+      });
+    };
+
+    // Apply role-based tab visibility — hides individual sub-items AND
+    // the whole group button if the role has no access to any tab in that group.
+    function applyRoleVisibility(role) {
+      ALL_TABS.forEach(t => {
+        const allowed = TAB_ACCESS[t]?.includes(role) ?? true;
+        const btn = $('tab-btn-' + t);
+        if (btn) btn.style.display = allowed ? '' : 'none';
+      });
+      // Hide the group button if all its tabs are hidden for this role
+      const GROUP_TABS = {
+        sales:      ['sales','clients'],
+        production: ['projects','assets','production','capacity'],
+        hr:         ['people','staffing'],
+      };
+      GROUPS.forEach(g => {
+        const anyVisible = (GROUP_TABS[g] || []).some(t => TAB_ACCESS[t]?.includes(role));
+        const gbtn = $('grp-' + g);
+        if (gbtn) gbtn.style.display = anyVisible ? '' : 'none';
+      });
+      // Show "Manage users" only to admins
+      const manageBtn = $('user-manage-btn');
+      if (manageBtn) manageBtn.style.display = role === 'ADMIN' ? '' : 'none';
+    }
+
+    // Render user info in the header
+    function initUserUI() {
+      try {
+        const user = JSON.parse(localStorage.getItem('pop-os-user') || '{}');
+        if (!user.name) return;
+        $('user-name-label').textContent = user.name;
+        const badge = $('user-role-badge');
+        badge.textContent  = ROLE_LABEL[user.role] || user.role;
+        badge.className    = 'badge text-[10px] ' + (ROLE_CLS[user.role] || '');
+        $('user-email-label').textContent = user.email || '';
+        applyRoleVisibility(user.role);
+      } catch(e) {}
+    }
+
+    function toggleUserMenu() {
+      $('user-menu').classList.toggle('hidden');
+    }
+    document.addEventListener('click', e => {
+      if (!$('user-menu-wrap')?.contains(e.target)) {
+        $('user-menu')?.classList.add('hidden');
+      }
+    });
+
+    function logout() {
+      localStorage.removeItem('pop-os-token');
+      localStorage.removeItem('pop-os-user');
+      window.location.replace('/login.html');
+    }
+
+    // ── User manager (admin only) ─────────────────────────────────
+    function openUserManager() {
+      $('user-menu').classList.add('hidden');
+      $('user-mgr-overlay').classList.remove('hidden');
+      loadUserList();
+    }
+    function closeUserManager() {
+      $('user-mgr-overlay').classList.add('hidden');
+    }
+
+    async function loadUserList() {
+      const users = await fetch('/api/users').then(r => r.json()).catch(() => []);
+      const ROLE_OPTS = ['ADMIN','PRODUCER','SALES','FINANCE'].map(r =>
+        `<option value="${r}">${ROLE_LABEL[r]}</option>`).join('');
+
+      $('user-list').innerHTML = users.map(u => `
+        <tr class="border-b border-line/60">
+          <td class="py-2 px-3 text-xs text-ink">${esc(u.name)}</td>
+          <td class="py-2 px-3 text-xs text-muted">${esc(u.email)}</td>
+          <td class="py-2 px-3 text-xs">
+            <span class="badge text-[10px] ${ROLE_CLS[u.role] || ''}">${ROLE_LABEL[u.role]||u.role}</span>
+          </td>
+          <td class="py-2 px-3 text-xs text-center">
+            <input type="checkbox" ${u.active ? 'checked' : ''} disabled class="accent-accent" />
+          </td>
+          <td class="py-2 px-3 text-right">
+            <button class="btn-del text-[11px]" onclick="deleteUser('${u.id}')">×</button>
+          </td>
+        </tr>`).join('');
+    }
+
+    async function addUser() {
+      const name  = $('new-user-name').value.trim();
+      const email = $('new-user-email').value.trim();
+      const pw    = $('new-user-pw').value;
+      const role  = $('new-user-role').value;
+      const msgEl = $('user-mgr-msg');
+      if (!name || !email || !pw) { msg(msgEl,'All fields required.','err'); return; }
+
+      const res = await fetch('/api/users', {
+        method:'POST',
+        body: JSON.stringify({ name, email, password: pw, role }),
+      });
+      if (res.ok) {
+        $('new-user-name').value = $('new-user-email').value = $('new-user-pw').value = '';
+        msg(msgEl, 'User added.', 'ok');
+        loadUserList();
+      } else {
+        const e = await res.json().catch(() => ({}));
+        msg(msgEl, [].concat(e.message||'Failed').join(', '), 'err');
+      }
+    }
+
+    async function deleteUser(id) {
+      const me = JSON.parse(localStorage.getItem('pop-os-user') || '{}');
+      if (me.id === id) { alert("You can't delete your own account."); return; }
+      if (!confirm('Remove this user?')) return;
+      await fetch('/api/users/' + id, { method:'DELETE' });
+      loadUserList();
+    }
+
   </script>
 
   <!-- ── Module scripts: one file per tab ─────────────────────── -->
@@ -1114,8 +1452,134 @@
   <script src="/js/financial.js"></script>
   <script src="/js/staffing.js"></script>
 
-  <!-- Boot: load data for the default (Dashboard) tab + background pre-load for others -->
+  <!-- ── User Manager modal (admin only) ──────────────────────── -->
+  <div id="user-mgr-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+    <div class="absolute inset-0 bg-bg/80 backdrop-blur-sm" onclick="closeUserManager()"></div>
+    <div class="relative bg-panel border border-line rounded-2xl p-6 w-full max-w-lg mx-4 z-10">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-sm font-semibold text-ink">Manage Users</h2>
+        <button onclick="closeUserManager()" class="text-muted hover:text-ink transition-colors cursor-pointer text-lg leading-none">×</button>
+      </div>
+
+      <div class="overflow-x-auto mb-5">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-line">
+              <th class="text-left pb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Name</th>
+              <th class="text-left pb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Email</th>
+              <th class="text-left pb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Role</th>
+              <th class="pb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted text-center">Active</th>
+              <th class="pb-2 px-3"></th>
+            </tr>
+          </thead>
+          <tbody id="user-list"></tbody>
+        </table>
+      </div>
+
+      <div class="border-t border-line pt-4">
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Add user</p>
+        <div class="grid grid-cols-2 gap-2 mb-2">
+          <input id="new-user-name"  class="form-input text-xs" placeholder="Full name" style="margin-top:0" />
+          <input id="new-user-email" class="form-input text-xs" placeholder="Email" style="margin-top:0" />
+          <input id="new-user-pw"    class="form-input text-xs" type="password" placeholder="Password (min 6)" style="margin-top:0" />
+          <select id="new-user-role" class="form-input text-xs cursor-pointer" style="margin-top:0">
+            <option value="PRODUCER">Producer</option>
+            <option value="SALES">Sales</option>
+            <option value="FINANCE">Finance</option>
+            <option value="ADMIN">Admin</option>
+          </select>
+        </div>
+        <button onclick="addUser()"
+          class="w-full bg-accent text-bg text-xs font-semibold py-2 rounded-lg
+                 hover:brightness-110 transition-all cursor-pointer mt-1">
+          Add user
+        </button>
+        <div id="user-mgr-msg" class="text-xs mt-2 min-h-[16px]"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Autocount: push-to-quotation modal ───────────────────── -->
+  <div id="quote-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
+    <div class="bg-panel border border-line rounded-2xl w-full max-w-sm mx-4 p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-ink">Push to Autocount</h2>
+        <button onclick="closeQuoteModal()" class="text-muted hover:text-ink text-lg leading-none">×</button>
+      </div>
+      <p class="text-xs text-muted">
+        Creating a quotation for: <span id="quote-modal-title" class="text-ink font-medium"></span>
+      </p>
+      <input type="hidden" id="quote-modal-lead-id" />
+      <div>
+        <label class="form-label">Autocount Debtor</label>
+        <select id="quote-debtor-sel" class="form-input text-sm">
+          <option value="">— loading debtors —</option>
+        </select>
+        <p class="text-[11px] text-muted mt-1">Select the client company in Autocount. Once pushed, the selection is saved for future quotes.</p>
+      </div>
+      <div id="quote-modal-msg" class="text-xs min-h-[16px]"></div>
+      <div class="flex gap-2 pt-1">
+        <button id="quote-submit-btn" onclick="submitQuote()"
+          class="flex-1 bg-sky-500/15 border border-sky-500/30 text-sky-400 text-sm py-2 rounded-xl
+                 hover:bg-sky-500/25 transition-colors cursor-pointer font-semibold">
+          Create Quotation
+        </button>
+        <button onclick="closeQuoteModal()"
+          class="flex-1 bg-panel2 border border-line text-muted text-sm py-2 rounded-xl
+                 hover:text-ink transition-colors cursor-pointer">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Autocount: push-to-invoice modal (project detail) ────── -->
+  <div id="invoice-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
+    <div class="bg-panel border border-line rounded-2xl w-full max-w-sm mx-4 p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-ink">Push Invoice to Autocount</h2>
+        <button onclick="closeInvoiceModal()" class="text-muted hover:text-ink text-lg leading-none">×</button>
+      </div>
+      <p class="text-xs text-muted">
+        Creating an invoice for: <span id="invoice-modal-title" class="text-ink font-medium"></span>
+      </p>
+      <div>
+        <label class="form-label">Autocount Debtor</label>
+        <select id="invoice-debtor-sel" class="form-input text-sm">
+          <option value="">— select debtor —</option>
+        </select>
+      </div>
+      <div id="invoice-modal-msg" class="text-xs min-h-[16px]"></div>
+      <div class="flex gap-2 pt-1">
+        <button id="invoice-submit-btn" onclick="submitInvoice()"
+          class="flex-1 bg-sky-500/15 border border-sky-500/30 text-sky-400 text-sm py-2 rounded-xl
+                 hover:bg-sky-500/25 transition-colors cursor-pointer font-semibold">
+          Create Invoice
+        </button>
+        <button onclick="closeInvoiceModal()"
+          class="flex-1 bg-panel2 border border-line text-muted text-sm py-2 rounded-xl
+                 hover:text-ink transition-colors cursor-pointer">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Module scripts: one file per tab ─────────────────────── -->
+  <script src="/js/people.js"></script>
+  <script src="/js/projects.js"></script>
+  <script src="/js/capacity.js"></script>
+  <script src="/js/dashboard.js"></script>
+  <script src="/js/assets.js"></script>
+  <script src="/js/sales.js"></script>
+  <script src="/js/clients.js"></script>
+  <script src="/js/production.js"></script>
+  <script src="/js/financial.js"></script>
+  <script src="/js/staffing.js"></script>
+
+  <!-- Boot: initialise user UI, then load default tab data -->
   <script>
+    initUserUI();
     loadDashboard();
     loadSkills();
     load();
