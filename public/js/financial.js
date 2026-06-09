@@ -93,48 +93,77 @@ function renderFinanceDashboard(d) {
     ? dueSoonInvoices.map(doc => renderDocRow(doc, false)).join('')
     : '<p class="text-sm text-muted py-4 text-center">No invoices due in the next 10 days.</p>';
 
-  // Pipeline by stage
-  const STAGE_ORDER  = ['QUALIFICATION','PROPOSAL','NEGOTIATION','WON'];
-  const STAGE_LABEL  = { QUALIFICATION:'Qualification', PROPOSAL:'Proposal', NEGOTIATION:'Negotiation', WON:'Won' };
-  const STAGE_CLS    = {
-    QUALIFICATION: 'bg-sky-500/20',
-    PROPOSAL:      'bg-yellow-500/20',
-    NEGOTIATION:   'bg-purple-500/20',
-    WON:           'bg-emerald-500/20',
-  };
+  // Pipeline by stage — vivid solid colours + stacked proportion bar
+  const STAGE_ORDER = ['QUALIFICATION','PROPOSAL','NEGOTIATION','WON'];
+  const STAGE_LABEL = { QUALIFICATION:'Qualification', PROPOSAL:'Proposal', NEGOTIATION:'Negotiation', WON:'Won' };
+  const STAGE_COLOR = { QUALIFICATION:'#38bdf8', PROPOSAL:'#facc15', NEGOTIATION:'#c084fc', WON:'#34d399' };
+  const STAGE_TEXT  = { QUALIFICATION:'text-sky-400', PROPOSAL:'text-yellow-400', NEGOTIATION:'text-purple-400', WON:'text-emerald-400' };
   const totalPipeline = STAGE_ORDER.reduce((s, k) => s + (pipelineByStage[k] ?? 0), 0);
 
-  $('fin-pipeline').innerHTML = totalPipeline === 0
-    ? '<p class="text-sm text-muted py-4 text-center">No active leads with values.</p>'
-    : STAGE_ORDER.map(stage => {
-        const val = pipelineByStage[stage] ?? 0;
-        if (!val) return '';
-        const pct = Math.round(val / totalPipeline * 100);
-        return `<div class="mb-3">
-          <div class="flex justify-between text-xs mb-1">
-            <span class="text-muted">${STAGE_LABEL[stage]}</span>
-            <span class="text-ink font-semibold">${fmtMYRPlain(val)}</span>
-          </div>
-          <div class="h-2 bg-panel2 rounded-full overflow-hidden">
-            <div class="h-full ${STAGE_CLS[stage] || 'bg-accent/20'} rounded-full" style="width:${pct}%"></div>
-          </div>
-        </div>`;
-      }).join('') +
-      `<p class="text-xs text-muted mt-3 pt-3 border-t border-line">
+  if (totalPipeline === 0) {
+    $('fin-pipeline').innerHTML = '<p class="text-sm text-muted py-4 text-center">No active leads with values.</p>';
+  } else {
+    const stackedBar = STAGE_ORDER.map(stage => {
+      const val = pipelineByStage[stage] ?? 0;
+      if (!val) return '';
+      const pct = (val / totalPipeline * 100).toFixed(1);
+      return `<div class="h-full transition-all" style="width:${pct}%;background:${STAGE_COLOR[stage]}" title="${STAGE_LABEL[stage]}: ${fmtMYRPlain(val)}"></div>`;
+    }).join('');
+
+    const stageRows = STAGE_ORDER.map(stage => {
+      const val = pipelineByStage[stage] ?? 0;
+      if (!val) return '';
+      const pct = Math.round(val / totalPipeline * 100);
+      return `<div class="flex items-center gap-2.5">
+        <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${STAGE_COLOR[stage]}"></div>
+        <span class="text-xs text-muted w-24 shrink-0">${STAGE_LABEL[stage]}</span>
+        <div class="flex-1 h-3 bg-panel2 rounded-full overflow-hidden">
+          <div class="h-full rounded-full" style="width:${pct}%;background:${STAGE_COLOR[stage]}"></div>
+        </div>
+        <span class="text-xs font-semibold ${STAGE_TEXT[stage]} w-7 text-right shrink-0">${pct}%</span>
+        <span class="text-xs font-semibold text-ink w-28 text-right shrink-0">${fmtMYRPlain(val)}</span>
+      </div>`;
+    }).join('');
+
+    $('fin-pipeline').innerHTML =
+      `<div class="h-4 rounded-lg overflow-hidden flex gap-px mb-4">${stackedBar}</div>
+       <div class="space-y-3">${stageRows}</div>
+       <p class="text-xs text-muted mt-4 pt-3 border-t border-line">
          Total pipeline: <span class="text-ink font-semibold">${fmtMYRPlain(totalPipeline)}</span>
        </p>`;
+  }
 
-  // Project health breakdown
-  const totalProjects = health.green + health.amber + health.red + health.unknown;
-  $('fin-health').innerHTML = totalProjects === 0
-    ? '<p class="text-sm text-muted py-4 text-center">No active projects.</p>'
-    : `<div class="space-y-3">
-        ${healthRow('On track',      health.green,   totalProjects, 'bg-emerald-500/20', 'text-emerald-400')}
-        ${healthRow('At risk',       health.amber,   totalProjects, 'bg-yellow-500/20',  'text-yellow-400')}
-        ${healthRow('Over budget',   health.red,     totalProjects, 'bg-warm/20',         'text-warm')}
-        ${healthRow('No value set',  health.unknown, totalProjects, 'bg-muted/20',        'text-muted')}
-      </div>
-      <p class="text-xs text-muted mt-4 pt-3 border-t border-line">${totalProjects} active project${totalProjects !== 1 ? 's' : ''} tracked</p>`;
+  // Project health breakdown — donut chart + legend
+  const HEALTH_SEGS = [
+    { value: health.green,   color: '#34d399', label: 'On track',     cls: 'text-emerald-400' },
+    { value: health.amber,   color: '#facc15', label: 'At risk',      cls: 'text-yellow-400'  },
+    { value: health.red,     color: '#c05535', label: 'Over budget',  cls: 'text-warm'        },
+    { value: health.unknown, color: '#857f73', label: 'No value set', cls: 'text-muted'       },
+  ];
+  const totalProjects = HEALTH_SEGS.reduce((s, seg) => s + (seg.value || 0), 0);
+
+  if (totalProjects === 0) {
+    $('fin-health').innerHTML = '<p class="text-sm text-muted py-4 text-center">No active projects.</p>';
+  } else {
+    const legendRows = HEALTH_SEGS.filter(s => s.value > 0).map(seg => {
+      const pct = Math.round(seg.value / totalProjects * 100);
+      return `<div class="flex items-center gap-2">
+        <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${seg.color}"></div>
+        <span class="text-xs text-muted flex-1">${seg.label}</span>
+        <span class="text-sm font-bold ${seg.cls} w-5 text-right">${seg.value}</span>
+        <div class="w-16 h-2 bg-panel2 rounded-full overflow-hidden ml-1">
+          <div class="h-full rounded-full" style="width:${pct}%;background:${seg.color}"></div>
+        </div>
+      </div>`;
+    }).join('');
+
+    $('fin-health').innerHTML =
+      `<div class="flex items-center gap-5">
+         ${svgDonut(HEALTH_SEGS, 110)}
+         <div class="flex-1 space-y-3">${legendRows}</div>
+       </div>
+       <p class="text-xs text-muted mt-4 pt-3 border-t border-line">${totalProjects} active project${totalProjects !== 1 ? 's' : ''} tracked</p>`;
+  }
 
   // Recent documents
   const DOC_LABEL = { QUOTATION: 'Quote', SALES_INVOICE: 'Invoice', PURCHASE_INVOICE: 'PO Invoice' };
@@ -175,18 +204,35 @@ function renderFinanceDashboard(d) {
       </div>`;
 }
 
-function healthRow(label, count, total, barCls, textCls) {
-  if (!count) return '';
-  const pct = Math.round(count / total * 100);
-  return `<div>
-    <div class="flex justify-between text-xs mb-1">
-      <span class="text-muted">${label}</span>
-      <span class="${textCls} font-semibold">${count} project${count !== 1 ? 's' : ''}</span>
-    </div>
-    <div class="h-2 bg-panel2 rounded-full overflow-hidden">
-      <div class="h-full ${barCls} rounded-full" style="width:${pct}%"></div>
-    </div>
-  </div>`;
+// Builds an SVG donut chart from segments [{value, color}].
+// Total project count is shown in the centre.
+function svgDonut(segments, size = 110) {
+  const total = segments.reduce((s, seg) => s + (seg.value || 0), 0);
+  if (!total) return '';
+  const cx = size / 2, cy = size / 2;
+  const r  = size * 0.33;
+  const C  = 2 * Math.PI * r;
+  const sw = size * 0.19;
+  let drawn = 0;
+  const circles = segments.filter(s => s.value > 0).map(seg => {
+    const len = (seg.value / total) * C;
+    const gap = C - len;
+    const dashOffset = C - drawn;
+    drawn += len;
+    return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none"
+      stroke="${seg.color}" stroke-width="${sw}"
+      stroke-dasharray="${len.toFixed(2)} ${gap.toFixed(2)}"
+      stroke-dashoffset="${dashOffset.toFixed(2)}"
+      transform="rotate(-90,${cx},${cy})"/>`;
+  });
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" class="shrink-0">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#2c2920" stroke-width="${sw}"/>
+    ${circles.join('')}
+    <text x="${cx}" y="${cy - 4}" text-anchor="middle" fill="#e4e0d4"
+      font-size="${size * 0.2}" font-weight="700" font-family="system-ui,sans-serif">${total}</text>
+    <text x="${cx}" y="${cy + size * 0.14}" text-anchor="middle" fill="#857f73"
+      font-size="${size * 0.11}" font-family="system-ui,sans-serif">projects</text>
+  </svg>`;
 }
 
 function renderDocRow(doc, isOverdue) {
