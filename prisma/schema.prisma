@@ -108,6 +108,8 @@ model Person {
 
   // Leads this person closed (as the winning or losing salesperson).
   leadsWon           Lead[]      @relation("LeadClosedBy")
+  // Assets assigned to this person for production work.
+  assignedAssets     Asset[]     @relation("AssetAssignments")
   user               User?       // login account, if this person has one
 
   createdAt      DateTime       @default(now())
@@ -360,10 +362,12 @@ model Capacity {
 // ── USER ROLES ───────────────────────────────────────────────────
 // Controls what each user can see and do in Pop OS.
 enum Role {
-  ADMIN    // full access to everything
-  PRODUCER // projects, capacity, assets, production, people, staffing
-  SALES    // sales pipeline and clients only
-  FINANCE  // financial tab + read-only projects
+  ADMIN     // full access to everything
+  PRODUCER  // projects, capacity, assets, production, people, staffing, dashboard
+  SALES     // sales pipeline and clients only
+  FINANCE   // financial tab + read-only projects
+  PM        // project manager: all production tabs + project-level costs (no AR)
+  TEAM_LEAD // creative/3D leads: dashboard, projects, assets, production, capacity, people (read)
 }
 
 // ── USER ─────────────────────────────────────────────────────────
@@ -395,6 +399,10 @@ model Asset {
   stage       AssetStage @default(BRIEF)
   cdSignedOff Boolean    @default(false)     // CD must acknowledge at INTERNAL_REVIEW
   changedBy   String?                        // free text for now; links to Person later
+
+  // Who is doing the work on this asset. Drives the "My Work" personal dashboard.
+  assignedToId String?
+  assignedTo   Person?  @relation("AssetAssignments", fields: [assignedToId], references: [id], onDelete: SetNull)
 
   project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
 

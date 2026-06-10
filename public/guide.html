@@ -8,14 +8,17 @@
   <script>
     tailwind.config = {
       theme: { extend: { colors: {
-        bg: '#111009', panel: '#191814', panel2: '#201e19',
-        line: '#2c2920', ink: '#e4e0d4', muted: '#857f73',
-        accent: '#d4a23a', warm: '#c05535',
+        bg: '#0d0c10', panel: '#161519', panel2: '#1e1c22',
+        line: '#2a2830', ink: '#e8e5de', muted: '#857f73',
+        accent: '#cc6818', warm: '#c05535',
+        lp:  '#cc6818',   /* Lorrypop orange  */
+        pxl: '#14b8a6',   /* Popxical teal    */
+        pxb: '#4b8bca',   /* Popxical blue    */
       }}}
     };
   </script>
   <style>
-    body { background: #111009; color: #e4e0d4; font-family: system-ui, sans-serif; }
+    body { background: #0d0c10; color: #e8e5de; font-family: system-ui, sans-serif; }
     @media print {
       body { background: white; color: #111; }
       .no-print { display: none; }
@@ -27,9 +30,15 @@
   <!-- Header -->
   <div class="border-b border-line bg-panel">
     <div class="max-w-3xl mx-auto px-6 py-5 flex items-center justify-between">
-      <div>
-        <h1 class="text-xl font-bold text-ink">Pop OS</h1>
-        <p class="text-sm text-muted mt-0.5">Getting Started — Director's Guide</p>
+      <div class="flex items-center gap-3">
+        <img src="/lps-logo.png" class="h-7 w-auto object-contain" alt="Lorrypop" />
+        <div class="w-px h-5 bg-line shrink-0"></div>
+        <img src="/pxl-logo.png" class="h-7 w-auto object-contain" alt="Popxical" />
+        <div class="w-px h-5 bg-line shrink-0"></div>
+        <div>
+          <h1 class="text-base font-bold text-ink leading-tight">Pop OS</h1>
+          <p class="text-xs text-muted leading-tight">Director's Guide</p>
+        </div>
       </div>
       <div class="flex gap-3 no-print">
         <button onclick="window.print()"
@@ -52,7 +61,7 @@
       <p class="text-muted leading-relaxed">
         Pop OS is Pop Group's internal operating system — a single place to see every active project,
         who's working on what, where the money is, and what needs attention today.
-        This guide walks you through logging in and the sections most relevant to you as a director.
+        This guide covers login, your role's access, and the sections most relevant to your work.
       </p>
     </section>
 
@@ -68,20 +77,96 @@
           http://192.168.1.40:3000/login.html
         </div>
         <p class="text-muted text-sm">Use the credentials your admin has set up for you. If you haven't received them yet, ask the team admin.</p>
-        <div class="bg-panel2 border border-line rounded-lg p-4 space-y-2">
-          <p class="text-xs text-muted font-semibold uppercase tracking-wider">Your account access level</p>
-          <div class="grid grid-cols-2 gap-3 text-sm mt-2">
-            <div class="bg-panel border border-line rounded-lg p-3">
-              <p class="font-semibold text-ink">FINANCE</p>
-              <p class="text-xs text-muted mt-1">Financial dashboard + read-only project view</p>
+
+        <!-- Role access table -->
+        <div class="bg-panel2 border border-line rounded-lg p-4">
+          <p class="text-xs text-muted font-semibold uppercase tracking-wider mb-4">Account roles &amp; access</p>
+
+          <!-- Role cards -->
+          <div class="space-y-3">
+
+            <div class="flex items-start gap-3 p-3 bg-panel border border-line rounded-lg">
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-red-500/15 text-red-400 border border-red-500/30 shrink-0 mt-0.5">ADMIN</span>
+              <div>
+                <p class="text-xs font-semibold text-ink">Full access — everything including user management</p>
+                <p class="text-xs text-muted mt-0.5">Dashboard · Projects · Sales · Clients · Assets · Production · Capacity · Financial (full AR) · People · Staffing</p>
+              </div>
             </div>
-            <div class="bg-panel border border-line rounded-lg p-3">
-              <p class="font-semibold text-ink">ADMIN</p>
-              <p class="text-xs text-muted mt-1">Full access to everything including user management</p>
+
+            <div class="flex items-start gap-3 p-3 bg-panel border border-line rounded-lg">
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-accent/15 text-accent border border-accent/30 shrink-0 mt-0.5">PRODUCER</span>
+              <div>
+                <p class="text-xs font-semibold text-ink">All production operations — sets project priority</p>
+                <p class="text-xs text-muted mt-0.5">Dashboard · Projects · Assets · Production · Capacity · People · Staffing</p>
+              </div>
             </div>
+
+            <div class="flex items-start gap-3 p-3 bg-panel border border-purple-500/20 rounded-lg">
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-500/15 text-purple-400 border border-purple-500/30 shrink-0 mt-0.5">PM</span>
+              <div>
+                <p class="text-xs font-semibold text-ink">Project Manager — owns delivery &amp; workflow compliance</p>
+                <p class="text-xs text-muted mt-0.5">Dashboard · Projects · Assets · Production · Capacity · People · Staffing · Financial <span class="text-purple-400">(project costs only — no AR)</span></p>
+              </div>
+            </div>
+
+            <div class="flex items-start gap-3 p-3 bg-panel border border-teal-500/20 rounded-lg">
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-teal-500/15 text-teal-400 border border-teal-500/30 shrink-0 mt-0.5">TEAM LEAD</span>
+              <div>
+                <p class="text-xs font-semibold text-ink">Creative / 3D Director — signs off deliverables</p>
+                <p class="text-xs text-muted mt-0.5">Dashboard · Projects <span class="text-teal-400">(read)</span> · Assets · Production · Capacity <span class="text-teal-400">(read)</span> · People <span class="text-teal-400">(read)</span></p>
+              </div>
+            </div>
+
+            <div class="flex items-start gap-3 p-3 bg-panel border border-sky-500/20 rounded-lg">
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-sky-500/15 text-sky-400 border border-sky-500/30 shrink-0 mt-0.5">FINANCE</span>
+              <div>
+                <p class="text-xs font-semibold text-ink">Financial dashboard — AR position, invoices, project health</p>
+                <p class="text-xs text-muted mt-0.5">Dashboard · Projects <span class="text-sky-400">(read)</span> · Financial <span class="text-sky-400">(full AR)</span></p>
+              </div>
+            </div>
+
+            <div class="flex items-start gap-3 p-3 bg-panel border border-emerald-500/20 rounded-lg">
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 shrink-0 mt-0.5">SALES</span>
+              <div>
+                <p class="text-xs font-semibold text-ink">Sales pipeline and client accounts</p>
+                <p class="text-xs text-muted mt-0.5">Dashboard · Sales · Clients</p>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Access matrix -->
+          <div class="mt-5 overflow-x-auto">
+            <p class="text-xs text-muted font-semibold uppercase tracking-wider mb-3">Quick reference</p>
+            <table class="w-full text-[10px]">
+              <thead>
+                <tr class="border-b border-line text-muted">
+                  <th class="text-left pb-2 font-medium pr-3">Tab</th>
+                  <th class="text-center pb-2 font-medium px-2 text-red-400">Admin</th>
+                  <th class="text-center pb-2 font-medium px-2 text-accent">Producer</th>
+                  <th class="text-center pb-2 font-medium px-2 text-purple-400">PM</th>
+                  <th class="text-center pb-2 font-medium px-2 text-teal-400">Team Lead</th>
+                  <th class="text-center pb-2 font-medium px-2 text-sky-400">Finance</th>
+                  <th class="text-center pb-2 font-medium px-2 text-emerald-400">Sales</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-line/40">
+                <tr><td class="py-1.5 pr-3 text-muted">Dashboard</td><td class="text-center px-2">✓</td><td class="text-center px-2">✓</td><td class="text-center px-2">✓</td><td class="text-center px-2">✓</td><td class="text-center px-2">✓</td><td class="text-center px-2">✓</td></tr>
+                <tr><td class="py-1.5 pr-3 text-muted">My Work</td><td class="text-center px-2">✓</td><td class="text-center px-2">✓</td><td class="text-center px-2">✓</td><td class="text-center px-2">✓</td><td class="text-center px-2">✓</td><td class="text-center px-2">✓</td></tr>
+                <tr><td class="py-1.5 pr-3 text-muted">Projects</td><td class="text-center px-2">✓</td><td class="text-center px-2">✓</td><td class="text-center px-2">✓</td><td class="text-center px-2 text-teal-400">read</td><td class="text-center px-2 text-sky-400">read</td><td class="text-center px-2 text-muted/40">—</td></tr>
+                <tr><td class="py-1.5 pr-3 text-muted">Assets</td><td class="text-center px-2">✓</td><td class="text-center px-2">✓</td><td class="text-center px-2">✓</td><td class="text-center px-2">✓</td><td class="text-center px-2 text-muted/40">—</td><td class="text-center px-2 text-muted/40">—</td></tr>
+                <tr><td class="py-1.5 pr-3 text-muted">Production</td><td class="text-center px-2">✓</td><td class="text-center px-2">✓</td><td class="text-center px-2">✓</td><td class="text-center px-2">✓</td><td class="text-center px-2 text-muted/40">—</td><td class="text-center px-2 text-muted/40">—</td></tr>
+                <tr><td class="py-1.5 pr-3 text-muted">Capacity</td><td class="text-center px-2">✓</td><td class="text-center px-2">✓</td><td class="text-center px-2">✓</td><td class="text-center px-2 text-teal-400">read</td><td class="text-center px-2 text-muted/40">—</td><td class="text-center px-2 text-muted/40">—</td></tr>
+                <tr><td class="py-1.5 pr-3 text-muted">Financial</td><td class="text-center px-2">✓</td><td class="text-center px-2 text-muted/40">—</td><td class="text-center px-2 text-purple-400">costs</td><td class="text-center px-2 text-muted/40">—</td><td class="text-center px-2">✓</td><td class="text-center px-2 text-muted/40">—</td></tr>
+                <tr><td class="py-1.5 pr-3 text-muted">People</td><td class="text-center px-2">✓</td><td class="text-center px-2">✓</td><td class="text-center px-2">✓</td><td class="text-center px-2 text-teal-400">read</td><td class="text-center px-2 text-muted/40">—</td><td class="text-center px-2 text-muted/40">—</td></tr>
+                <tr><td class="py-1.5 pr-3 text-muted">Staffing</td><td class="text-center px-2">✓</td><td class="text-center px-2">✓</td><td class="text-center px-2">✓</td><td class="text-center px-2 text-muted/40">—</td><td class="text-center px-2 text-muted/40">—</td><td class="text-center px-2 text-muted/40">—</td></tr>
+                <tr><td class="py-1.5 pr-3 text-muted">Sales / Clients</td><td class="text-center px-2">✓</td><td class="text-center px-2 text-muted/40">—</td><td class="text-center px-2 text-muted/40">—</td><td class="text-center px-2 text-muted/40">—</td><td class="text-center px-2 text-muted/40">—</td><td class="text-center px-2">✓</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
-        <p class="text-xs text-muted">After logging in you'll be taken to the Dashboard. Your name appears in the top-right corner.</p>
+
+        <p class="text-xs text-muted">After logging in you'll be taken to the Dashboard. Your role badge appears next to your name in the top-right corner.</p>
       </div>
     </section>
 
@@ -216,11 +301,15 @@
         <h2 class="text-lg font-semibold text-ink">Navigation Overview</h2>
       </div>
       <div class="bg-panel border border-line rounded-xl p-6">
-        <p class="text-muted text-sm mb-4">The top navigation is grouped into five areas. Some areas are only visible based on your role.</p>
+        <p class="text-muted text-sm mb-4">The top navigation is grouped into six areas. Some areas are only visible based on your role.</p>
         <div class="space-y-3">
           <div class="flex gap-3 items-start">
             <span class="text-xs bg-panel2 border border-line text-muted px-2 py-0.5 rounded font-mono shrink-0 mt-0.5">Dashboard</span>
             <p class="text-xs text-muted">Studio health at a glance — projects, capacity, alerts.</p>
+          </div>
+          <div class="flex gap-3 items-start">
+            <span class="text-xs bg-panel2 border border-line text-muted px-2 py-0.5 rounded font-mono shrink-0 mt-0.5">My Work</span>
+            <p class="text-xs text-muted">Your personal dashboard — capacity this week, assets assigned to you, projects you own or manage, and your sign-off queue. Visible to all roles. Content is personalised to your login account.</p>
           </div>
           <div class="flex gap-3 items-start">
             <span class="text-xs bg-panel2 border border-line text-muted px-2 py-0.5 rounded font-mono shrink-0 mt-0.5">Sales ▾</span>
@@ -231,7 +320,7 @@
             <p class="text-xs text-muted">Projects, Assets (deliverables), Production engine, and Capacity board.</p>
           </div>
           <div class="flex gap-3 items-start">
-            <span class="text-xs bg-panel2 border border-line text-accent px-2 py-0.5 rounded font-mono shrink-0 mt-0.5 border-accent/40">Financial</span>
+            <span class="text-xs bg-pxb/10 border border-pxb/30 text-pxb px-2 py-0.5 rounded font-mono shrink-0 mt-0.5">Financial</span>
             <p class="text-xs text-muted">Finance dashboard — AR position, overdue invoices, project margins. Finance + Admin only.</p>
           </div>
           <div class="flex gap-3 items-start">
@@ -239,13 +328,98 @@
             <p class="text-xs text-muted">People (staff records + skills) and Staffing recommendations.</p>
           </div>
         </div>
+
+        <!-- My Work role summary -->
+        <div class="mt-5 bg-panel2 border border-line rounded-lg p-4">
+          <p class="text-xs text-muted font-semibold uppercase tracking-wider mb-3">My Work — what each role sees</p>
+          <div class="space-y-2 text-xs text-muted">
+            <div class="flex gap-2"><span class="text-purple-400 font-semibold w-20 shrink-0">PM</span><span>All your projects, team on each project this week, assets needing attention, payment alerts for your projects.</span></div>
+            <div class="flex gap-2"><span class="text-teal-400 font-semibold w-20 shrink-0">Team Lead</span><span>Sign-off queue (all assets at Internal Review awaiting your approval) and your capacity allocation.</span></div>
+            <div class="flex gap-2"><span class="text-accent font-semibold w-20 shrink-0">Producer</span><span>Projects you own, your team this week, and assets in revision or awaiting sign-off on your projects.</span></div>
+            <div class="flex gap-2"><span class="text-sky-400 font-semibold w-20 shrink-0">Finance</span><span>Payment alerts — invoices overdue or due within 14 days across all projects.</span></div>
+            <div class="flex gap-2"><span class="text-emerald-400 font-semibold w-20 shrink-0">Sales</span><span>Active leads pipeline — everything in Qualification, Proposal, and Negotiation.</span></div>
+            <div class="flex gap-2"><span class="text-muted font-semibold w-20 shrink-0">All roles</span><span>Your capacity this week and next week · Assets assigned directly to you.</span></div>
+          </div>
+          <p class="text-[11px] text-muted/70 mt-3 italic">My Work requires your login to be linked to a staff record. If the page looks empty, ask your admin to set up the link via the People tab.</p>
+        </div>
       </div>
     </section>
 
-    <!-- Step 5: Autocount -->
+    <!-- Step 5: Company Filter -->
     <section>
       <div class="flex items-center gap-3 mb-4">
         <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">5</span>
+        <h2 class="text-lg font-semibold text-ink">Filtering by Company</h2>
+      </div>
+      <div class="bg-panel border border-line rounded-xl p-6 space-y-5">
+        <p class="text-muted text-sm leading-relaxed">
+          Pop Group operates two studios — <span class="text-lp font-semibold">Lorrypop Studio (LPS)</span> and
+          <span class="text-pxl font-semibold">Popxical Lab (PXL)</span>.
+          Every project, person, account, and lead can belong to one of these companies.
+          The company filter lets you narrow every tab to show only one studio's data, or view everything together.
+        </p>
+
+        <!-- How it works -->
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-muted mb-3">How to use the filter</p>
+          <div class="bg-panel2 border border-line rounded-lg p-4 space-y-3">
+            <div class="flex items-center gap-4">
+              <!-- Visual mockup of the header filter -->
+              <div class="flex items-center gap-2 bg-panel border border-line rounded-lg px-3 py-2 shrink-0">
+                <img src="/lps-logo.png" class="h-6 w-auto object-contain opacity-40" alt="LPS" />
+                <div class="w-px h-4 bg-line"></div>
+                <img src="/pxl-logo.png" class="h-6 w-auto object-contain opacity-40" alt="PXL" />
+              </div>
+              <p class="text-xs text-muted">Both logos appear dimmed at the top-left of every page. This is the <strong class="text-ink">default state</strong> — all companies are shown.</p>
+            </div>
+            <div class="space-y-2 text-xs text-muted">
+              <div class="flex gap-2">
+                <span class="text-lp shrink-0">→</span>
+                <p>Click the <strong class="text-lp">LPS logo</strong> to show only Lorrypop Studio data across every tab simultaneously.</p>
+              </div>
+              <div class="flex gap-2">
+                <span class="text-pxl shrink-0">→</span>
+                <p>Click the <strong class="text-pxl">PXL logo</strong> to show only Popxical Lab data.</p>
+              </div>
+              <div class="flex gap-2">
+                <span class="text-accent shrink-0">→</span>
+                <p>Click the <strong class="text-ink">active logo again</strong> to clear the filter and return to the combined view.</p>
+              </div>
+              <div class="flex gap-2">
+                <span class="text-accent shrink-0">→</span>
+                <p>The filter is <strong class="text-ink">global</strong> — it applies to Dashboard, Projects, Assets, Capacity, Sales, People, and everything else at once. You do not need to re-filter each tab.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Records with no company tag -->
+        <div class="bg-panel2 border border-line rounded-lg p-4">
+          <p class="text-xs font-semibold text-ink mb-1">Records with no company tag</p>
+          <p class="text-xs text-muted">Some older records may not have a company assigned. These records always appear regardless of which filter is active — they are never hidden. Over time, assign a company to each record to make the filter fully accurate.</p>
+        </div>
+
+        <!-- Future roadmap note -->
+        <div class="bg-panel2 border border-yellow-500/20 rounded-lg p-4">
+          <p class="text-xs font-semibold text-yellow-400 mb-1">Planned: automatic company scoping</p>
+          <p class="text-xs text-muted leading-relaxed">
+            In a future release, the filter will be set automatically based on the logged-in user's company.
+            The planned behaviour is:
+          </p>
+          <ul class="mt-2 space-y-1 text-xs text-muted">
+            <li class="flex gap-2"><span class="text-lp shrink-0">·</span><span><strong class="text-ink">LPS staff</strong> — log in and see only Lorrypop Studio data by default.</span></li>
+            <li class="flex gap-2"><span class="text-pxl shrink-0">·</span><span><strong class="text-ink">PXL staff</strong> — log in and see only Popxical Lab data by default.</span></li>
+            <li class="flex gap-2"><span class="text-accent shrink-0">·</span><span><strong class="text-ink">GRP / Admin accounts</strong> — see both companies and can switch freely. Directors and the finance team will use this view.</span></li>
+          </ul>
+          <p class="text-xs text-muted/70 mt-2 italic">Until this is implemented, the filter is manual — use the logo buttons in the header.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Step 6: Autocount -->
+    <section>
+      <div class="flex items-center gap-3 mb-4">
+        <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">6</span>
         <h2 class="text-lg font-semibold text-ink">Autocount Integration</h2>
       </div>
       <div class="bg-panel border border-line rounded-xl p-6 space-y-4">
@@ -255,14 +429,14 @@
         </p>
         <div class="space-y-3">
           <div class="flex gap-3">
-            <div class="w-2 h-2 rounded-full bg-sky-400 mt-1.5 shrink-0"></div>
+            <div class="w-2 h-2 rounded-full bg-pxl mt-1.5 shrink-0"></div>
             <div>
               <p class="text-sm font-medium text-ink">Push Quotation (from Sales tab)</p>
               <p class="text-xs text-muted mt-0.5">On a WON lead, click <em>"↑ Push quotation"</em>. Select the Autocount debtor and confirm. The quotation number (e.g. QT_0626-004) appears on the lead card.</p>
             </div>
           </div>
           <div class="flex gap-3">
-            <div class="w-2 h-2 rounded-full bg-sky-400 mt-1.5 shrink-0"></div>
+            <div class="w-2 h-2 rounded-full bg-pxl mt-1.5 shrink-0"></div>
             <div>
               <p class="text-sm font-medium text-ink">Push Invoice (from Projects tab)</p>
               <p class="text-xs text-muted mt-0.5">Open a project's detail view and click <em>"↑ Push invoice"</em>. The invoice is created in Autocount and tracked here with its due date.</p>
@@ -286,14 +460,18 @@
     <!-- Tips -->
     <section>
       <div class="flex items-center gap-3 mb-4">
-        <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">6</span>
+        <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">7</span>
         <h2 class="text-lg font-semibold text-ink">Quick Tips</h2>
       </div>
       <div class="bg-panel border border-line rounded-xl p-6">
         <div class="space-y-3 text-sm">
           <div class="flex gap-2">
             <span class="text-accent shrink-0">→</span>
-            <p class="text-muted">Use the <strong class="text-ink">LPS / PXL</strong> buttons in the header to filter everything by studio.</p>
+            <p class="text-muted">Use the <strong class="text-lp">LPS</strong> or <strong class="text-pxl">PXL</strong> logo buttons at the top-left to filter all tabs by studio. Click the active logo again to clear. See Step 5 for full details.</p>
+          </div>
+          <div class="flex gap-2">
+            <span class="text-accent shrink-0">→</span>
+            <p class="text-muted"><strong class="text-ink">My Work</strong> is your personal view — check it at the start of each day to see what's assigned to you, what needs sign-off, and your capacity for the week.</p>
           </div>
           <div class="flex gap-2">
             <span class="text-accent shrink-0">→</span>

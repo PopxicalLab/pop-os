@@ -5,71 +5,407 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Pop OS — Sign in</title>
   <link rel="icon" type="image/png" href="/lps-logo.png" />
-  <script>
-    try {
-      const mode = localStorage.getItem('pop-os-mode') || 'dark';
-      const bg = mode === 'light' ? '#f5f2ec' : '#111009';
-      document.write('<style>body{background-color:' + bg + '}</style>');
-    } catch(e) {}
-  </script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    (function() {
-      const DARK  = { bg:'#111009', panel:'#191814', panel2:'#201e19', line:'#2c2920', ink:'#e4e0d4', muted:'#857f73', accent:'#d4a23a', warm:'#c05535' };
-      const LIGHT = { bg:'#f5f2ec', panel:'#fdfcf9', panel2:'#ece8e0', line:'#d8d2c8', ink:'#1a1814', muted:'#7a7468', accent:'#b8871e', warm:'#b04525' };
-      const mode  = localStorage.getItem('pop-os-mode') || 'dark';
-      window._theme = mode === 'light' ? LIGHT : DARK;
-      tailwind.config = { theme: { extend: { colors: window._theme } } };
-    })();
-  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      background: #0c0b0f;
+    }
+
+    /* ── Blob canvas ──────────────────────────────────────────── */
+    .blobs {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+    }
+    .blob {
+      position: absolute;
+      filter: blur(90px);
+      will-change: transform;
+      opacity: 0;
+      animation-fill-mode: forwards;
+    }
+
+    /* Lorrypop warm — top left */
+    .blob-1 {
+      width: 620px; height: 580px;
+      background: radial-gradient(circle at 40% 40%, #e8332a 0%, #f78c1b 45%, transparent 75%);
+      top: -14%; left: -12%;
+      opacity: 0.58;
+      animation: drift1 16s ease-in-out infinite, morph-a 9s ease-in-out infinite;
+    }
+    /* Popxical cool — bottom right */
+    .blob-2 {
+      width: 560px; height: 520px;
+      background: radial-gradient(circle at 60% 55%, #7b5ea7 0%, #4b8bca 50%, transparent 75%);
+      bottom: -12%; right: -8%;
+      opacity: 0.55;
+      animation: drift2 19s ease-in-out infinite, morph-b 11s ease-in-out infinite;
+    }
+    /* Popxical teal — bottom left */
+    .blob-3 {
+      width: 440px; height: 420px;
+      background: radial-gradient(circle at 45% 50%, #14b8a6 0%, #06b6d4 55%, transparent 75%);
+      bottom: 2%; left: 3%;
+      opacity: 0.42;
+      animation: drift3 13s ease-in-out infinite, morph-a 7s ease-in-out infinite reverse;
+    }
+    /* Lorrypop pink — top right */
+    .blob-4 {
+      width: 400px; height: 380px;
+      background: radial-gradient(circle at 50% 45%, #f06292 0%, #e8508a 50%, transparent 75%);
+      top: 3%; right: 6%;
+      opacity: 0.48;
+      animation: drift4 17s ease-in-out infinite, morph-b 8s ease-in-out infinite;
+    }
+    /* Lorrypop orange accent — mid */
+    .blob-5 {
+      width: 320px; height: 300px;
+      background: radial-gradient(circle at 50% 50%, #f78c1b 0%, #e8332a 55%, transparent 75%);
+      top: 42%; left: 35%;
+      opacity: 0.28;
+      animation: drift5 22s ease-in-out infinite, morph-a 12s ease-in-out infinite;
+    }
+
+    /* Drift paths — each blob wanders a different route */
+    @keyframes drift1 {
+      0%,100% { transform: translate(0, 0) scale(1); }
+      25%     { transform: translate(70px, 80px) scale(1.06); }
+      50%     { transform: translate(30px, -50px) scale(0.96); }
+      75%     { transform: translate(-55px, 65px) scale(1.03); }
+    }
+    @keyframes drift2 {
+      0%,100% { transform: translate(0, 0) scale(1); }
+      30%     { transform: translate(-75px, -55px) scale(1.04); }
+      65%     { transform: translate(-25px, 70px) scale(0.97); }
+    }
+    @keyframes drift3 {
+      0%,100% { transform: translate(0, 0) scale(1); }
+      40%     { transform: translate(110px, -65px) scale(1.08); }
+      70%     { transform: translate(45px, 85px) scale(0.95); }
+    }
+    @keyframes drift4 {
+      0%,100% { transform: translate(0, 0) scale(1); }
+      33%     { transform: translate(-55px, 75px) scale(1.05); }
+      66%     { transform: translate(65px, 25px) scale(0.98); }
+    }
+    @keyframes drift5 {
+      0%,100% { transform: translate(0, 0) scale(1); }
+      20%     { transform: translate(-90px, -110px) scale(1.1); }
+      50%     { transform: translate(110px, -65px) scale(0.92); }
+      80%     { transform: translate(-45px, 90px) scale(1.05); }
+    }
+
+    /* Organic blob morphing */
+    @keyframes morph-a {
+      0%,100% { border-radius: 42% 58% 68% 32% / 38% 52% 58% 48%; }
+      33%     { border-radius: 70% 30% 48% 52% / 28% 42% 62% 68%; }
+      66%     { border-radius: 52% 48% 32% 68% / 62% 38% 52% 40%; }
+    }
+    @keyframes morph-b {
+      0%,100% { border-radius: 60% 40% 32% 68% / 58% 32% 68% 42%; }
+      50%     { border-radius: 32% 68% 68% 32% / 42% 60% 32% 58%; }
+    }
+
+    /* ── Wave spectrum canvas ───────────────────────── */
+    #wave-canvas {
+      position: fixed;
+      inset: 0;
+      z-index: 3;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    /* ── Vignette ── darkens edges, makes card pop ── */
+    .vignette {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      background: radial-gradient(ellipse 75% 70% at 50% 50%, transparent 30%, rgba(12,11,15,0.55) 100%);
+      pointer-events: none;
+    }
+
+    /* ── Noise grain for depth ───────────────────── */
+    .noise {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      opacity: 0.035;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 250px;
+      pointer-events: none;
+    }
+
+    /* ── Logo divider ────────────────────────────── */
+    .logo-divider {
+      width: 1px;
+      height: 32px;
+      background: rgba(255,255,255,0.12);
+      flex-shrink: 0;
+    }
+
+    /* ── Glass login card ────────────────────────── */
+    .wrap {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 16px;
+    }
+    .card-outer { width: 100%; max-width: 368px; }
+
+    /* Logo header */
+    .logo-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 28px;
+    }
+    .logo-row img { height: 40px; width: auto; object-fit: contain; }
+    .logo-name {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #f0ede6;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+    }
+    .logo-sub { font-size: 0.68rem; color: rgba(133,127,115,0.8); line-height: 1.2; margin-top: 2px; }
+
+    /* The glass card */
+    .glass {
+      background: rgba(14, 13, 18, 0.7);
+      backdrop-filter: blur(32px) saturate(160%);
+      -webkit-backdrop-filter: blur(32px) saturate(160%);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-top-color: rgba(255,255,255,0.13);
+      box-shadow:
+        0 4px 6px rgba(0,0,0,0.3),
+        0 24px 60px rgba(0,0,0,0.45),
+        inset 0 1px 0 rgba(255,255,255,0.06);
+      border-radius: 22px;
+      padding: 36px 32px 28px;
+    }
+    .card-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: rgba(240,237,230,0.9);
+      letter-spacing: 0.01em;
+      margin-bottom: 26px;
+    }
+
+    /* Form fields */
+    .field { margin-bottom: 18px; }
+    .field label {
+      display: block;
+      font-size: 0.67rem;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: rgba(133,127,115,0.85);
+      margin-bottom: 7px;
+    }
+    .field input {
+      width: 100%;
+      background: rgba(255,255,255,0.055);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #e8e5de;
+      padding: 11px 14px;
+      border-radius: 10px;
+      font-size: 0.875rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+      font-family: inherit;
+    }
+    .field input::placeholder { color: rgba(133,127,115,0.5); }
+    .field input:focus {
+      border-color: rgba(192,104,24,0.6);
+      background: rgba(255,255,255,0.08);
+      box-shadow: 0 0 0 3px rgba(192,104,24,0.12);
+    }
+
+    /* Sign in button — Lorrypop orange, the actual brand CTA colour */
+    .btn {
+      width: 100%;
+      background: linear-gradient(135deg, #c05610 0%, #cc6818 55%, #c06014 100%);
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.875rem;
+      letter-spacing: 0.025em;
+      padding: 12px;
+      border-radius: 11px;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s, filter 0.15s, opacity 0.15s;
+      margin-top: 8px;
+      font-family: inherit;
+      position: relative;
+      overflow: hidden;
+    }
+    .btn::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.18) 0%, transparent 60%);
+      pointer-events: none;
+    }
+    .btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(192,86,16,0.4);
+      filter: brightness(1.07);
+    }
+    .btn:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    /* Error message */
+    .err {
+      font-size: 0.7rem;
+      color: #d9765a;
+      text-align: center;
+      min-height: 18px;
+      margin-top: 14px;
+      letter-spacing: 0.01em;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      font-size: 0.65rem;
+      color: rgba(133,127,115,0.45);
+      margin-top: 22px;
+      letter-spacing: 0.04em;
+    }
+  </style>
 </head>
-<body class="bg-bg min-h-screen flex items-center justify-center px-4">
+<body>
 
-  <div class="w-full max-w-sm">
+  <!-- Animated blobs -->
+  <div class="blobs">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+    <div class="blob blob-4"></div>
+    <div class="blob blob-5"></div>
+  </div>
+  <div class="vignette"></div>
+  <canvas id="wave-canvas"></canvas>
+  <div class="noise"></div>
 
-    <!-- Logo -->
-    <div class="flex items-center gap-3 justify-center mb-8">
-      <img src="/lps-logo.png" class="h-9 w-auto object-contain" alt="Pop OS" />
-      <div>
-        <p class="text-lg font-bold text-ink leading-tight tracking-tight">Pop OS</p>
-        <p class="text-xs text-muted leading-tight">Pop Group Studio</p>
+  <!-- Login UI -->
+  <div class="wrap">
+    <div class="card-outer">
+
+      <div class="logo-row">
+        <img src="/lps-logo.png" alt="Lorrypop" style="height:36px;" />
+        <div class="logo-divider"></div>
+        <img src="/pxl-logo.png" alt="Popxical" style="height:36px;" />
+        <div class="logo-divider"></div>
+        <div>
+          <div class="logo-name">Pop OS</div>
+          <div class="logo-sub">Pop Group Studio</div>
+        </div>
       </div>
+
+      <div class="glass">
+        <p class="card-title">Sign in</p>
+
+        <div class="field">
+          <label>Email</label>
+          <input id="email" type="email" autofocus placeholder="you@pop.studio"
+            onkeydown="if(event.key==='Enter') document.getElementById('password').focus()" />
+        </div>
+
+        <div class="field" style="margin-bottom:24px;">
+          <label>Password</label>
+          <input id="password" type="password" placeholder="••••••••"
+            onkeydown="if(event.key==='Enter') login()" />
+        </div>
+
+        <button class="btn" onclick="login()">Sign in</button>
+        <div id="err" class="err"></div>
+      </div>
+
+      <p class="footer">POP GROUP STUDIO OPERATING SYSTEM</p>
     </div>
-
-    <!-- Card -->
-    <div class="bg-panel border border-line rounded-2xl p-8">
-      <h1 class="text-base font-semibold text-ink mb-6">Sign in</h1>
-
-      <label class="block text-xs text-muted font-medium mb-1.5">Email</label>
-      <input id="email" type="email" autofocus
-        class="w-full bg-panel2 border border-line text-ink placeholder-muted/60
-               px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:border-accent/70
-               transition-colors duration-150 mb-4"
-        placeholder="you@pop.studio"
-        onkeydown="if(event.key==='Enter') document.getElementById('password').focus()" />
-
-      <label class="block text-xs text-muted font-medium mb-1.5">Password</label>
-      <input id="password" type="password"
-        class="w-full bg-panel2 border border-line text-ink placeholder-muted/60
-               px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:border-accent/70
-               transition-colors duration-150 mb-6"
-        placeholder="••••••••"
-        onkeydown="if(event.key==='Enter') login()" />
-
-      <button onclick="login()"
-        class="w-full bg-accent text-bg font-semibold py-2.5 rounded-lg text-sm
-               hover:brightness-110 transition-all duration-150 cursor-pointer">
-        Sign in
-      </button>
-
-      <div id="err" class="text-xs text-warm mt-3 min-h-[18px] text-center"></div>
-    </div>
-
-    <p class="text-center text-xs text-muted mt-6">Pop Group Studio Operating System</p>
   </div>
 
   <script>
-    // If already logged in, go straight to the app
+    // ── Spectrum wave background ──────────────────────────────
+    (function () {
+      const canvas = document.getElementById('wave-canvas');
+      const ctx    = canvas.getContext('2d');
+
+      // Each wave: color from brand palette, unique rhythm
+      // amp = max vertical swing (px), freq = horizontal cycle density,
+      // speed = how fast the phase advances per frame, yBase = vertical
+      // centre as fraction of screen height, width = line thickness
+      const WAVES = [
+        { color: '#e8332a', amp: 55,  freq: 0.0055, speed: 0.009,  yBase: 0.28, width: 1.2, alpha: 0.22 }, // Lorrypop red
+        { color: '#f78c1b', amp: 38,  freq: 0.0090, speed: 0.014,  yBase: 0.38, width: 0.9, alpha: 0.18 }, // Lorrypop orange
+        { color: '#f06292', amp: 65,  freq: 0.0040, speed: 0.007,  yBase: 0.50, width: 1.4, alpha: 0.20 }, // Lorrypop pink  — biggest swing, crosses centre
+        { color: '#c084fc', amp: 42,  freq: 0.0070, speed: 0.011,  yBase: 0.60, width: 1.0, alpha: 0.24 }, // Popxical purple
+        { color: '#14b8a6', amp: 50,  freq: 0.0048, speed: 0.016,  yBase: 0.72, width: 1.1, alpha: 0.19 }, // Popxical teal
+        { color: '#4b8bca', amp: 30,  freq: 0.0110, speed: 0.006,  yBase: 0.44, width: 0.8, alpha: 0.16 }, // Popxical blue  — high freq, subtle
+        { color: '#f9a040', amp: 28,  freq: 0.0130, speed: 0.019,  yBase: 0.56, width: 0.7, alpha: 0.14 }, // Lorrypop warm accent — fastest, thinnest
+      ];
+
+      // Phase accumulator — each wave advances independently
+      const phases = WAVES.map(() => Math.random() * Math.PI * 2);
+
+      function resize() {
+        canvas.width  = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
+      window.addEventListener('resize', resize);
+      resize();
+
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const W = canvas.width;
+        const H = canvas.height;
+
+        WAVES.forEach((w, i) => {
+          phases[i] += w.speed;
+
+          ctx.beginPath();
+          ctx.strokeStyle = w.color;
+          ctx.lineWidth   = w.width;
+          ctx.globalAlpha = w.alpha;
+          ctx.shadowBlur  = 8;
+          ctx.shadowColor = w.color;
+
+          // Draw the wave across the full width, 2px steps
+          const yCenter = w.yBase * H;
+          for (let x = 0; x <= W; x += 2) {
+            // Two sine components at different harmonics create organic,
+            // non-repeating-looking curves
+            const y = yCenter
+              + Math.sin(x * w.freq + phases[i]) * w.amp
+              + Math.sin(x * w.freq * 1.7 + phases[i] * 0.6) * (w.amp * 0.35);
+            if (x === 0) ctx.moveTo(x, y);
+            else         ctx.lineTo(x, y);
+          }
+
+          ctx.stroke();
+        });
+
+        // Reset composite so glow doesn't bleed between waves
+        ctx.globalAlpha = 1;
+        ctx.shadowBlur  = 0;
+
+        requestAnimationFrame(draw);
+      }
+
+      draw();
+    })();
+  </script>
+
+  <script>
     if (localStorage.getItem('pop-os-token')) {
       window.location.replace('/');
     }
@@ -82,7 +418,7 @@
 
       if (!email || !password) { errEl.textContent = 'Enter your email and password.'; return; }
 
-      const btn = document.querySelector('button');
+      const btn = document.querySelector('.btn');
       btn.disabled = true;
       btn.textContent = 'Signing in…';
 

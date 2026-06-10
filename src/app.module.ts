@@ -18,6 +18,7 @@ import { LeadsModule } from './leads/leads.module';
 import { AutocountModule } from './autocount/autocount.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
+import { MeModule } from './me/me.module';
 import { JwtAuthGuard } from './auth/jwt.guard';
 
 @Module({
@@ -42,6 +43,7 @@ import { JwtAuthGuard } from './auth/jwt.guard';
     ContactsModule,
     LeadsModule,
     AutocountModule,
+    MeModule,
   ],
   providers: [
     // Register JwtAuthGuard globally — every API route requires a valid JWT

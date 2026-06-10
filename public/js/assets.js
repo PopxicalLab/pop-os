@@ -24,10 +24,16 @@ const STAGE_ORDER = ['BRIEF', 'WIP', 'INTERNAL_REVIEW', 'REVISION', 'FINAL_DELIV
 // ── project selector (shared between add form and filter) ─────
 
 let _allProjects = [];
+let _allPeople   = [];
 
 async function loadAssetProjects() {
-  _allProjects = await fetch('/api/projects').then(r => r.json()).catch(() => []);
-  const active = _allProjects.filter(p => !['DELIVERED', 'CANCELLED'].includes(p.status));
+  [_allProjects, _allPeople] = await Promise.all([
+    fetch('/api/projects').then(r => r.json()).catch(() => []),
+    fetch('/api/people').then(r => r.json()).catch(() => []),
+  ]);
+  const active      = _allProjects.filter(p => !['DELIVERED', 'CANCELLED'].includes(p.status));
+  const activePeople = _allPeople.filter(p => !p.warmPool)
+                                  .sort((a, b) => a.name.localeCompare(b.name));
 
   // Add form project selector
   const addSel = $('asset-project');
@@ -35,6 +41,13 @@ async function loadAssetProjects() {
     addSel.innerHTML = '<option value="">— select project —</option>' +
       active.sort((a, b) => a.name.localeCompare(b.name))
             .map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  }
+
+  // Assignee selector (add form)
+  const assigneeSel = $('asset-assignee');
+  if (assigneeSel) {
+    assigneeSel.innerHTML = '<option value="">— unassigned —</option>' +
+      activePeople.map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
   }
 
   // Filter selector
@@ -134,6 +147,15 @@ function renderAssetBoard(assets) {
     };
   });
 
+  board.querySelectorAll('[data-asset-assignee]').forEach(sel => {
+    sel.onchange = async () => {
+      await fetch(`/api/assets/${sel.dataset.assetAssignee}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ assignedToId: sel.value || null }),
+      });
+    };
+  });
+
   board.querySelectorAll('[data-asset-del]').forEach(b => {
     b.onclick = () => removeAsset(b.dataset.assetDel);
   });
@@ -154,6 +176,11 @@ function renderAssetCard(a) {
       </div>`
     : `<div id="cd-row-${a.id}" class="hidden"></div>`;
 
+  // Assignee dropdown — populated from the already-loaded _allPeople list
+  const peopleSel = [{ id: '', name: '— unassigned —' }, ..._allPeople.filter(p => !p.warmPool)]
+    .map(p => `<option value="${p.id}"${a.assignedTo?.id === p.id ? ' selected' : ''}>${esc(p.name)}</option>`)
+    .join('');
+
   return `<div class="bg-panel2 border border-line rounded-xl p-3 space-y-2">
     <div class="flex items-start justify-between gap-1">
       <p class="text-xs font-semibold text-ink leading-snug flex-1">${esc(a.name)}</p>
@@ -169,6 +196,11 @@ function renderAssetCard(a) {
              focus:outline-none focus:border-accent/70 cursor-pointer">
       ${stageSel}
     </select>
+    <select data-asset-assignee="${a.id}"
+      class="w-full bg-panel border border-line text-ink px-2 py-1 rounded-md text-xs
+             focus:outline-none focus:border-accent/70 cursor-pointer">
+      ${peopleSel}
+    </select>
     ${cdRow}
   </div>`;
 }
@@ -176,17 +208,18 @@ function renderAssetCard(a) {
 // ── add asset ─────────────────────────────────────────────────
 
 async function addAsset() {
-  const name      = $('asset-name').value.trim();
-  const projectId = $('asset-project').value;
-  const desc      = $('asset-desc').value.trim();
-  const msgEl     = $('asset-msg');
+  const name         = $('asset-name').value.trim();
+  const projectId    = $('asset-project').value;
+  const desc         = $('asset-desc').value.trim();
+  const assignedToId = $('asset-assignee')?.value || undefined;
+  const msgEl        = $('asset-msg');
 
   if (!name)      { msg(msgEl, 'Asset name is required.', 'err'); return; }
   if (!projectId) { msg(msgEl, 'Select a project.', 'err'); return; }
 
   const res = await fetch('/api/assets', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, projectId, description: desc || undefined }),
+    body: JSON.stringify({ name, projectId, description: desc || undefined, assignedToId: assignedToId || undefined }),
   });
 
   if (res.ok) {

@@ -32,10 +32,21 @@ function marginColour(margin) {
 // ── load ──────────────────────────────────────────────────────
 
 async function loadFinancial() {
+  const role  = (JSON.parse(localStorage.getItem('pop-os-user') || '{}')).role;
+  const isPM  = role === 'PM';
+
+  // PM sees project cost breakdown only — not the AR / Finance Dashboard panels
+  if (isPM) {
+    ['fin-kpi','fin-alerts-row','fin-pipeline-row','fin-recent-row'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+  }
+
   const [overview, projects, dashboard] = await Promise.all([
     fetch('/api/financial/overview').then(r => r.json()).catch(() => null),
     fetch('/api/financial/projects').then(r => r.json()).catch(() => null),
-    fetch('/api/financial/dashboard').then(r => r.json()).catch(() => null),
+    isPM ? Promise.resolve(null) : fetch('/api/financial/dashboard').then(r => r.json()).catch(() => null),
   ]);
 
   if (overview)   renderFinancialOverview(overview);

@@ -195,6 +195,11 @@
           class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 bg-panel text-ink"
           onclick="switchTab('dashboard')">Dashboard</button>
 
+        <!-- My Work (direct — personal dashboard for the logged-in user) -->
+        <button id="tab-btn-mywork"
+          class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
+          onclick="switchTab('mywork')">My Work</button>
+
         <!-- Sales group -->
         <div class="relative" id="grp-sales">
           <button id="grp-btn-sales" onclick="toggleNavGroup('sales')"
@@ -343,6 +348,30 @@
           </div>
         </div>
       </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════
+       PANEL: MY WORK
+  ════════════════════════════════════════════════════ -->
+  <div class="panel hidden" id="tab-mywork">
+    <div class="max-w-7xl mx-auto px-5 py-6">
+
+      <!-- Stats strip -->
+      <div id="mw-stats"
+        class="text-sm px-5 py-3 mb-5 bg-panel border border-line rounded-xl text-muted">
+        Loading…
+      </div>
+
+      <!-- No person link warning (hidden by default) -->
+      <div id="mw-no-link"
+        class="hidden mb-5 px-5 py-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-xs text-yellow-400">
+        Your account is not linked to a staff record. Ask an admin to link your User to a Person — then your capacity, assigned assets, and project context will appear here.
+      </div>
+
+      <!-- Main content (rendered by mywork.js) -->
+      <div id="mw-content"></div>
 
     </div>
   </div>
@@ -700,6 +729,10 @@
         <select id="asset-project" class="form-input cursor-pointer">
           <option value="">— select project —</option>
         </select>
+        <label class="form-label">Assign to <span class="text-muted/60 font-normal">(optional)</span></label>
+        <select id="asset-assignee" class="form-input cursor-pointer">
+          <option value="">— unassigned —</option>
+        </select>
         <label class="form-label">Description <span class="text-muted/60 font-normal">(optional)</span></label>
         <input id="asset-desc" class="form-input" placeholder="Brief notes on this deliverable" />
         <button id="asset-add"
@@ -882,7 +915,7 @@
       </div>
 
       <!-- ── Alerts row: overdue + due soon ──────────────────── -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div id="fin-alerts-row" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div class="bg-panel border border-line rounded-xl p-5">
           <h2 class="text-[11px] font-semibold uppercase tracking-widest text-warm mb-3">Overdue Invoices</h2>
           <div id="fin-overdue">
@@ -898,7 +931,7 @@
       </div>
 
       <!-- ── Pipeline + Health row ───────────────────────────── -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div id="fin-pipeline-row" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div class="bg-panel border border-line rounded-xl p-5">
           <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Sales Pipeline</h2>
           <div id="fin-pipeline">
@@ -914,7 +947,7 @@
       </div>
 
       <!-- ── Recent Autocount documents ─────────────────────── -->
-      <div class="bg-panel border border-line rounded-xl p-5">
+      <div id="fin-recent-row" class="bg-panel border border-line rounded-xl p-5">
         <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Recent Documents</h2>
         <div id="fin-recent-docs">
           <div class="text-center text-muted text-sm py-6">Loading…</div>
@@ -1104,11 +1137,11 @@
     }
 
     // ── tab switching ────────────────────────────────────────────
-    const ALL_TABS = ['dashboard','sales','clients','projects','assets','production','capacity','financial','people','staffing'];
+    const ALL_TABS = ['dashboard','mywork','sales','clients','projects','assets','production','capacity','financial','people','staffing'];
 
     // Which group each tab belongs to (for highlighting the group button)
     const TAB_GROUP = {
-      dashboard: null,
+      dashboard: null, mywork: null,
       sales: 'sales', clients: 'sales',
       projects: 'production', assets: 'production', production: 'production', capacity: 'production',
       financial: null,
@@ -1133,8 +1166,8 @@
           ? ' bg-panel text-ink'
           : ' text-muted hover:text-ink';
       });
-      // Direct tabs (dashboard, financial)
-      ['dashboard','financial'].forEach(t => {
+      // Direct tabs (dashboard, mywork, financial)
+      ['dashboard','mywork','financial'].forEach(t => {
         const btn = $('tab-btn-' + t);
         if (!btn) return;
         btn.className = (name === t)
@@ -1143,6 +1176,7 @@
       });
       if (name === 'capacity')   loadCapacityBoard();
       if (name === 'dashboard')  loadDashboard();
+      if (name === 'mywork')     loadMyWork();
       if (name === 'assets')     { loadAssetProjects().then(loadAssets); }
       if (name === 'sales')      { initSalesTab().then(loadSales); }
       if (name === 'clients')    { loadClients(); }
@@ -1287,24 +1321,34 @@
 
     // Which tabs each role can see. ADMIN sees everything.
     const TAB_ACCESS = {
-      dashboard:  ['ADMIN','PRODUCER','SALES','FINANCE'],
+      dashboard:  ['ADMIN','PRODUCER','SALES','FINANCE','PM','TEAM_LEAD'],
+      mywork:     ['ADMIN','PRODUCER','SALES','FINANCE','PM','TEAM_LEAD'],
       sales:      ['ADMIN','SALES'],
       clients:    ['ADMIN','SALES'],
-      projects:   ['ADMIN','PRODUCER','FINANCE'],
-      assets:     ['ADMIN','PRODUCER'],
-      production: ['ADMIN','PRODUCER'],
-      capacity:   ['ADMIN','PRODUCER'],
-      financial:  ['ADMIN','FINANCE'],
-      people:     ['ADMIN','PRODUCER'],
-      staffing:   ['ADMIN','PRODUCER'],
+      projects:   ['ADMIN','PRODUCER','FINANCE','PM','TEAM_LEAD'],
+      assets:     ['ADMIN','PRODUCER','PM','TEAM_LEAD'],
+      production: ['ADMIN','PRODUCER','PM','TEAM_LEAD'],
+      capacity:   ['ADMIN','PRODUCER','PM','TEAM_LEAD'],
+      financial:  ['ADMIN','FINANCE','PM'],
+      people:     ['ADMIN','PRODUCER','PM','TEAM_LEAD'],
+      staffing:   ['ADMIN','PRODUCER','PM'],
     };
 
-    const ROLE_LABEL = { ADMIN:'Admin', PRODUCER:'Producer', SALES:'Sales', FINANCE:'Finance' };
-    const ROLE_CLS   = {
-      ADMIN:    'bg-warm/15 text-warm border border-warm/30',
-      PRODUCER: 'bg-accent/15 text-accent border border-accent/30',
-      SALES:    'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30',
-      FINANCE:  'bg-sky-500/15 text-sky-400 border border-sky-500/30',
+    const ROLE_LABEL = {
+      ADMIN:     'Admin',
+      PRODUCER:  'Producer',
+      SALES:     'Sales',
+      FINANCE:   'Finance',
+      PM:        'Project Manager',
+      TEAM_LEAD: 'Team Lead',
+    };
+    const ROLE_CLS = {
+      ADMIN:     'bg-warm/15 text-warm border border-warm/30',
+      PRODUCER:  'bg-accent/15 text-accent border border-accent/30',
+      SALES:     'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30',
+      FINANCE:   'bg-sky-500/15 text-sky-400 border border-sky-500/30',
+      PM:        'bg-purple-500/15 text-purple-400 border border-purple-500/30',
+      TEAM_LEAD: 'bg-teal-500/15 text-teal-400 border border-teal-500/30',
     };
 
     // Redirect to login if no token
@@ -1446,6 +1490,7 @@
   <script src="/js/capacity.js"></script>
   <script src="/js/dashboard.js"></script>
   <script src="/js/assets.js"></script>
+  <script src="/js/mywork.js"></script>
   <script src="/js/sales.js"></script>
   <script src="/js/clients.js"></script>
   <script src="/js/production.js"></script>

@@ -23,6 +23,10 @@ export class CreateAssetDto {
   @IsOptional()
   @IsString()
   changedBy?: string;
+
+  @IsOptional()
+  @IsString()
+  assignedToId?: string;
 }
 
 export class UpdateAssetDto {
@@ -45,4 +49,8 @@ export class UpdateAssetDto {
   @IsOptional()
   @IsString()
   changedBy?: string;
+
+  @IsOptional()
+  @IsString()
+  assignedToId?: string;
 }

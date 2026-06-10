@@ -2,9 +2,10 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateAssetDto, UpdateAssetDto } from './asset.dto';
 
-// Always include the project name so the frontend can display context.
+// Always include project name and assignee so the frontend can display context.
 const WITH_PROJECT = {
-  project: { select: { id: true, name: true, company: true } },
+  project:    { select: { id: true, name: true, company: true } },
+  assignedTo: { select: { id: true, name: true } },
 } as const;
 
 @Injectable()
@@ -31,12 +32,13 @@ export class AssetsService {
   create(dto: CreateAssetDto) {
     return this.prisma.asset.create({
       data: {
-        name:        dto.name,
-        description: dto.description  ?? null,
-        projectId:   dto.projectId,
-        stage:       dto.stage        ?? 'BRIEF',
-        cdSignedOff: dto.cdSignedOff  ?? false,
-        changedBy:   dto.changedBy    ?? null,
+        name:         dto.name,
+        description:  dto.description  ?? null,
+        projectId:    dto.projectId,
+        stage:        dto.stage        ?? 'BRIEF',
+        cdSignedOff:  dto.cdSignedOff  ?? false,
+        changedBy:    dto.changedBy    ?? null,
+        assignedToId: dto.assignedToId ?? null,
       },
       include: WITH_PROJECT,
     });
