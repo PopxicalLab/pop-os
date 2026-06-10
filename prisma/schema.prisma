@@ -64,6 +64,13 @@ enum ProjectStatus {
   CANCELLED
 }
 
+// Change Request status — lifecycle of a formal client scope-change request.
+enum CRStatus {
+  PENDING   // logged, awaiting Producer/PM decision
+  APPROVED  // accepted; budget impact confirmed
+  REJECTED  // declined; reason in note field
+}
+
 // Employment type — restricted to a fixed set of values.
 // (This is the Prisma way of doing a dropdown / "enum".)
 enum EmploymentType {
@@ -214,6 +221,7 @@ model Project {
   lead            Lead?
 
   accountingDocuments AccountingDocument[] // quotations and invoices tied to this project
+  changeRequests      ChangeRequest[]      // formal client scope-change requests
 
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
@@ -415,6 +423,26 @@ model Asset {
 // to a project. Multiple documents per project are normal — milestone
 // billing, revised quotes, partial invoices all create separate rows.
 // The dueDate drives the payment alert system in the Dashboard.
+// ── CHANGE REQUEST ───────────────────────────────────────────────
+// A formal record of a client-requested scope change on a live project.
+// PM creates it; Producer or Admin approves or rejects.
+// Budget impact accumulates on the project's real cost baseline.
+model ChangeRequest {
+  id           String   @id @default(cuid())
+  title        String                          // short name of the change
+  description  String                          // what the client wants changed
+  budgetImpact Float    @default(0)            // additional cost in RM (0 = scope-only)
+  status       CRStatus @default(PENDING)
+  requestedBy  String?                         // client-side name (free text)
+  note         String?                         // approval/rejection reason
+
+  projectId    String
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
 model AccountingDocument {
   id           String    @id @default(cuid())
   projectId    String?   // null only if created from a lead before conversion
