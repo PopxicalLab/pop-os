@@ -406,8 +406,10 @@ model Asset {
   description String?                        // optional notes / brief summary
   projectId   String
   stage       AssetStage @default(BRIEF)
-  cdSignedOff Boolean    @default(false)     // CD must acknowledge at INTERNAL_REVIEW
-  changedBy   String?                        // free text for now; links to Person later
+  cdSignedOff    Boolean @default(false)  // CD must acknowledge at INTERNAL_REVIEW
+  changedBy      String?                  // free text for now; links to Person later
+  reviewUrl      String?                  // link to work for CD review (Drive, Frame.io, etc.)
+  rejectionNote  String?                  // CD's feedback when sending back to Revision
 
   // Who is doing the work on this asset. Drives the "My Work" personal dashboard.
   assignedToId String?

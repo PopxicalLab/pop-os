@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param, Req } from '@nestjs/common';
+import { Controller, Get, Patch, Param, Req, Body } from '@nestjs/common';
 import { MeService } from './me.service';
 
 @Controller('api/me')
@@ -16,5 +16,11 @@ export class MeController {
   @Patch('sign-off/:id')
   signOff(@Param('id') id: string) {
     return this.me.signOff(id);
+  }
+
+  // CD rejects the asset — stage → REVISION, saves feedback note.
+  @Patch('reject/:id')
+  reject(@Param('id') id: string, @Body() body: { note?: string }) {
+    return this.me.reject(id, body.note);
   }
 }

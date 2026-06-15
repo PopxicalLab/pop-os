@@ -159,6 +159,15 @@ function renderAssetBoard(assets) {
   board.querySelectorAll('[data-asset-del]').forEach(b => {
     b.onclick = () => removeAsset(b.dataset.assetDel);
   });
+
+  board.querySelectorAll('[data-asset-url]').forEach(inp => {
+    inp.onblur = async () => {
+      await fetch(`/api/assets/${inp.dataset.assetUrl}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewUrl: inp.value.trim() || null }),
+      });
+    };
+  });
 }
 
 function renderAssetCard(a) {
@@ -202,6 +211,10 @@ function renderAssetCard(a) {
       ${peopleSel}
     </select>
     ${cdRow}
+    <input type="url" data-asset-url="${a.id}" value="${esc(a.reviewUrl || '')}"
+      placeholder="Review link (Drive / Frame.io …)"
+      class="w-full bg-panel border border-line text-ink px-2 py-1 rounded-md text-xs
+             focus:outline-none focus:border-accent/70 placeholder-muted/50" />
   </div>`;
 }
 

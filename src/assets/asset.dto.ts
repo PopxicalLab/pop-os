@@ -27,6 +27,14 @@ export class CreateAssetDto {
   @IsOptional()
   @IsString()
   assignedToId?: string;
+
+  @IsOptional()
+  @IsString()
+  reviewUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  rejectionNote?: string;
 }
 
 export class UpdateAssetDto {
@@ -53,4 +61,12 @@ export class UpdateAssetDto {
   @IsOptional()
   @IsString()
   assignedToId?: string;
+
+  @IsOptional()
+  @IsString()
+  reviewUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  rejectionNote?: string;
 }

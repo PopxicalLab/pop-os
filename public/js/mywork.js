@@ -133,16 +133,37 @@ function renderMyWork(data) {
 
   $('mw-content').innerHTML = html;
 
-  // Wire sign-off buttons
+  // Wire Approve buttons
   $('mw-content').querySelectorAll('[data-mw-signoff]').forEach(btn => {
     btn.onclick = async () => {
       const assetName = btn.dataset.mwName || 'this asset';
-      if (!confirm(`Sign off "${assetName}"?\n\nThis marks it as CD-approved and clears it from the sign-off queue.`)) return;
-      btn.disabled = true;
-      btn.textContent = '…';
+      if (!confirm(`Approve "${assetName}"?\n\nThis marks it as CD-approved and clears it from the sign-off queue.`)) return;
+      btn.disabled = true; btn.textContent = '…';
       const res = await fetch(`/api/me/sign-off/${btn.dataset.mwSignoff}`, { method: 'PATCH' });
       if (res.ok) loadMyWork();
-      else { btn.disabled = false; btn.textContent = 'Sign Off'; }
+      else { btn.disabled = false; btn.textContent = 'Approve'; }
+    };
+  });
+
+  // Wire Reject buttons — show inline note form
+  $('mw-content').querySelectorAll('[data-mw-reject]').forEach(btn => {
+    btn.onclick = () => {
+      document.getElementById('mw-reject-form-' + btn.dataset.mwReject)?.classList.remove('hidden');
+    };
+  });
+
+  // Wire Reject confirm buttons
+  $('mw-content').querySelectorAll('[data-mw-reject-confirm]').forEach(btn => {
+    btn.onclick = async () => {
+      const id   = btn.dataset.mwRejectConfirm;
+      const note = document.getElementById('mw-reject-note-' + id)?.value.trim();
+      btn.disabled = true; btn.textContent = '…';
+      const res = await fetch(`/api/me/reject/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ note: note || undefined }),
+      });
+      if (res.ok) loadMyWork();
+      else { btn.disabled = false; btn.textContent = 'Send back'; }
     };
   });
 
@@ -257,21 +278,56 @@ function renderMyProjects(projects, role) {
 function renderSignOffQueue(assets) {
   const rows = assets.map(a => `
     <tr class="border-b border-line/60 hover:bg-panel2/50 transition-colors">
-      <td class="py-2.5 px-3">
+      <td class="py-3 px-3">
         <p class="text-xs font-semibold text-ink">${esc(a.name)}</p>
         ${a.assignedTo ? `<p class="text-[11px] text-muted">${esc(a.assignedTo.name)}</p>` : ''}
+        ${a.reviewUrl
+          ? `<a href="${esc(a.reviewUrl)}" target="_blank" rel="noopener"
+               class="text-[11px] text-accent underline-offset-2 hover:underline">
+               View work ↗
+             </a>`
+          : '<span class="text-[11px] text-muted italic">No review link</span>'}
+        ${a.rejectionNote
+          ? `<p class="text-[11px] text-warm mt-1 border-l-2 border-warm/40 pl-2 italic">
+               Previous feedback: ${esc(a.rejectionNote)}
+             </p>`
+          : ''}
       </td>
-      <td class="py-2.5 px-3">
+      <td class="py-3 px-3">
         <p class="text-xs text-ink">${esc(a.project.name)}</p>
         <p class="text-[11px] text-muted">${priChipMW(a.project.priority)}</p>
       </td>
-      <td class="py-2.5 px-3"><span class="text-yellow-400 text-[11px]">Awaiting sign-off</span></td>
-      <td class="py-2.5 px-3 text-right">
-        <button data-mw-signoff="${a.id}" data-mw-name="${esc(a.name)}"
-          class="text-[11px] bg-accent/15 text-accent border border-accent/30 px-2.5 py-1 rounded-md
-                 hover:bg-accent/25 transition-colors cursor-pointer font-semibold">
-          Sign Off
-        </button>
+      <td class="py-3 px-3"><span class="text-yellow-400 text-[11px]">Awaiting sign-off</span></td>
+      <td class="py-3 px-3 text-right">
+        <div class="flex gap-1.5 justify-end">
+          <button data-mw-signoff="${a.id}" data-mw-name="${esc(a.name)}"
+            class="text-[11px] bg-emerald-500/15 text-emerald-400 border border-emerald-500/30
+                   px-2.5 py-1 rounded-md hover:bg-emerald-500/25 transition cursor-pointer font-semibold">
+            Approve
+          </button>
+          <button data-mw-reject="${a.id}" data-mw-name="${esc(a.name)}"
+            class="text-[11px] bg-rose-500/15 text-rose-400 border border-rose-500/30
+                   px-2.5 py-1 rounded-md hover:bg-rose-500/25 transition cursor-pointer font-semibold">
+            Reject
+          </button>
+        </div>
+        <div id="mw-reject-form-${a.id}" class="hidden mt-2 space-y-1.5 text-left">
+          <textarea id="mw-reject-note-${a.id}" rows="2"
+            class="w-full bg-bg border border-line rounded-lg px-2.5 py-1.5 text-xs text-ink
+                   focus:outline-none focus:ring-1 focus:ring-warm resize-none"
+            placeholder="What needs to be fixed…"></textarea>
+          <div class="flex gap-1.5">
+            <button data-mw-reject-confirm="${a.id}"
+              class="px-3 py-1 rounded-md text-xs font-semibold bg-rose-500 text-white
+                     hover:bg-rose-400 transition cursor-pointer">
+              Send back
+            </button>
+            <button onclick="document.getElementById('mw-reject-form-${a.id}').classList.add('hidden')"
+              class="px-2 py-1 rounded-md text-xs text-muted hover:text-ink transition cursor-pointer">
+              Cancel
+            </button>
+          </div>
+        </div>
       </td>
     </tr>`).join('');
 

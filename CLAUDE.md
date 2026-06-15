@@ -307,13 +307,19 @@ Server: `192.168.1.40` (Debian), user `yeo`, managed by PM2.
 
 ```bash
 # On the server
-cd ~/pop-os
+cd /opt/pop-os
 git pull
 npm install
+npx prisma generate
 npx prisma migrate deploy
 node prisma/seed-users.js   # safe: skips if users already exist
+npm run build               # REQUIRED — server runs dist/main.js (compiled JS)
 pm2 restart pop-os
 ```
+
+**Important:** The server runs `dist/main.js`, not the TypeScript source directly.
+Always run `npm run build` after pulling changes that touch `src/`. If you skip it,
+the server starts the old compiled code and new routes/modules won't be registered.
 
 Server `.env` must include all vars from `.env.example` plus Autocount credentials.
 The server does NOT use Docker — PostgreSQL runs natively via the system package.

@@ -90,7 +90,9 @@ export class MeService {
       if (role === 'PRODUCER' && personId) whereClause.project = { producerId: personId };
       signOffQueue = await this.prisma.asset.findMany({
         where:   whereClause,
-        include: {
+        select: {
+          id: true, name: true, stage: true, description: true,
+          reviewUrl: true, rejectionNote: true,
           project:    { select: { id: true, name: true, priority: true } },
           assignedTo: { select: { id: true, name: true } },
         },
@@ -159,8 +161,17 @@ export class MeService {
   async signOff(assetId: string) {
     return this.prisma.asset.update({
       where: { id: assetId },
-      data:  { cdSignedOff: true },
+      // Clear any prior rejection note when approving
+      data:  { cdSignedOff: true, rejectionNote: null },
       select: { id: true, cdSignedOff: true },
+    });
+  }
+
+  async reject(assetId: string, note?: string) {
+    return this.prisma.asset.update({
+      where: { id: assetId },
+      data:  { stage: 'REVISION', cdSignedOff: false, rejectionNote: note ?? null },
+      select: { id: true, stage: true, rejectionNote: true },
     });
   }
 }
