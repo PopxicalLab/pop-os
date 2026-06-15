@@ -20,6 +20,8 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { MeModule } from './me/me.module';
 import { ChangeRequestsModule } from './change-requests/change-requests.module';
+import { ReportsModule } from './reports/reports.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { JwtAuthGuard } from './auth/jwt.guard';
 
 @Module({
@@ -46,6 +48,8 @@ import { JwtAuthGuard } from './auth/jwt.guard';
     AutocountModule,
     MeModule,
     ChangeRequestsModule,
+    ReportsModule,
+    NotificationsModule,
   ],
   providers: [
     // Register JwtAuthGuard globally — every API route requires a valid JWT

@@ -323,3 +323,31 @@ function renderFinancialProjects(rows) {
     </tr>`;
   }).join('');
 }
+
+// ── Payment alert email ───────────────────────────────────────
+async function sendPaymentAlerts() {
+  const btn = document.getElementById('fin-alert-btn');
+  const msgEl = document.getElementById('fin-alert-msg');
+  if (btn) { btn.textContent = 'Sending…'; btn.disabled = true; }
+
+  const res = await fetch('/api/notifications/payment-alerts', { method: 'POST' });
+  const data = await res.json().catch(() => ({}));
+
+  if (btn) { btn.textContent = '✉ Send alert email'; btn.disabled = false; }
+
+  if (msgEl) {
+    msgEl.classList.remove('hidden');
+    if (!data.smtpConfigured) {
+      msgEl.className = 'text-xs px-4 py-2 rounded-lg bg-warm/10 border border-warm/30 text-warm';
+      msgEl.textContent = 'SMTP not configured. Add SMTP_HOST, SMTP_USER, SMTP_PASS, and ALERT_EMAIL_TO to your .env file.';
+    } else if (data.sent > 0) {
+      msgEl.className = 'text-xs px-4 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400';
+      msgEl.textContent = data.details?.[0] || 'Alert email sent.';
+    } else {
+      msgEl.className = 'text-xs px-4 py-2 rounded-lg bg-panel border border-line text-muted';
+      msgEl.textContent = data.details?.[0] || 'No invoices in alert window.';
+    }
+    setTimeout(() => msgEl.classList.add('hidden'), 6000);
+  }
+}
+

@@ -520,6 +520,8 @@
           <option value="ON_HOLD">On hold</option>
           <option value="CANCELLED">Cancelled</option>
         </select>
+        <label class="form-label">Start date</label>
+        <input id="p-start-date" type="date" class="form-input" />
         <label class="form-label">Deadline</label>
         <input id="p-deadline" type="date" class="form-input" />
         <label class="form-label">Producer</label>
@@ -583,7 +585,24 @@
         <div id="pmsg" class="text-xs mt-2 min-h-[18px]"></div>
       </div>
 
-      <!-- LIST VIEW -->
+      <!-- LIST / TIMELINE VIEW -->
+      <div class="space-y-4">
+
+      <!-- View toggle + export -->
+      <div class="flex items-center gap-2">
+        <div class="flex rounded-lg border border-line overflow-hidden text-xs font-semibold">
+          <button id="proj-view-list" onclick="switchProjView('list')"
+            class="px-3 py-1.5 bg-panel text-ink transition cursor-pointer">List</button>
+          <button id="proj-view-timeline" onclick="switchProjView('timeline')"
+            class="px-3 py-1.5 text-muted hover:text-ink transition cursor-pointer">Timeline</button>
+        </div>
+        <a href="/api/reports/projects" download
+          class="ml-auto px-3 py-1.5 rounded-lg border border-line text-xs text-muted
+                 hover:text-ink hover:border-accent/50 transition cursor-pointer">
+          ↓ Export CSV
+        </a>
+      </div>
+
       <div id="p-list-view" class="bg-panel border border-line rounded-xl p-5">
         <div class="flex items-center justify-between mb-4">
           <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">Projects</h2>
@@ -643,6 +662,21 @@
         </button>
         <div id="p-detail-content"></div>
       </div>
+
+      <!-- TIMELINE VIEW (hidden by default) -->
+      <div id="p-timeline-view" class="hidden bg-panel border border-line rounded-xl p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">Project Timeline</h2>
+          <div class="flex gap-2 items-center">
+            <button onclick="shiftTimeline(-1)" class="text-muted hover:text-ink text-lg cursor-pointer leading-none">‹</button>
+            <span id="tl-label" class="text-xs text-muted w-28 text-center"></span>
+            <button onclick="shiftTimeline(1)"  class="text-muted hover:text-ink text-lg cursor-pointer leading-none">›</button>
+          </div>
+        </div>
+        <div id="tl-canvas" class="overflow-x-auto"></div>
+      </div>
+
+      </div><!-- end LIST/TIMELINE wrapper -->
     </div>
   </div>
 
@@ -707,7 +741,14 @@
 
       <!-- Right: the board -->
       <div class="bg-panel border border-line rounded-xl p-5">
-        <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-4">Capacity Board</h2>
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">Capacity Board</h2>
+          <a href="/api/reports/capacity" download
+            class="px-3 py-1.5 rounded-lg border border-line text-xs text-muted
+                   hover:text-ink hover:border-accent/50 transition cursor-pointer">
+            ↓ Export CSV
+          </a>
+        </div>
         <div id="cap-board">
           <div class="text-center text-muted text-sm py-10">Switch to this tab to load the board.</div>
         </div>
@@ -971,10 +1012,25 @@
   <div class="panel hidden" id="tab-financial">
     <div class="max-w-7xl mx-auto px-5 py-6 space-y-5">
 
-      <!-- Stats strip (studio cost / pipeline) -->
-      <div id="fin-stats" class="text-sm px-5 py-3 bg-panel border border-line rounded-xl text-muted">
-        Loading…
+      <!-- Stats strip + action buttons -->
+      <div class="flex items-center gap-3 flex-wrap">
+        <div id="fin-stats" class="flex-1 text-sm px-5 py-3 bg-panel border border-line rounded-xl text-muted">
+          Loading…
+        </div>
+        <div class="flex gap-2 shrink-0">
+          <button onclick="sendPaymentAlerts()" id="fin-alert-btn"
+            class="px-3 py-2 rounded-lg border border-line text-xs text-muted
+                   hover:text-ink hover:border-accent/50 transition cursor-pointer">
+            ✉ Send alert email
+          </button>
+          <a href="/api/reports/ar" download
+            class="px-3 py-2 rounded-lg border border-line text-xs text-muted
+                   hover:text-ink hover:border-accent/50 transition cursor-pointer">
+            ↓ Export AR CSV
+          </a>
+        </div>
       </div>
+      <div id="fin-alert-msg" class="hidden text-xs px-4 py-2 rounded-lg bg-panel border border-line text-muted"></div>
 
       <!-- ── AR KPI cards ─────────────────────────────────────── -->
       <div id="fin-kpi" class="grid grid-cols-2 lg:grid-cols-4 gap-4">

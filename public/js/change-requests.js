@@ -26,7 +26,7 @@ let _crRole         = null;   // current user's role
 
 // ── Entry point ──────────────────────────────────────────────
 async function loadCR() {
-  _crRole = (window._me?.role) || null;
+  try { _crRole = JSON.parse(localStorage.getItem('pop-os-user') || '{}').role || null; } catch(e) {};
 
   // Load projects for selectors (once)
   if (!_crProjects.length) {

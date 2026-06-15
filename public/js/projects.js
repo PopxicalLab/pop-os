@@ -387,7 +387,8 @@ async function loadPpmBadge(projectId) {
 // ── project list ─────────────────────────────────────────────
 
 async function loadProjects() {
-  const all     = await (await fetch('/api/projects')).json();
+  const all      = await (await fetch('/api/projects')).json();
+  _tlProjects    = all; // cache for timeline view
   const projects = all.filter(p => matchesFilter(p.company));
   const rows = $('p-rows'); rows.innerHTML = '';
   $('p-empty').classList.toggle('hidden', projects.length > 0);
@@ -448,6 +449,7 @@ async function addProject() {
     quadrant:   quad,
     priority:   $('p-priority').value,
     status:     $('p-status').value,
+    startDate:  $('p-start-date').value || undefined,
     deadline:   $('p-deadline').value || undefined,
     producerId: $('p-producer').value || undefined,
     pmId:       $('p-pm').value || undefined,
@@ -471,7 +473,7 @@ async function addProject() {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
   });
   if (res.ok) {
-    ['p-name','p-client','p-deadline','p-est-value','p-est-duration','p-margin'].forEach(id => $(id).value = '');
+    ['p-name','p-client','p-start-date','p-deadline','p-est-value','p-est-duration','p-margin'].forEach(id => $(id).value = '');
     $('p-quadrant').value = 'GOLD'; $('p-complexity').value = ''; $('p-client-tier').value = '';
     $('p-drain-gate').classList.add('hidden');
     $('p-exec').checked = false; $('p-prod-approval').checked = false;
@@ -494,3 +496,165 @@ $('p-quadrant').addEventListener('change', () => {
 });
 
 $('p-add').addEventListener('click', addProject);
+
+// ── Timeline (Gantt) view ─────────────────────────────────────
+
+let _tlProjects = [];   // cached from last loadProjects call
+let _tlOffset   = -4;   // weeks offset from today's Monday (show from 4 weeks ago)
+const TL_WEEKS  = 16;   // number of weeks visible at once
+const TL_NAME_W = 180;  // px width of project name column
+const TL_WEEK_W = 38;   // px width per week column
+
+// Returns the Monday of the current week (UTC midnight)
+function _tlMonday(offset = 0) {
+  const d = new Date();
+  const day = d.getUTCDay();
+  d.setUTCDate(d.getUTCDate() + (day === 0 ? -6 : 1 - day) + offset * 7);
+  d.setUTCHours(0, 0, 0, 0);
+  return d;
+}
+
+function switchProjView(view) {
+  const isList = view === 'list';
+  document.getElementById('p-list-view')?.classList.toggle('hidden', !isList);
+  document.getElementById('p-timeline-view')?.classList.toggle('hidden', isList);
+  document.getElementById('proj-view-list')?.classList.toggle('bg-panel', isList);
+  document.getElementById('proj-view-list')?.classList.toggle('text-ink', isList);
+  document.getElementById('proj-view-list')?.classList.toggle('text-muted', !isList);
+  document.getElementById('proj-view-timeline')?.classList.toggle('bg-panel', !isList);
+  document.getElementById('proj-view-timeline')?.classList.toggle('text-ink', !isList);
+  document.getElementById('proj-view-timeline')?.classList.toggle('text-muted', isList);
+  if (!isList) renderTimeline();
+}
+
+function shiftTimeline(dir) {
+  _tlOffset += dir * 4;
+  renderTimeline();
+}
+
+function renderTimeline() {
+  const canvas = document.getElementById('tl-canvas');
+  const label  = document.getElementById('tl-label');
+  if (!canvas) return;
+
+  const startMonday = _tlMonday(_tlOffset);
+  const endMonday   = _tlMonday(_tlOffset + TL_WEEKS);
+
+  // Update header label
+  const fmt = d => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  if (label) label.textContent = `${fmt(startMonday)} – ${fmt(endMonday)}`;
+
+  const activeProjects = _tlProjects.filter(p =>
+    !['DELIVERED', 'CANCELLED'].includes(p.status) ||
+    (p.deadline && new Date(p.deadline) >= startMonday)
+  );
+
+  if (!activeProjects.length) {
+    canvas.innerHTML = '<p class="text-center text-muted text-sm py-8">No projects to display.</p>';
+    return;
+  }
+
+  const totalW = TL_NAME_W + TL_WEEKS * TL_WEEK_W;
+  const rowH   = 32;
+  const headH  = 28;
+  const totalH = headH + activeProjects.length * rowH;
+
+  // Week header labels
+  const weekHeaders = Array.from({ length: TL_WEEKS }, (_, i) => {
+    const d = _tlMonday(_tlOffset + i);
+    const x = TL_NAME_W + i * TL_WEEK_W;
+    const isToday = i === -_tlOffset; // the current week
+    const monthLabel = d.getUTCDate() <= 7
+      ? d.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' })
+      : '';
+    return `
+      <rect x="${x}" y="0" width="${TL_WEEK_W}" height="${headH}"
+        fill="${isToday ? 'rgba(99,179,162,0.08)' : 'transparent'}"/>
+      <text x="${x + TL_WEEK_W / 2}" y="11" text-anchor="middle"
+        font-size="9" fill="${isToday ? '#63b3a2' : '#6b7280'}">${d.getUTCDate()}</text>
+      ${monthLabel ? `<text x="${x + TL_WEEK_W / 2}" y="22" text-anchor="middle" font-size="8" fill="#4b5563">${monthLabel}</text>` : ''}`;
+  }).join('');
+
+  // Grid lines
+  const gridLines = Array.from({ length: TL_WEEKS + 1 }, (_, i) => {
+    const x = TL_NAME_W + i * TL_WEEK_W;
+    return `<line x1="${x}" y1="${headH}" x2="${x}" y2="${totalH}" stroke="#2d3748" stroke-width="1"/>`;
+  }).join('');
+
+  // "Today" highlight column
+  const todayX = TL_NAME_W + (-_tlOffset) * TL_WEEK_W;
+  const todayCol = `<rect x="${todayX}" y="${headH}" width="${TL_WEEK_W}" height="${totalH - headH}"
+    fill="rgba(99,179,162,0.05)"/>`;
+
+  // Project rows
+  const STATUS_COLOR = {
+    BRIEF:           '#4b5563',
+    IN_PROGRESS:     '#63b3a2',
+    INTERNAL_REVIEW: '#ecc94b',
+    DELIVERED:       '#48bb78',
+    ON_HOLD:         '#f6ad55',
+    CANCELLED:       '#fc8181',
+  };
+
+  const rows = activeProjects.map((p, i) => {
+    const y     = headH + i * rowH;
+    const rowBg = i % 2 === 0 ? 'rgba(255,255,255,0.01)' : 'transparent';
+
+    // Project bar: startDate → deadline
+    const pStart = p.startDate ? new Date(p.startDate) : new Date(p.createdAt);
+    const pEnd   = p.deadline  ? new Date(p.deadline)  : null;
+
+    const barColor = STATUS_COLOR[p.status] || '#4b5563';
+
+    let barSvg = '';
+    if (pEnd) {
+      // Convert dates to week-column offsets
+      const startOff = Math.round((pStart.getTime() - startMonday.getTime()) / (7 * 86_400_000));
+      const endOff   = Math.round((pEnd.getTime()   - startMonday.getTime()) / (7 * 86_400_000));
+
+      const clampedStart = Math.max(0, startOff);
+      const clampedEnd   = Math.min(TL_WEEKS, endOff);
+
+      if (clampedEnd > clampedStart) {
+        const bx = TL_NAME_W + clampedStart * TL_WEEK_W + 2;
+        const bw = (clampedEnd - clampedStart) * TL_WEEK_W - 4;
+        barSvg = `<rect x="${bx}" y="${y + 8}" width="${bw}" height="${rowH - 16}"
+          rx="3" fill="${barColor}" opacity="0.75"/>`;
+      }
+    } else {
+      // No deadline — show a thin line from start extending to the right edge
+      const startOff = Math.round((pStart.getTime() - startMonday.getTime()) / (7 * 86_400_000));
+      const clamped  = Math.max(0, Math.min(TL_WEEKS, startOff));
+      const bx = TL_NAME_W + clamped * TL_WEEK_W + 2;
+      const bw = (TL_NAME_W + TL_WEEKS * TL_WEEK_W) - bx - 2;
+      barSvg = `<rect x="${bx}" y="${y + 12}" width="${bw}" height="${rowH - 24}"
+        rx="3" fill="${barColor}" opacity="0.4" stroke-dasharray="4 2"/>`;
+    }
+
+    return `
+      <rect x="0" y="${y}" width="${totalW}" height="${rowH}" fill="${rowBg}"/>
+      <text x="6" y="${y + rowH / 2 + 4}" font-size="11" fill="#e2e8f0"
+        class="cursor-pointer">${esc(p.name.length > 22 ? p.name.slice(0, 21) + '…' : p.name)}</text>
+      ${barSvg}`;
+  }).join('');
+
+  canvas.innerHTML = `
+    <svg width="${totalW}" height="${totalH}" xmlns="http://www.w3.org/2000/svg"
+      style="font-family:ui-monospace,monospace;display:block;">
+      <!-- Background -->
+      <rect width="${totalW}" height="${totalH}" fill="transparent"/>
+      <!-- Name column -->
+      <rect x="0" y="0" width="${TL_NAME_W}" height="${totalH}" fill="rgba(0,0,0,0.15)"/>
+      <line x1="${TL_NAME_W}" y1="0" x2="${TL_NAME_W}" y2="${totalH}" stroke="#2d3748" stroke-width="1"/>
+      <!-- Header -->
+      <rect x="0" y="0" width="${totalW}" height="${headH}" fill="rgba(0,0,0,0.2)"/>
+      <line x1="0" y1="${headH}" x2="${totalW}" y2="${headH}" stroke="#2d3748" stroke-width="1"/>
+      ${weekHeaders}
+      <!-- Today highlight -->
+      ${_tlOffset <= 0 && -_tlOffset < TL_WEEKS ? todayCol : ''}
+      <!-- Grid -->
+      ${gridLines}
+      <!-- Rows -->
+      ${rows}
+    </svg>`;
+}

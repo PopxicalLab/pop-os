@@ -133,15 +133,19 @@ function renderMyWork(data) {
 
   $('mw-content').innerHTML = html;
 
-  // Wire sign-off buttons (injected into the DOM above)
+  // Wire sign-off buttons
   $('mw-content').querySelectorAll('[data-mw-signoff]').forEach(btn => {
     btn.onclick = async () => {
+      const assetName = btn.dataset.mwName || 'this asset';
+      if (!confirm(`Sign off "${assetName}"?\n\nThis marks it as CD-approved and clears it from the sign-off queue.`)) return;
       btn.disabled = true;
       btn.textContent = '…';
       const res = await fetch(`/api/me/sign-off/${btn.dataset.mwSignoff}`, { method: 'PATCH' });
       if (res.ok) loadMyWork();
+      else { btn.disabled = false; btn.textContent = 'Sign Off'; }
     };
   });
+
 }
 
 // ── section renderers ─────────────────────────────────────────
@@ -263,7 +267,7 @@ function renderSignOffQueue(assets) {
       </td>
       <td class="py-2.5 px-3"><span class="text-yellow-400 text-[11px]">Awaiting sign-off</span></td>
       <td class="py-2.5 px-3 text-right">
-        <button data-mw-signoff="${a.id}"
+        <button data-mw-signoff="${a.id}" data-mw-name="${esc(a.name)}"
           class="text-[11px] bg-accent/15 text-accent border border-accent/30 px-2.5 py-1 rounded-md
                  hover:bg-accent/25 transition-colors cursor-pointer font-semibold">
           Sign Off

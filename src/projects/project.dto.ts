@@ -23,6 +23,9 @@ export class CreateProjectDto {
   status?: ProjectStatus;
 
   @IsOptional() @IsDateString()
+  startDate?: string;
+
+  @IsOptional() @IsDateString()
   deadline?: string;
 
   @IsOptional() @IsString()
@@ -65,6 +68,7 @@ export class UpdateProjectDto {
   @IsOptional() @IsEnum(ProjectQuadrant)  quadrant?: ProjectQuadrant;
   @IsOptional() @IsEnum(ProjectPriority)  priority?: ProjectPriority;
   @IsOptional() @IsEnum(ProjectStatus)    status?: ProjectStatus;
+  @IsOptional() @IsDateString()           startDate?: string;
   @IsOptional() @IsDateString()           deadline?: string;
   @IsOptional() @IsString()               producerId?: string;
   @IsOptional() @IsString()               pmId?: string;

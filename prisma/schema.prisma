@@ -183,6 +183,7 @@ model Project {
   quadrant    ProjectQuadrant
   priority    ProjectPriority @default(P2)
   status      ProjectStatus   @default(BRIEF)
+  startDate   DateTime?       // when production actually kicks off (used for timeline view)
   deadline    DateTime?
 
   // Who is running and managing this project.
