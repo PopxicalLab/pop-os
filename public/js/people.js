@@ -173,15 +173,23 @@ async function load() {
       </td>
       <td class="py-3 px-2 whitespace-nowrap">${statusBadge}</td>
       <td class="py-3 px-2 whitespace-nowrap text-center">
-        ${isAdmin()
-          ? `<button title="${p.user ? 'Login: ' + p.user.email : 'No login — click to create'}"
-               data-login="${p.id}" data-has-login="${p.user ? '1' : '0'}"
-               class="inline-flex items-center justify-center w-7 h-7 rounded-lg
-                      hover:bg-panel2 transition-colors cursor-pointer">
-               ${lockIcon(!!p.user)}
-             </button>`
-          : (p.user ? lockIcon(true) : '')
-        }
+        <div class="flex items-center justify-center gap-1">
+          ${isAdmin()
+            ? `<button title="${p.user ? 'Login: ' + p.user.email : 'No login — click to create'}"
+                 data-login="${p.id}" data-has-login="${p.user ? '1' : '0'}"
+                 class="inline-flex items-center justify-center w-7 h-7 rounded-lg
+                        hover:bg-panel2 transition-colors cursor-pointer">
+                 ${lockIcon(!!p.user)}
+               </button>
+               <button title="${p.canSignOff ? 'Can sign off assets — click to revoke' : 'Cannot sign off — click to grant'}"
+                 data-signoff-toggle="${p.id}" data-signoff-state="${p.canSignOff ? '1' : '0'}"
+                 class="inline-flex items-center justify-center w-7 h-7 rounded-lg
+                        hover:bg-panel2 transition-colors cursor-pointer text-sm">
+                 ${p.canSignOff ? '<span class="text-emerald-400" title="">✔</span>' : '<span class="text-muted/40">✔</span>'}
+               </button>`
+            : (p.user ? lockIcon(true) : '')
+          }
+        </div>
       </td>
       <td class="py-3 px-2 whitespace-nowrap">
         <button class="btn-del" data-del="${p.id}">Remove</button>
@@ -194,6 +202,16 @@ async function load() {
   rows.querySelectorAll('[data-login]').forEach(b => {
     const person = PEOPLE.find(p => p.id === b.dataset.login);
     b.onclick = () => openLoginModal(person);
+  });
+  rows.querySelectorAll('[data-signoff-toggle]').forEach(b => {
+    b.onclick = async () => {
+      const newVal = b.dataset.signoffState !== '1';
+      await fetch(`/api/people/${b.dataset.signoffToggle}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ canSignOff: newVal }),
+      });
+      load();
+    };
   });
   applyPeopleColVisibility();
   populatePersonDropdowns();

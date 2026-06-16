@@ -22,7 +22,7 @@ export class MeService {
   async getDashboard(userId: string) {
     const user = await this.prisma.user.findUnique({
       where:   { id: userId },
-      include: { person: { select: { id: true, name: true } } },
+      include: { person: { select: { id: true, name: true, canSignOff: true } } },
     });
 
     const personId = user?.person?.id ?? null;
@@ -82,12 +82,11 @@ export class MeService {
     }
 
     // ── sign-off queue (INTERNAL_REVIEW + not signed off) ────────
+    // Only shown to people with canSignOff=true on their Person record, or ADMIN.
     let signOffQueue: any[] = [];
-    if (['TEAM_LEAD', 'PRODUCER', 'ADMIN', 'PM'].includes(role)) {
+    const canSeeQueue = role === 'ADMIN' || !!user?.person?.canSignOff;
+    if (canSeeQueue) {
       const whereClause: any = { stage: 'INTERNAL_REVIEW', cdSignedOff: false };
-      // PM and PRODUCER see only their own projects' queues
-      if (role === 'PM'       && personId) whereClause.project = { pmId:       personId };
-      if (role === 'PRODUCER' && personId) whereClause.project = { producerId: personId };
       signOffQueue = await this.prisma.asset.findMany({
         where:   whereClause,
         select: {
