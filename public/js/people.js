@@ -32,6 +32,10 @@ function fmtMYR(n) {
 function isAdmin() {
   try { return JSON.parse(localStorage.getItem('pop-os-user') || '{}').role === 'ADMIN'; } catch { return false; }
 }
+// Salary is sensitive — only ADMIN and FINANCE can see it.
+function canSeeSalary() {
+  try { return ['ADMIN', 'FINANCE'].includes(JSON.parse(localStorage.getItem('pop-os-user') || '{}').role); } catch { return false; }
+}
 
 // Lock icon SVG — filled green if linked, outline grey if not
 function lockIcon(linked) {
@@ -52,7 +56,7 @@ const PEOPLE_COLS = [
   { id: 'dept',   label: 'Dept',            def: true  },
   { id: 'type',   label: 'Employment type', def: false },
   { id: 'start',  label: 'Start date',      def: false },
-  { id: 'salary', label: 'Salary',          def: false },
+  { id: 'salary', label: 'Salary',          def: false, restricted: true },
   { id: 'skills', label: 'Skills',          def: true  },
 ];
 
@@ -81,7 +85,7 @@ function togglePeopleCol(id, visible) {
 
 function buildPeopleColPicker() {
   const vis = getPeopleColVis();
-  $('people-col-picker').innerHTML = PEOPLE_COLS.map(c => `
+  $('people-col-picker').innerHTML = PEOPLE_COLS.filter(c => !c.restricted || canSeeSalary()).map(c => `
     <label class="flex items-center gap-2.5 px-3 py-2 hover:bg-panel2/60 cursor-pointer">
       <input type="checkbox" ${vis[c.id] ? 'checked' : ''}
         onchange="togglePeopleCol('${c.id}', this.checked)"
@@ -132,6 +136,13 @@ $('addSkill').addEventListener('click', async () => {
 });
 
 async function load() {
+  // Hide salary column header and add-form field for non-privileged roles
+  document.querySelectorAll('[data-pcol="salary"]').forEach(el => {
+    el.classList.toggle('hidden', !canSeeSalary());
+  });
+  const salaryField = $('salary-field');
+  if (salaryField) salaryField.classList.toggle('hidden', !canSeeSalary());
+
   PEOPLE = await (await fetch('/api/people')).json();
   const visible = PEOPLE.filter(p => matchesFilter(p.company));
   const rows = $('rows'); rows.innerHTML = '';
@@ -163,7 +174,7 @@ async function load() {
       <td data-pcol="dept"   class="py-3 px-2 text-muted text-xs whitespace-nowrap">${esc(p.department)}</td>
       <td data-pcol="type"   class="py-3 px-2 text-muted text-xs whitespace-nowrap">${EMP_LABEL[p.employmentType] || p.employmentType}</td>
       <td data-pcol="start"  class="py-3 px-2 text-muted text-xs whitespace-nowrap">${startDate}</td>
-      <td data-pcol="salary" class="py-3 px-2 text-xs whitespace-nowrap">${fmtMYR(p.salary)}</td>
+      <td data-pcol="salary" class="py-3 px-2 text-xs whitespace-nowrap">${canSeeSalary() ? fmtMYR(p.salary) : '—'}</td>
       <td data-pcol="skills" class="py-3 px-2">
         <div class="flex flex-wrap gap-1">${skills}</div>
         <div class="mt-2">
