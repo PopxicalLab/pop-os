@@ -1,9 +1,6 @@
 # Pop OS — Pop Group Studio Operating System
 
-The operating system for Pop Group. Replaces ad-hoc, reactive working with a
-structured system: prioritised projects, weekly capacity allocation, a standard
-production workflow, deliverable tracking, people/skills records, and integrated
-accounting.
+The operating system for Pop Group (Lorrypop Studio + Popxical Lab). Replaces ad-hoc, reactive working with a structured system: prioritised projects, weekly capacity allocation, a standard production workflow, deliverable tracking, people/skills records, sales pipeline, and integrated accounting.
 
 **Stack:** NestJS · TypeScript · Prisma ORM · PostgreSQL 16 · Tailwind CSS (CDN)
 
@@ -13,15 +10,17 @@ accounting.
 
 | Module | What it does |
 |---|---|
+| My Work | Personal dashboard — capacity, assigned assets, sign-off queue, payment alerts per role |
 | Dashboard | Cross-module command centre — active projects, capacity alerts, payment due alerts |
-| Sales | Lead pipeline (Qualification → Won/Lost), lead-to-project conversion |
+| Sales | Lead pipeline (Qualification → Proposal → Negotiation → Won/Lost), lead-to-project conversion |
 | Clients | Account + contact management; linked leads and projects per client |
-| Projects (PPM) | Project spine — priority, budget, Drain gate, producer/PM links |
-| Assets | Deliverables tracked through SOP stages with CD/3D sign-off gates |
+| Projects (PPM) | Project spine — priority, budget, Drain gate, producer/PM links, Gantt timeline |
+| Change Requests | Formal change request tracking per project — PENDING / APPROVED / REJECTED |
+| Assets | Deliverables tracked through SOP stages with CD sign-off gate and review link |
 | Production Engine | Lane routing — asset assignment, status, throughput view |
 | Capacity | Weekly board — person × project × week allocation (100% cap enforced) |
 | Financial | Man-day costing, AR position, overdue invoices, pipeline by stage, project health |
-| People / ELC | Staff records — role, skills (rated 1–5 with full history), company |
+| People / ELC | Staff records — role, skills (rated 1–5 with full history), sign-off authority flag |
 | Staffing | Staffing recommendation engine — matches skill requirements to available people |
 | Users | Login accounts — email, role, optional link to a Person record (admin only) |
 
@@ -30,7 +29,7 @@ accounting.
 ## What you need installed
 
 1. **Node.js v18+** — https://nodejs.org (use the LTS version)
-2. **Docker Desktop** — https://www.docker.com/products/docker-desktop (runs PostgreSQL)
+2. **Docker Desktop** — https://www.docker.com/products/docker-desktop (runs PostgreSQL locally)
 3. **VS Code** — https://code.visualstudio.com
 
 Verify everything is ready:
@@ -45,7 +44,7 @@ Verify everything is ready:
 
 ```bash
 # 1. Clone
-git clone https://github.com/popxicalLab/pop-os.git
+git clone https://github.com/PopxicalLab/pop-os.git
 cd pop-os
 
 # 2. Create your .env
@@ -53,7 +52,7 @@ copy .env.example .env        # Windows
 cp .env.example .env          # Mac / Linux
 
 # 3. Edit .env — fill in at minimum:
-#    DATABASE_URL, JWT_SECRET, and the AUTOCOUNT_* vars
+#    DATABASE_URL, JWT_SECRET, SMTP_*, and the AUTOCOUNT_* vars
 
 # 4. Start the database
 docker compose up -d
@@ -64,13 +63,16 @@ npm install
 # 6. Apply all migrations  ← use 'deploy' (not 'dev') on a fresh clone
 npx prisma migrate deploy
 
-# 7. Seed demo data
+# 7. Generate the Prisma client
+npx prisma generate
+
+# 8. Seed demo data
 node prisma/seed.js
 
-# 8. Seed default login accounts
+# 9. Seed default login accounts
 node prisma/seed-users.js
 
-# 9. Start the dev server
+# 10. Start the dev server
 npm run start:dev
 ```
 
@@ -80,7 +82,7 @@ App runs at **http://localhost:3000** · Login page at **http://localhost:3000/l
 
 ## Default login accounts
 
-Change these passwords after first login.
+Change these passwords after first login. PM and TEAM_LEAD accounts must be created manually via the User Manager (admin → header icon).
 
 | Email | Password | Role |
 |---|---|---|
@@ -95,26 +97,48 @@ Change these passwords after first login.
 
 | Role | Access |
 |---|---|
-| ADMIN | Everything — users, all tabs, Autocount push |
-| PRODUCER | Dashboard, Projects, Capacity, Assets, Production, People, Staffing |
-| PM | Dashboard, Projects, Assets, Production, Capacity, Financial (project costs only — AR hidden) |
-| TEAM_LEAD | Dashboard, Projects (read), Assets, Production, Capacity (read), People (read) |
+| ADMIN | Everything — users, all tabs, Autocount push, salary data |
+| PRODUCER | Dashboard, My Work, Projects, Change Requests, Capacity, Assets, Production, People, Staffing |
+| PM | Same as PRODUCER; scoped to own projects on My Work |
+| TEAM_LEAD | Dashboard, My Work, Projects (read), Assets, Production, Capacity, People |
+| FINANCE | Financial tab, Projects (read), salary data |
 | SALES | Sales pipeline + Clients only |
-| FINANCE | Financial tab + Projects (read) |
+
+**Sign-off authority** is not tied to role — it is a per-person flag (`canSignOff`) set by an admin on the People tab. Only people with this flag enabled see the sign-off queue on My Work. Currently granted to: Calvin, Frankie, Tom.
+
+**Salary visibility** is restricted to ADMIN and FINANCE. All other roles see `—` in the salary column and the salary field is hidden on the add-person form.
 
 ---
 
 ## Autocount integration
 
-Pop OS pushes documents into Pop Group's Autocount Cloud accounting system.
-Autocount remains the source of truth for all financial data.
+Pop OS pushes documents into Pop Group's Autocount Cloud accounting system. Autocount remains the source of truth for all financial data (double-entry, tax, bank reconciliation).
 
 - WON lead → creates a Quotation in Autocount
 - Project → creates a Sales Invoice in Autocount
 - Documents are tracked locally as `AccountingDocument` records with due dates
 - Finance Dashboard shows AR position, overdue alerts, and due-soon panel
+- `PATCH /api/autocount/documents/:id/status` marks documents PAID or VOID
 
 Credentials live in `.env` (see `.env.example` for all required vars).
+
+---
+
+## Email alerts
+
+Payment due alerts are sent via SMTP (nodemailer). Configure in `.env`:
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your@email.com
+SMTP_PASS=your-app-password
+SMTP_FROM="Pop OS <your@email.com>"
+ALERT_EMAIL_TO=finance@pop.studio,admin@pop.studio
+ALERT_DAYS=10
+```
+
+Trigger manually from the Financial tab ("✉ Send alert email"). Sends one digest email listing all active documents due within `ALERT_DAYS` days.
 
 ---
 
@@ -126,7 +150,8 @@ A running server holds a lock on the Prisma engine DLL and the migration will fa
 ```
 1. Ctrl+C  (stop dev server)
 2. npx prisma migrate dev --name <name>
-3. npm run start:dev
+3. npx prisma generate
+4. npm run start:dev
 ```
 
 This does not apply on macOS or Linux.
@@ -147,7 +172,7 @@ This does not apply on macOS or Linux.
     prisma/schema.prisma        database shape — edit here, then migrate
     prisma/seed.js              demo projects + people
     prisma/seed-users.js        default login accounts
-    docker-compose.yml          runs PostgreSQL in Docker
+    docker-compose.yml          runs PostgreSQL in Docker (dev only)
     .env                        secrets (never commit this)
     src/main.ts                 server entry point
     src/app.module.ts           root module — import new modules here
@@ -168,18 +193,20 @@ This does not apply on macOS or Linux.
 
 ## Server deployment (192.168.1.40)
 
+The server runs Debian. PostgreSQL runs natively (no Docker). PM2 manages the Node process.
+
 ```bash
 cd /opt/pop-os
 git pull
 npm install
+npx prisma generate
 npx prisma migrate deploy
 node prisma/seed-users.js   # safe — skips existing accounts
 npm run build
 pm2 restart pop-os
 ```
 
-The server runs PostgreSQL natively (no Docker). PM2 runs the compiled
-`dist/main.js`. Always rebuild after any backend TypeScript changes.
+Always run `npm run build` after any backend TypeScript changes — the server runs `dist/main.js`, not the source.
 
 ---
 
