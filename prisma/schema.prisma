@@ -107,7 +107,8 @@ model Person {
   startDate      DateTime
   employmentType EmploymentType @default(FULL_TIME)
   warmPool       Boolean        @default(false) // true = in the Warm Talent Pool (alumni/rejected/freelance)
-  canSignOff     Boolean        @default(false) // true = this person can approve/reject assets in the sign-off queue
+  canSignOff             Boolean  @default(false) // true = this person can approve/reject assets in the sign-off queue
+  commissionRateOverride Float?                   // if set, bypasses the global tier table (e.g. 0.025 = 2.5% flat)
   company        Company?       // LPS or PXL — optional so existing records are unaffected
   salary         Float?         // monthly salary in RM — used by the Financial Engine for man-day costing
 

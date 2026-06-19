@@ -42,7 +42,7 @@ export class SalesPerformanceService {
         name:           true,
         estimatedValue: true,
         closedById:     true,
-        closedBy:       { select: { id: true, name: true, company: true } },
+        closedBy:       { select: { id: true, name: true, company: true, commissionRateOverride: true } },
         // Project costs are stored on the linked project.
         project: {
           select: {
@@ -57,7 +57,7 @@ export class SalesPerformanceService {
     // Sales targets for the period (all quarters if YTD).
     const targets = await this.prisma.salesTarget.findMany({
       where: { year, quarter: { in: quarters } },
-      include: { person: { select: { id: true, name: true, company: true } } },
+      include: { person: { select: { id: true, name: true, company: true, commissionRateOverride: true } } },
     });
 
     // Group leads by producer.
@@ -114,8 +114,10 @@ export class SalesPerformanceService {
       const netProfit  = data.revenue - data.costs;
 
       // Highest tier whose threshold is not exceeded by attainment.
-      const tier           = [...tiers].reverse().find(t => attainment >= t.threshold) ?? null;
-      const commissionRate = tier?.rate ?? 0;
+      const tier     = [...tiers].reverse().find(t => attainment >= t.threshold) ?? null;
+      // Personal override takes precedence over the global tier table.
+      const override = person.commissionRateOverride ?? null;
+      const commissionRate = override !== null ? override : (tier?.rate ?? 0);
       const commission     = netProfit > 0 ? netProfit * commissionRate : 0;
 
       results.push({
@@ -126,6 +128,7 @@ export class SalesPerformanceService {
         target,
         attainment:     Math.round(attainment * 1000) / 10, // e.g. 82.5 (%)
         tier,
+        override,                        // null = using tier table
         commissionRate: commissionRate * 100, // e.g. 2.5 (%)
         commission,
         leadCount:      data.leadCount,

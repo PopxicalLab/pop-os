@@ -176,6 +176,40 @@ async function showProjectDetail(id) {
       <p class="text-xs text-muted">Coming soon — team allocations by week will appear here.</p>
     </div>
 
+    <div class="mt-5 pb-5 border-b border-line">
+      <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Project Costs</p>
+      <div id="proj-costs-${p.id}">Loading…</div>
+      <form id="proj-cost-form-${p.id}" class="mt-3 flex flex-wrap gap-2 items-end" onsubmit="addProjectCost(event, '${p.id}')">
+        <div class="flex flex-col gap-1">
+          <label class="text-[10px] text-muted uppercase tracking-wider">Description</label>
+          <input id="pc-desc-${p.id}" type="text" placeholder="e.g. Warm pool animator"
+            class="bg-panel2 border border-line text-ink text-xs px-2 py-1.5 rounded-md w-48
+                   focus:outline-none focus:border-accent/60" required />
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="text-[10px] text-muted uppercase tracking-wider">Amount (RM)</label>
+          <input id="pc-amount-${p.id}" type="number" min="0" step="0.01" placeholder="0.00"
+            class="bg-panel2 border border-line text-ink text-xs px-2 py-1.5 rounded-md w-28
+                   focus:outline-none focus:border-accent/60" required />
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="text-[10px] text-muted uppercase tracking-wider">Type</label>
+          <select id="pc-type-${p.id}"
+            class="bg-panel2 border border-line text-ink text-xs px-2 py-1.5 rounded-md
+                   focus:outline-none focus:border-accent/60 cursor-pointer">
+            <option value="WARM_POOL">Warm pool</option>
+            <option value="SUPPLIER">Supplier</option>
+            <option value="ADDITIONAL">Additional</option>
+          </select>
+        </div>
+        <button type="submit"
+          class="text-[11px] bg-accent/15 border border-accent/30 text-accent px-3 py-1.5 rounded-lg
+                 hover:bg-accent/25 transition-colors cursor-pointer self-end">
+          + Add cost
+        </button>
+      </form>
+    </div>
+
     <div class="mt-5">
       <div class="flex items-center justify-between mb-2">
         <p class="text-[11px] font-semibold uppercase tracking-widest text-muted">Accounting Documents</p>
@@ -188,9 +222,10 @@ async function showProjectDetail(id) {
       <div id="proj-docs-${p.id}" class="text-xs text-muted">Loading…</div>
     </div>`;
 
-  // Load PPM score, assets, and accounting docs asynchronously.
+  // Load PPM score, assets, costs, and accounting docs asynchronously.
   loadPpmBadge(id);
   loadProjectAssets(id);
+  loadProjectCosts(id);
   loadProjectDocs(id);
 }
 
@@ -218,6 +253,72 @@ async function loadProjectAssets(projectId) {
       ${cdBadge}
     </div>`;
   }).join('');
+}
+
+const PROJ_COST_LABEL = { WARM_POOL: 'Warm pool', SUPPLIER: 'Supplier', ADDITIONAL: 'Additional' };
+
+async function loadProjectCosts(projectId) {
+  const costs = await fetch('/api/project-costs?projectId=' + projectId).then(r => r.json()).catch(() => null);
+  const el = document.getElementById('proj-costs-' + projectId);
+  if (!el) return;
+
+  if (!costs || !costs.length) {
+    el.innerHTML = '<p class="text-xs text-muted">No costs recorded yet.</p>';
+    return;
+  }
+
+  const total = costs.reduce((s, c) => s + c.amount, 0);
+  el.innerHTML = `
+    <table class="w-full text-[11px] mb-2">
+      <thead><tr class="text-muted border-b border-line">
+        <th class="text-left pb-1.5 font-medium">Description</th>
+        <th class="text-left pb-1.5 font-medium">Type</th>
+        <th class="text-right pb-1.5 font-medium">Amount</th>
+        <th class="pb-1.5"></th>
+      </tr></thead>
+      <tbody>
+        ${costs.map(c => `
+          <tr class="border-b border-line/40 last:border-0" id="pc-row-${c.id}">
+            <td class="py-1.5 pr-2 text-ink">${esc(c.description)}</td>
+            <td class="py-1.5 pr-2">
+              <span class="badge bg-panel2 border border-line text-muted text-[10px]">${PROJ_COST_LABEL[c.costType] || c.costType}</span>
+            </td>
+            <td class="py-1.5 text-right text-ink pr-2">RM ${c.amount.toLocaleString('en-MY', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
+            <td class="py-1.5 pl-1">
+              <button class="text-[10px] text-warm hover:underline cursor-pointer" onclick="removeProjectCost('${c.id}', '${projectId}')">Remove</button>
+            </td>
+          </tr>`).join('')}
+      </tbody>
+      <tfoot><tr>
+        <td colspan="2" class="pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted">Total costs</td>
+        <td class="pt-2 text-right font-semibold text-ink">RM ${total.toLocaleString('en-MY', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
+        <td></td>
+      </tr></tfoot>
+    </table>`;
+}
+
+async function addProjectCost(e, projectId) {
+  e.preventDefault();
+  const desc   = document.getElementById('pc-desc-' + projectId)?.value.trim();
+  const amount = parseFloat(document.getElementById('pc-amount-' + projectId)?.value);
+  const type   = document.getElementById('pc-type-' + projectId)?.value;
+  if (!desc || isNaN(amount)) return;
+
+  const res = await fetch('/api/project-costs', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ projectId, description: desc, amount, costType: type }),
+  });
+  if (res.ok) {
+    document.getElementById('pc-desc-' + projectId).value   = '';
+    document.getElementById('pc-amount-' + projectId).value = '';
+    loadProjectCosts(projectId);
+  }
+}
+
+async function removeProjectCost(costId, projectId) {
+  if (!confirm('Remove this cost entry?')) return;
+  await fetch('/api/project-costs/' + costId, { method: 'DELETE' });
+  loadProjectCosts(projectId);
 }
 
 async function loadProjectDocs(projectId) {

@@ -104,9 +104,11 @@ function renderSPLeaderboard(data) {
 }
 
 function producerCard(r, tiers) {
-  const tierBadge = r.tier
-    ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">${esc(r.tier.label)}</span>`
-    : `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-line/50 text-muted border border-line">No tier</span>`;
+  const tierBadge = r.override !== null
+    ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-400 border border-sky-500/30">Override: ${(r.override * 100).toFixed(2)}%</span>`
+    : r.tier
+      ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">${esc(r.tier.label)}</span>`
+      : `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-line/50 text-muted border border-line">No tier</span>`;
 
   const attPct  = Math.min(r.attainment, 150); // cap bar at 150%
   const barPct  = Math.min((attPct / 150) * 100, 100).toFixed(1);
@@ -276,6 +278,31 @@ function renderSPSettings(data) {
 
   el.innerHTML = `
     <div class="bg-panel border border-line rounded-xl p-4 mb-4">
+      <h3 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Per-person Rate Override</h3>
+      <p class="text-[11px] text-muted/70 mb-3">If set, this rate is used instead of the tier table for that producer.</p>
+      <div id="sp-overrides-list" class="space-y-2 mb-3"></div>
+      <div class="flex gap-2 items-end flex-wrap">
+        <div class="flex flex-col gap-1">
+          <label class="text-[10px] text-muted uppercase tracking-wider">Producer</label>
+          <select id="sp-ov-person" class="bg-bg border border-line rounded px-2 py-1.5 text-xs text-ink focus:outline-none cursor-pointer">
+            <option value="">— select —</option>
+            ${_spPeople.filter(p => !p.warmPool).map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="flex flex-col gap-1">
+          <label class="text-[10px] text-muted uppercase tracking-wider">Rate %</label>
+          <input id="sp-ov-rate" type="number" min="0" max="100" step="0.01" placeholder="e.g. 2.5"
+            class="w-24 bg-bg border border-line rounded px-2 py-1.5 text-xs text-ink focus:outline-none" />
+        </div>
+        <button onclick="saveOverride()"
+          class="py-1.5 px-3 bg-accent text-bg text-xs font-semibold rounded-lg cursor-pointer hover:bg-accent/90 self-end">
+          Set override
+        </button>
+      </div>
+      <p id="sp-ov-msg" class="text-[11px] mt-1 hidden"></p>
+    </div>
+
+    <div class="bg-panel border border-line rounded-xl p-4 mb-4">
       <h3 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Commission Tiers</h3>
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
@@ -340,6 +367,56 @@ function renderSPSettings(data) {
   });
 
   loadTargetsList();
+  loadOverridesList();
+}
+
+async function loadOverridesList() {
+  const el = $('sp-overrides-list');
+  if (!el) return;
+  const people = await fetch('/api/people').then(r => r.json()).catch(() => []);
+  const withOverride = people.filter(p => p.commissionRateOverride != null);
+  if (!withOverride.length) {
+    el.innerHTML = '<p class="text-[11px] text-muted/60">No overrides set — all producers use the tier table.</p>';
+    return;
+  }
+  el.innerHTML = withOverride.map(p => `
+    <div class="flex items-center justify-between py-1.5 border-b border-line/40">
+      <div>
+        <p class="text-xs text-ink">${esc(p.name)}</p>
+        <p class="text-[10px] text-sky-400 font-semibold">${(p.commissionRateOverride * 100).toFixed(2)}% flat</p>
+      </div>
+      <button onclick="clearOverride('${p.id}')"
+        class="text-[10px] text-muted hover:text-warm cursor-pointer">Clear</button>
+    </div>`).join('');
+}
+
+async function saveOverride() {
+  const personId = $('sp-ov-person').value;
+  const rateStr  = $('sp-ov-rate').value;
+  const msgEl    = $('sp-ov-msg');
+  if (!personId || !rateStr) { msg(msgEl, 'Select a producer and enter a rate.', 'err'); return; }
+  const rate = parseFloat(rateStr) / 100; // convert % to fraction
+  if (isNaN(rate) || rate < 0) { msg(msgEl, 'Enter a valid rate (e.g. 2.5 for 2.5%).', 'err'); return; }
+  const res = await fetch(`/api/people/${personId}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ commissionRateOverride: rate }),
+  });
+  if (res.ok) {
+    $('sp-ov-rate').value = '';
+    msg(msgEl, 'Override saved.', 'ok');
+    loadOverridesList();
+    loadSalesPerformance();
+  } else {
+    msg(msgEl, 'Failed to save override.', 'err');
+  }
+}
+
+async function clearOverride(personId) {
+  const res = await fetch(`/api/people/${personId}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ commissionRateOverride: null }),
+  });
+  if (res.ok) { loadOverridesList(); loadSalesPerformance(); }
 }
 
 async function loadTargetsList() {
