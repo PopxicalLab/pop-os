@@ -164,6 +164,71 @@ export class SalesPerformanceService {
     return { year, quarter: quarter ?? null, tiers, results };
   }
 
+  // Yearly summary: Q1–Q4 breakdown + full-year total across ALL producers.
+  // Uses a single set of DB queries rather than calling getPerformance() 4 times.
+  async getYearlySummary(year: number) {
+    const yearStart = new Date(Date.UTC(year, 0, 1));
+    const yearEnd   = new Date(Date.UTC(year + 1, 0, 1));
+
+    const [leads, targets] = await Promise.all([
+      this.prisma.lead.findMany({
+        where: {
+          status:     'WON',
+          wonAt:      { gte: yearStart, lt: yearEnd },
+          closedById: { not: null },
+        },
+        select: {
+          estimatedValue: true,
+          wonAt:          true,
+          project:        { select: { costs: { select: { amount: true } } } },
+        },
+      }),
+      this.prisma.salesTarget.findMany({ where: { year } }),
+    ]);
+
+    const getQ = (d: Date | null) =>
+      d ? Math.ceil((new Date(d).getUTCMonth() + 1) / 3) : 0;
+
+    // Aggregate revenue + costs per quarter from leads.
+    const qRev:  Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    const qCost: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    for (const l of leads) {
+      const q = getQ(l.wonAt);
+      if (q < 1 || q > 4) continue;
+      qRev[q]  += l.estimatedValue ?? 0;
+      qCost[q] += l.project?.costs.reduce((s, c) => s + c.amount, 0) ?? 0;
+    }
+
+    // Sum targets per quarter across all producers.
+    const qTarget: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    for (const t of targets) {
+      if (t.quarter >= 1 && t.quarter <= 4) qTarget[t.quarter] += t.targetAmount;
+    }
+
+    const quarters = [1, 2, 3, 4].map(q => {
+      const revenue   = qRev[q];
+      const costs     = qCost[q];
+      const target    = qTarget[q];
+      const attainment = target > 0 ? Math.round(revenue / target * 1000) / 10 : 0;
+      return { quarter: q, revenue, costs, netProfit: revenue - costs, target, attainment };
+    });
+
+    const yearly = quarters.reduce(
+      (acc, q) => ({
+        revenue:    acc.revenue    + q.revenue,
+        costs:      acc.costs      + q.costs,
+        netProfit:  acc.netProfit  + q.netProfit,
+        target:     acc.target     + q.target,
+        wonDeals:   acc.wonDeals,
+      }),
+      { revenue: 0, costs: 0, netProfit: 0, target: 0, wonDeals: leads.length },
+    );
+    const yearlyAttainment = yearly.target > 0
+      ? Math.round(yearly.revenue / yearly.target * 1000) / 10 : 0;
+
+    return { year, quarters, yearly: { ...yearly, attainment: yearlyAttainment } };
+  }
+
   // Upsert a per-person tier rate. Creates or updates the row for (personId, tierId).
   async upsertPersonTierRate(personId: string, tierId: string, rate: number) {
     return this.prisma.personTierRate.upsert({

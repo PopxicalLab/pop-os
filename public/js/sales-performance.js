@@ -6,6 +6,7 @@
 let _spYear     = new Date().getFullYear();
 let _spQuarter  = Math.ceil((new Date().getMonth() + 1) / 3); // 0 = YTD
 let _spData     = null;
+let _spYearData = null; // full-year Q1–Q4 breakdown from /api/sales-performance/yearly
 let _spPeople   = [];
 
 const COST_TYPE_LABEL = { WARM_POOL: 'Warm pool', SUPPLIER: 'Supplier', ADDITIONAL: 'Additional' };
@@ -20,11 +21,17 @@ async function loadSalesPerformance() {
   const params = new URLSearchParams({ year: _spYear });
   if (_spQuarter > 0) params.set('quarter', _spQuarter);
 
-  const data = await fetch('/api/sales-performance?' + params).then(r => r.json());
-  _spData = data;
+  // Fetch per-period data AND the full-year summary in parallel.
+  const [data, yearData] = await Promise.all([
+    fetch('/api/sales-performance?' + params).then(r => r.json()),
+    fetch('/api/sales-performance/yearly?year=' + _spYear).then(r => r.json()),
+  ]);
+  _spData     = data;
+  _spYearData = yearData;
 
   renderSPPeriodTabs();
   renderSPStats(data);
+  renderYearlySummary(yearData);
   renderSPLeaderboard(data);
   renderSPSettings(data);
 }
@@ -69,6 +76,107 @@ function renderSPStats(data) {
   $('sp-stat-on-target').textContent   = `${onTarget} / ${total}`;
   $('sp-stat-period').textContent      =
     data.quarter ? `${QUARTER_LABEL[data.quarter]} ${data.year}` : `${data.year} YTD`;
+}
+
+// ── yearly overview panel ─────────────────────────────────────
+
+function renderYearlySummary(yearData) {
+  const el = $('sp-yearly');
+  if (!el) return;
+
+  const { year, quarters, yearly } = yearData;
+
+  // Color helpers for attainment
+  const attCls = pct =>
+    pct >= 100 ? 'text-emerald-400'
+    : pct >= 75 ? 'text-yellow-400'
+    : pct >= 50 ? 'text-orange-400'
+    : 'text-rose-400';
+
+  const barCls = pct =>
+    pct >= 100 ? 'bg-emerald-400'
+    : pct >= 75 ? 'bg-yellow-400'
+    : pct >= 50 ? 'bg-orange-400'
+    : 'bg-rose-400';
+
+  // Build one column per quarter + one for the full year
+  const cols = [
+    ...quarters.map(q => ({
+      label: `Q${q.quarter}`,
+      revenue:    q.revenue,
+      target:     q.target,
+      costs:      q.costs,
+      netProfit:  q.netProfit,
+      attainment: q.attainment,
+      isYear:     false,
+    })),
+    {
+      label:      `${year} Total`,
+      revenue:    yearly.revenue,
+      target:     yearly.target,
+      costs:      yearly.costs,
+      netProfit:  yearly.netProfit,
+      attainment: yearly.attainment,
+      wonDeals:   yearly.wonDeals,
+      isYear:     true,
+    },
+  ];
+
+  const colsHtml = cols.map(c => {
+    const barPct = Math.min((c.attainment / 100) * 100, 100).toFixed(1);
+    const noData = !c.revenue && !c.target;
+    return `<div class="bg-panel2 rounded-xl p-3.5 ${c.isYear ? 'border border-accent/30' : 'border border-line'}">
+      <p class="text-[10px] font-bold uppercase tracking-widest ${c.isYear ? 'text-accent' : 'text-muted'} mb-2">${c.label}</p>
+
+      ${noData ? `<p class="text-[11px] text-muted/50 mt-4 mb-4">No data</p>` : `
+      <!-- Attainment bar -->
+      <div class="mb-2">
+        <div class="flex items-end justify-between mb-1">
+          <span class="text-[10px] text-muted">Attainment</span>
+          <span class="text-xs font-bold ${attCls(c.attainment)}">${c.attainment.toFixed(1)}%</span>
+        </div>
+        <div class="h-1.5 bg-panel rounded-full overflow-hidden">
+          <div class="h-full ${barCls(c.attainment)} rounded-full transition-all" style="width:${barPct}%"></div>
+        </div>
+      </div>
+
+      <!-- Revenue / Target -->
+      <div class="space-y-1 text-[11px]">
+        <div class="flex justify-between">
+          <span class="text-muted">Revenue</span>
+          <span class="font-semibold text-ink">${fmtRM(c.revenue)}</span>
+        </div>
+        ${c.target ? `<div class="flex justify-between">
+          <span class="text-muted">Target</span>
+          <span class="text-muted">${fmtRM(c.target)}</span>
+        </div>` : ''}
+        <div class="flex justify-between">
+          <span class="text-muted">Net Profit</span>
+          <span class="${c.netProfit >= 0 ? 'text-accent' : 'text-warm'} font-semibold">${fmtRM(c.netProfit)}</span>
+        </div>
+        ${c.wonDeals !== undefined ? `<div class="flex justify-between">
+          <span class="text-muted">Deals won</span>
+          <span class="text-ink">${c.wonDeals}</span>
+        </div>` : ''}
+      </div>`}
+    </div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <div class="bg-panel border border-line rounded-xl p-5">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-sm font-bold text-ink">${year} Year Overview</h2>
+          <p class="text-[11px] text-muted">All producers combined · quarterly breakdown</p>
+        </div>
+        ${yearly.revenue > 0 ? `<div class="text-right">
+          <p class="text-[10px] text-muted uppercase tracking-wider">Total Revenue</p>
+          <p class="text-xl font-bold text-ink">${fmtRM(yearly.revenue)}</p>
+          ${yearly.target ? `<p class="text-[11px] ${attCls(yearly.attainment)}">${yearly.attainment.toFixed(1)}% of target</p>` : ''}
+        </div>` : ''}
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">${colsHtml}</div>
+    </div>`;
 }
 
 // ── leaderboard ───────────────────────────────────────────────
@@ -315,30 +423,36 @@ function renderSPSettings(data) {
       <p class="text-[10px] text-muted/60 mt-2">Threshold = fraction of target (0.50 = 50%). Rate = commission fraction (0.025 = 2.5%). These are the defaults — override per-person above.</p>
     </div>
 
-    <!-- Sales targets -->
+    <!-- Sales targets — 4-quarter grid per producer -->
     <div class="bg-panel border border-line rounded-xl p-4">
-      <h3 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Sales Targets</h3>
-      <div class="space-y-2 mb-3">
-        <select id="sp-t-person" class="w-full bg-bg border border-line rounded px-2 py-1.5 text-xs text-ink focus:outline-none cursor-pointer">
-          <option value="">— select producer —</option>
-          ${producerOptions}
-        </select>
-        <div class="grid grid-cols-2 gap-2">
-          <select id="sp-t-year" class="bg-bg border border-line rounded px-2 py-1.5 text-xs text-ink focus:outline-none cursor-pointer">
+      <h3 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-1">Sales Targets</h3>
+      <p class="text-[11px] text-muted/70 mb-3">Set all four quarters at once for a producer.</p>
+      <div class="space-y-2 mb-4">
+        <div class="flex gap-2">
+          <select id="sp-t-person" onchange="loadTargetInputs()"
+            class="flex-1 bg-bg border border-line rounded px-2 py-1.5 text-xs text-ink focus:outline-none cursor-pointer">
+            <option value="">— select producer —</option>
+            ${producerOptions}
+          </select>
+          <select id="sp-t-year" onchange="loadTargetInputs()"
+            class="bg-bg border border-line rounded px-2 py-1.5 text-xs text-ink focus:outline-none cursor-pointer">
             ${[thisYear, thisYear+1, thisYear-1].map(y => `<option value="${y}"${y===_spYear?' selected':''}>${y}</option>`).join('')}
           </select>
-          <select id="sp-t-quarter" class="bg-bg border border-line rounded px-2 py-1.5 text-xs text-ink focus:outline-none cursor-pointer">
-            <option value="1">Q1</option>
-            <option value="2"${_spQuarter===2?' selected':''}>Q2</option>
-            <option value="3"${_spQuarter===3?' selected':''}>Q3</option>
-            <option value="4">Q4</option>
-          </select>
         </div>
-        <input id="sp-t-amount" type="number" min="0" step="1000" placeholder="Target amount (RM)"
-          class="w-full bg-bg border border-line rounded px-2 py-1.5 text-xs text-ink focus:outline-none" />
-        <button onclick="saveTarget()"
-          class="w-full py-2 bg-accent text-bg text-xs font-semibold rounded-lg cursor-pointer hover:bg-accent/90">
-          Set target
+        <!-- Q1–Q4 inputs, populated by loadTargetInputs() -->
+        <div id="sp-t-quarter-grid" class="grid grid-cols-4 gap-1.5 hidden">
+          ${[1,2,3,4].map(q => `
+            <div class="flex flex-col gap-1">
+              <label class="text-[10px] font-semibold text-muted uppercase tracking-wider text-center">Q${q}</label>
+              <input id="sp-t-q${q}" type="number" min="0" step="1000" placeholder="—"
+                class="w-full bg-bg border border-line rounded px-2 py-1.5 text-xs text-ink text-center focus:outline-none focus:border-accent/60" />
+            </div>`).join('')}
+        </div>
+        <p id="sp-t-hint" class="text-[11px] text-muted/50">Select a producer to configure targets.</p>
+        <button onclick="saveAllTargets()"
+          class="w-full py-2 bg-accent text-bg text-xs font-semibold rounded-lg cursor-pointer hover:bg-accent/90 hidden"
+          id="sp-t-save-btn">
+          Save all quarterly targets
         </button>
         <p id="sp-t-msg" class="text-[11px] hidden"></p>
       </div>
@@ -464,56 +578,111 @@ function renderPersonTierRates(personId) {
   });
 }
 
+// Populate the Q1–Q4 inputs for the selected producer + year from existing targets.
+async function loadTargetInputs() {
+  const personId = $('sp-t-person')?.value;
+  const year     = parseInt($('sp-t-year')?.value);
+  const grid     = $('sp-t-quarter-grid');
+  const hint     = $('sp-t-hint');
+  const saveBtn  = $('sp-t-save-btn');
+
+  if (!personId) {
+    grid?.classList.add('hidden');
+    hint?.classList.remove('hidden');
+    saveBtn?.classList.add('hidden');
+    return;
+  }
+
+  grid?.classList.remove('hidden');
+  hint?.classList.add('hidden');
+  saveBtn?.classList.remove('hidden');
+
+  // Load existing targets for this person + year and pre-fill the inputs.
+  const targets = await fetch(`/api/sales-targets?year=${year}`).then(r => r.json());
+  const byQ = {};
+  for (const t of targets) {
+    if (t.personId === personId) byQ[t.quarter] = t.targetAmount;
+  }
+  [1, 2, 3, 4].forEach(q => {
+    const inp = $('sp-t-q' + q);
+    if (inp) inp.value = byQ[q] != null ? byQ[q] : '';
+  });
+
+  loadTargetsList();
+}
+
 async function loadTargetsList() {
-  const targets = await fetch(`/api/sales-targets?year=${_spYear}`).then(r => r.json());
+  const year = parseInt($('sp-t-year')?.value) || _spYear;
+  const targets = await fetch(`/api/sales-targets?year=${year}`).then(r => r.json());
   const el = $('sp-targets-list');
   if (!el) return;
   if (!targets.length) {
-    el.innerHTML = '<p class="text-[11px] text-muted/60">No targets set for this year.</p>';
+    el.innerHTML = '<p class="text-[11px] text-muted/60 mt-2">No targets set for this year.</p>';
     return;
   }
-  el.innerHTML = targets.map(t => `
-    <div class="flex items-center justify-between py-1.5 border-b border-line/40">
-      <div>
-        <p class="text-xs text-ink">${esc(t.person.name)}</p>
-        <p class="text-[10px] text-muted">Q${t.quarter} ${t.year}</p>
-      </div>
-      <div class="flex items-center gap-2">
-        <span class="text-xs font-semibold text-accent">${fmtRM(t.targetAmount)}</span>
-        <button onclick="removeTarget('${t.id}')"
-          class="text-[10px] text-muted hover:text-rose-400 cursor-pointer">×</button>
-      </div>
-    </div>`).join('');
+
+  // Group by person for a compact view
+  const byPerson = {};
+  for (const t of targets) {
+    if (!byPerson[t.personId]) byPerson[t.personId] = { name: t.person.name, qs: {} };
+    byPerson[t.personId].qs[t.quarter] = { id: t.id, amount: t.targetAmount };
+  }
+
+  el.innerHTML = `<div class="mt-3 space-y-2 text-[11px]">` +
+    Object.values(byPerson).sort((a, b) => a.name.localeCompare(b.name)).map(p => {
+      const qCells = [1,2,3,4].map(q => {
+        const entry = p.qs[q];
+        return entry
+          ? `<span class="text-accent font-semibold">Q${q}: ${fmtRM(entry.amount)}</span>
+             <button onclick="removeTarget('${entry.id}')"
+               class="ml-0.5 text-muted/50 hover:text-rose-400 cursor-pointer">×</button>`
+          : `<span class="text-muted/40">Q${q}: —</span>`;
+      });
+      return `<div class="border-b border-line/40 pb-1.5">
+        <p class="text-ink font-semibold mb-0.5">${esc(p.name)}</p>
+        <div class="flex flex-wrap gap-2">${qCells.join('')}</div>
+      </div>`;
+    }).join('') +
+    `</div>`;
 }
 
-async function saveTarget() {
-  const personId     = $('sp-t-person').value;
-  const year         = parseInt($('sp-t-year').value);
-  const quarter      = parseInt($('sp-t-quarter').value);
-  const targetAmount = parseFloat($('sp-t-amount').value);
-  const msgEl        = $('sp-t-msg');
+// Save all four quarterly targets at once for the selected producer.
+async function saveAllTargets() {
+  const personId = $('sp-t-person')?.value;
+  const year     = parseInt($('sp-t-year')?.value);
+  const msgEl    = $('sp-t-msg');
 
-  if (!personId || !targetAmount) {
-    msg(msgEl, 'Select a producer and enter a target amount.', 'err'); return;
+  if (!personId) { msg(msgEl, 'Select a producer first.', 'err'); return; }
+
+  const saves = [];
+  for (const q of [1, 2, 3, 4]) {
+    const val = parseFloat($('sp-t-q' + q)?.value);
+    if (!isNaN(val) && val >= 0) {
+      saves.push(
+        fetch('/api/sales-targets', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ personId, year, quarter: q, targetAmount: val }),
+        })
+      );
+    }
   }
-  const res = await fetch('/api/sales-targets', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ personId, year, quarter, targetAmount }),
-  });
-  if (res.ok) {
-    $('sp-t-amount').value = '';
-    msg(msgEl, 'Target saved.', 'ok');
+
+  if (!saves.length) { msg(msgEl, 'Enter at least one quarter target.', 'err'); return; }
+
+  const results = await Promise.all(saves);
+  if (results.every(r => r.ok)) {
+    msg(msgEl, 'Targets saved.', 'ok');
     loadTargetsList();
     loadSalesPerformance();
   } else {
-    msg(msgEl, 'Failed to save target.', 'err');
+    msg(msgEl, 'Some targets failed to save.', 'err');
   }
 }
 
 async function removeTarget(id) {
   if (!confirm('Remove this target?')) return;
   await fetch('/api/sales-targets/' + id, { method: 'DELETE' });
-  loadTargetsList();
+  loadTargetInputs(); // re-fills the Q grid + list
   loadSalesPerformance();
 }
 

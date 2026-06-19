@@ -24,6 +24,13 @@ export class SalesPerformanceController {
     return this.svc.getPerformance(y, q);
   }
 
+  // Full-year Q1–Q4 breakdown across all producers. Used by the yearly panel.
+  @Get('yearly')
+  getYearlySummary(@Query('year') year?: string) {
+    const y = year ? +year : new Date().getFullYear();
+    return this.svc.getYearlySummary(y);
+  }
+
   // Set or update a custom commission rate for a specific person × tier.
   @Post('person-tier-rates')
   upsertPersonTierRate(@Body() dto: UpsertPersonTierRateDto) {
