@@ -5,3 +5,5 @@ dist/
 !.env.example
 .obsidian/
 .vscode/
+.claude/settings.local.json
+.claude/settings.json
