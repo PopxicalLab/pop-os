@@ -28,6 +28,7 @@ const PIPELINE_STAGES = ['QUALIFICATION', 'PROPOSAL', 'NEGOTIATION', 'WON', 'LOS
 let _salesAccounts = [];
 let _salesPeople   = [];
 let _autocountDebtors = [];
+let _allLeads = []; // full cache — search filters client-side
 
 async function initSalesTab() {
   [_salesAccounts, _salesPeople, _autocountDebtors] = await Promise.all([
@@ -52,12 +53,19 @@ async function initSalesTab() {
 }
 
 async function loadSales() {
-  const leads = await fetch('/api/leads').then(r => r.json()).catch(() => []);
-  renderSalesPipeline(leads);
+  _allLeads = await fetch('/api/leads').then(r => r.json()).catch(() => []);
+  renderSalesPipeline();
 }
 
-function renderSalesPipeline(leads) {
-  const filtered = leads.filter(l => matchesFilter(l.company));
+function renderSalesPipeline() {
+  const search = ($('sales-search')?.value || '').toLowerCase();
+  const leads  = _allLeads.filter(l => {
+    if (!matchesFilter(l.company)) return false;
+    if (!search) return true;
+    const hay = ((l.name || '') + ' ' + (l.account?.name || '')).toLowerCase();
+    return hay.includes(search);
+  });
+  const filtered = leads;
 
   // Stats strip
   const active = filtered.filter(l => !['WON','LOST'].includes(l.status));
@@ -287,3 +295,7 @@ async function submitQuote() {
     msgEl.className   = 'text-xs text-warm';
   }
 }
+
+// Wire up the sales search — re-render from cache without re-fetching.
+const _salesSearchEl = $('sales-search');
+if (_salesSearchEl) _salesSearchEl.addEventListener('input', renderSalesPipeline);

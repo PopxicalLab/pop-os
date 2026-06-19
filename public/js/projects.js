@@ -142,8 +142,26 @@ async function showProjectDetail(id) {
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 pb-5 border-b border-line">
       ${field('Status',   STATUS_LABEL[p.status] || p.status)}
       ${field('Deadline', deadline)}
-      ${field('Producer', p.producer?.name)}
-      ${field('PM',       p.pm?.name)}
+      <div>
+        <p class="text-[10px] text-muted font-medium uppercase tracking-wider mb-0.5">Producer</p>
+        <select id="detail-producer-${p.id}"
+          class="bg-panel2 border border-line text-ink text-xs px-2 py-1 rounded-md w-full cursor-pointer focus:outline-none focus:border-accent/60">
+          <option value="">— none —</option>
+          ${(typeof PEOPLE !== 'undefined' ? PEOPLE : []).map(pe =>
+            `<option value="${pe.id}" ${pe.id === p.producer?.id ? 'selected' : ''}>${esc(pe.name)}</option>`
+          ).join('')}
+        </select>
+      </div>
+      <div>
+        <p class="text-[10px] text-muted font-medium uppercase tracking-wider mb-0.5">PM</p>
+        <select id="detail-pm-${p.id}"
+          class="bg-panel2 border border-line text-ink text-xs px-2 py-1 rounded-md w-full cursor-pointer focus:outline-none focus:border-accent/60">
+          <option value="">— none —</option>
+          ${(typeof PEOPLE !== 'undefined' ? PEOPLE : []).map(pe =>
+            `<option value="${pe.id}" ${pe.id === p.pm?.id ? 'selected' : ''}>${esc(pe.name)}</option>`
+          ).join('')}
+        </select>
+      </div>
       ${p.quadrant === 'DRAIN' ? field('Drain gate', `Exec: ${p.drainApprovedByExec ? '✓' : '✗'} · Producer: ${p.drainApprovedByProducer ? '✓' : '✗'}`) : ''}
     </div>
 
@@ -221,6 +239,18 @@ async function showProjectDetail(id) {
       </div>
       <div id="proj-docs-${p.id}" class="text-xs text-muted">Loading…</div>
     </div>`;
+
+  // Wire up the producer/PM inline dropdowns — PATCH the project on change.
+  const patchPerson = async (field, value) => {
+    await fetch(`/api/projects/${id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [field]: value || null }),
+    });
+  };
+  const prodSel = document.getElementById(`detail-producer-${id}`);
+  const pmSel   = document.getElementById(`detail-pm-${id}`);
+  if (prodSel) prodSel.onchange = () => patchPerson('producerId', prodSel.value);
+  if (pmSel)   pmSel.onchange   = () => patchPerson('pmId',       pmSel.value);
 
   // Load PPM score, assets, costs, and accounting docs asynchronously.
   loadPpmBadge(id);
@@ -487,10 +517,41 @@ async function loadPpmBadge(projectId) {
 
 // ── project list ─────────────────────────────────────────────
 
+let _allProjects = []; // full cache — filters apply client-side
+
 async function loadProjects() {
-  const all      = await (await fetch('/api/projects')).json();
-  _tlProjects    = all; // cache for timeline view
-  const projects = all.filter(p => matchesFilter(p.company));
+  _allProjects = await (await fetch('/api/projects')).json();
+  _tlProjects  = _allProjects; // timeline view cache
+
+  // Populate the producer filter dropdown from the loaded data.
+  const prodSel = $('p-filter-producer');
+  if (prodSel) {
+    const producers = [...new Map(
+      _allProjects.filter(p => p.producer).map(p => [p.producerId, p.producer.name])
+    ).entries()].sort((a, b) => a[1].localeCompare(b[1]));
+    prodSel.innerHTML = '<option value="">All producers</option>' +
+      producers.map(([id, name]) => `<option value="${id}">${esc(name)}</option>`).join('');
+  }
+
+  renderProjects();
+}
+
+function renderProjects() {
+  const search   = ($('p-search')?.value   || '').toLowerCase();
+  const status   = $('p-filter-status')?.value  || '';
+  const producer = $('p-filter-producer')?.value || '';
+
+  const projects = _allProjects.filter(p => {
+    if (!matchesFilter(p.company)) return false;
+    if (status   && p.status     !== status)   return false;
+    if (producer && p.producerId !== producer) return false;
+    if (search) {
+      const hay = ((p.name || '') + ' ' + (p.client || '')).toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+
   const rows = $('p-rows'); rows.innerHTML = '';
   $('p-empty').classList.toggle('hidden', projects.length > 0);
   for (const p of projects) {
@@ -540,6 +601,12 @@ async function loadProjects() {
   rows.querySelectorAll('[data-proj-detail]').forEach(b => b.onclick = () => showProjectDetail(b.dataset.projDetail));
   applyColVisibility();
 }
+
+// Wire up project filter inputs — re-render without re-fetching.
+['p-search', 'p-filter-status', 'p-filter-producer'].forEach(id => {
+  const el = $(id);
+  if (el) el.addEventListener('input', renderProjects);
+});
 
 async function addProject() {
   const quad = $('p-quadrant').value;

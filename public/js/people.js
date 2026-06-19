@@ -144,7 +144,35 @@ async function load() {
   if (salaryField) salaryField.classList.toggle('hidden', !canSeeSalary());
 
   PEOPLE = await (await fetch('/api/people')).json();
-  const visible = PEOPLE.filter(p => matchesFilter(p.company));
+
+  // Populate department filter from loaded data.
+  const deptSel = $('people-filter-dept');
+  if (deptSel) {
+    const depts = [...new Set(PEOPLE.map(p => p.department).filter(Boolean))].sort();
+    deptSel.innerHTML = '<option value="">All departments</option>' +
+      depts.map(d => `<option value="${d}">${esc(d)}</option>`).join('');
+  }
+
+  renderPeople();
+  populatePersonDropdowns();
+}
+
+function renderPeople() {
+  const search = ($('people-search')?.value || '').toLowerCase();
+  const dept   = $('people-filter-dept')?.value  || '';
+  const type   = $('people-filter-type')?.value  || '';
+
+  const visible = PEOPLE.filter(p => {
+    if (!matchesFilter(p.company)) return false;
+    if (dept && p.department    !== dept) return false;
+    if (type && p.employmentType !== type) return false;
+    if (search) {
+      const hay = ((p.name || '') + ' ' + (p.role || '') + ' ' + (p.department || '')).toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+
   const rows = $('rows'); rows.innerHTML = '';
   $('empty').classList.toggle('hidden', visible.length > 0);
   for (const p of visible) {
@@ -225,8 +253,13 @@ async function load() {
     };
   });
   applyPeopleColVisibility();
-  populatePersonDropdowns();
 }
+
+// Wire up people filter inputs.
+['people-search', 'people-filter-dept', 'people-filter-type'].forEach(id => {
+  const el = $(id);
+  if (el) el.addEventListener('input', renderPeople);
+});
 
 async function addPerson() {
   const body = {

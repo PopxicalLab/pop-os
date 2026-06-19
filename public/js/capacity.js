@@ -83,12 +83,22 @@ async function loadCapacityBoard() {
   renderCapacityBoard(entries);
 }
 
+let _capAllEntries = []; // full cache — filters apply client-side
+
 function renderCapacityBoard(entries) {
+  if (entries) _capAllEntries = entries; // refresh cache when called from loadCapacityBoard
   const board = $('cap-board');
 
-  // Filter by the active company — based on the project's company so that
-  // cross-company (lent) people still appear when their project matches.
-  const visible = entries.filter(e => matchesFilter(e.project.company));
+  const personQ  = ($('cap-filter-person')?.value  || '').toLowerCase();
+  const projectQ = ($('cap-filter-project')?.value || '').toLowerCase();
+
+  // Filter by company, then optional person/project text search.
+  const visible = _capAllEntries.filter(e => {
+    if (!matchesFilter(e.project.company)) return false;
+    if (personQ  && !e.person.name.toLowerCase().includes(personQ))   return false;
+    if (projectQ && !e.project.name.toLowerCase().includes(projectQ)) return false;
+    return true;
+  });
 
   if (!visible.length) {
     board.innerHTML = '<div class="text-center text-muted text-sm py-10">No allocations this week — add one on the left.</div>';
@@ -219,3 +229,9 @@ $('cap-pct').addEventListener('input', updateWeekendRowVisibility);
 $('cap-person').addEventListener('change', updateWeekendRowVisibility);
 
 $('cap-add').addEventListener('click', addAllocation);
+
+// Wire up capacity filter inputs — re-render from cache without re-fetching.
+['cap-filter-person', 'cap-filter-project'].forEach(id => {
+  const el = $(id);
+  if (el) el.addEventListener('input', () => renderCapacityBoard());
+});

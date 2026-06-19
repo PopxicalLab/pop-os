@@ -441,7 +441,7 @@
       </div>
 
       <div class="bg-panel border border-line rounded-xl p-5">
-        <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center justify-between mb-3">
           <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">People</h2>
           <div class="relative">
             <button onclick="togglePeopleColPicker()"
@@ -457,6 +457,26 @@
               class="hidden absolute right-0 top-9 z-20 bg-panel border border-line rounded-xl shadow-lg py-1 w-48">
             </div>
           </div>
+        </div>
+        <!-- People filter bar -->
+        <div class="flex flex-wrap gap-2 mb-4">
+          <input id="people-search" type="text" placeholder="Search name or role…"
+            class="bg-panel2 border border-line text-ink text-xs px-3 py-1.5 rounded-lg w-48
+                   focus:outline-none focus:border-accent/60" />
+          <select id="people-filter-dept"
+            class="bg-panel2 border border-line text-ink text-xs px-2 py-1.5 rounded-lg cursor-pointer
+                   focus:outline-none focus:border-accent/60">
+            <option value="">All departments</option>
+          </select>
+          <select id="people-filter-type"
+            class="bg-panel2 border border-line text-ink text-xs px-2 py-1.5 rounded-lg cursor-pointer
+                   focus:outline-none focus:border-accent/60">
+            <option value="">All types</option>
+            <option value="FULL_TIME">Full-time</option>
+            <option value="CONTRACT">Contract</option>
+            <option value="FREELANCE">Freelance</option>
+            <option value="INTERN">Intern</option>
+          </select>
         </div>
         <div class="overflow-x-auto -mx-5 px-5">
           <table class="w-full min-w-[520px] text-sm">
@@ -607,7 +627,7 @@
       </div>
 
       <div id="p-list-view" class="bg-panel border border-line rounded-xl p-5">
-        <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center justify-between mb-3">
           <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">Projects</h2>
           <!-- Column picker -->
           <div class="relative">
@@ -625,6 +645,28 @@
               <!-- populated by buildColPicker() -->
             </div>
           </div>
+        </div>
+        <!-- Projects filter bar -->
+        <div class="flex flex-wrap gap-2 mb-4">
+          <input id="p-search" type="text" placeholder="Search name or client…"
+            class="bg-panel2 border border-line text-ink text-xs px-3 py-1.5 rounded-lg w-48
+                   focus:outline-none focus:border-accent/60" />
+          <select id="p-filter-status"
+            class="bg-panel2 border border-line text-ink text-xs px-2 py-1.5 rounded-lg cursor-pointer
+                   focus:outline-none focus:border-accent/60">
+            <option value="">All statuses</option>
+            <option value="BRIEF">Brief</option>
+            <option value="IN_PROGRESS">In progress</option>
+            <option value="INTERNAL_REVIEW">Internal review</option>
+            <option value="DELIVERED">Delivered</option>
+            <option value="ON_HOLD">On hold</option>
+            <option value="CANCELLED">Cancelled</option>
+          </select>
+          <select id="p-filter-producer"
+            class="bg-panel2 border border-line text-ink text-xs px-2 py-1.5 rounded-lg cursor-pointer
+                   focus:outline-none focus:border-accent/60">
+            <option value="">All producers</option>
+          </select>
         </div>
         <div class="overflow-x-auto -mx-5 px-5">
           <table class="w-full min-w-[600px] text-sm">
@@ -752,6 +794,15 @@
             ↓ Export CSV
           </a>
         </div>
+        <!-- Capacity filter bar -->
+        <div class="flex flex-wrap gap-2 mb-4">
+          <input id="cap-filter-person" type="text" placeholder="Filter by person…"
+            class="bg-panel2 border border-line text-ink text-xs px-3 py-1.5 rounded-lg w-40
+                   focus:outline-none focus:border-accent/60" />
+          <input id="cap-filter-project" type="text" placeholder="Filter by project…"
+            class="bg-panel2 border border-line text-ink text-xs px-3 py-1.5 rounded-lg w-44
+                   focus:outline-none focus:border-accent/60" />
+        </div>
         <div id="cap-board">
           <div class="text-center text-muted text-sm py-10">Switch to this tab to load the board.</div>
         </div>
@@ -861,6 +912,9 @@
           <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">Pipeline</h2>
           <div id="sales-stats" class="text-xs text-muted"></div>
         </div>
+        <input id="sales-search" type="text" placeholder="Search leads or accounts…"
+          class="w-full bg-panel2 border border-line text-ink text-xs px-3 py-1.5 rounded-lg mb-3
+                 focus:outline-none focus:border-accent/60" />
         <div id="sales-board">
           <div class="text-center text-muted text-sm py-10">Switch to this tab to load the pipeline.</div>
         </div>
