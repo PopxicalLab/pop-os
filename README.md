@@ -14,7 +14,8 @@ The operating system for Pop Group (Lorrypop Studio + Popxical Lab). Replaces ad
 | Dashboard | Cross-module command centre — active projects, capacity alerts, payment due alerts |
 | Sales | Lead pipeline (Qualification → Proposal → Negotiation → Won/Lost), lead-to-project conversion |
 | Clients | Account + contact management; linked leads and projects per client |
-| Projects (PPM) | Project spine — priority, budget, Drain gate, producer/PM links, Gantt timeline |
+| Performance | Sales commission tracker — quarterly attainment, tier-based rates, per-person overrides |
+| Projects (PPM) | Project spine — priority, budget, Drain gate, producer/PM links, Gantt timeline, project costs |
 | Change Requests | Formal change request tracking per project — PENDING / APPROVED / REJECTED |
 | Assets | Deliverables tracked through SOP stages with CD sign-off gate and review link |
 | Production Engine | Lane routing — asset assignment, status, throughput view |
@@ -170,8 +171,9 @@ This does not apply on macOS or Linux.
 ## Project structure
 
     prisma/schema.prisma        database shape — edit here, then migrate
-    prisma/seed.js              demo projects + people
-    prisma/seed-users.js        default login accounts
+    prisma/seed.js                    demo projects + people
+    prisma/seed-users.js              default login accounts
+    prisma/seed-sales-performance.js  Q1+Q2 2026 demo data (leads, targets, costs)
     docker-compose.yml          runs PostgreSQL in Docker (dev only)
     .env                        secrets (never commit this)
     src/main.ts                 server entry point

@@ -63,18 +63,19 @@ pop-os/
 │   ├── login.html             # Animated login page (Lorrypop/Popxical branding)
 │   ├── guide.html             # Director's guide — roles, access, how-tos
 │   └── js/
-│       ├── mywork.js          # My Work personal dashboard
-│       ├── dashboard.js       # Cross-module command centre
-│       ├── sales.js           # Sales pipeline (leads)
-│       ├── clients.js         # Accounts + contacts
-│       ├── projects.js        # Projects (PPM) + Gantt timeline
-│       ├── change-requests.js # Change request tracking
-│       ├── assets.js          # Assets kanban board
-│       ├── production.js      # Production lane board
-│       ├── capacity.js        # Weekly capacity board
-│       ├── financial.js       # Financial engine + AR dashboard
-│       ├── people.js          # People / ELC tab
-│       └── staffing.js        # Staffing recommender
+│       ├── mywork.js               # My Work personal dashboard
+│       ├── dashboard.js            # Cross-module command centre
+│       ├── sales.js                # Sales pipeline (leads)
+│       ├── clients.js              # Accounts + contacts
+│       ├── sales-performance.js    # Commission tracker — tiers, attainment, overrides
+│       ├── projects.js             # Projects (PPM) + Gantt timeline + project costs
+│       ├── change-requests.js      # Change request tracking
+│       ├── assets.js               # Assets kanban board
+│       ├── production.js           # Production lane board
+│       ├── capacity.js             # Weekly capacity board
+│       ├── financial.js            # Financial engine + AR dashboard
+│       ├── people.js               # People / ELC tab
+│       └── staffing.js             # Staffing recommender
 │
 ├── src/
 │   ├── main.ts                # Bootstrap: starts NestJS, global ValidationPipe
@@ -97,9 +98,14 @@ pop-os/
 │   │
 │   ├── accounts/              # Client companies (Autocount debtors)
 │   ├── contacts/              # Contacts at client companies
-│   ├── leads/                 # Sales leads + pipeline + lead→project conversion
+│   ├── leads/                 # Sales leads + pipeline + lead→project conversion + wonAt timestamp
 │   │
 │   ├── autocount/             # Autocount Cloud integration — push quotes + invoices
+│   │
+│   ├── project-costs/         # Per-project costs (warm pool, supplier, additional)
+│   ├── commission-tiers/      # Global attainment-based commission rate table
+│   ├── sales-targets/         # Quarterly targets per producer
+│   ├── sales-performance/     # Commission calculator — attainment, net profit, overrides
 │   │
 │   ├── dashboard/             # Dashboard aggregation (cross-module read)
 │   ├── ppm/                   # PPM recommendation engine
@@ -246,6 +252,16 @@ All routes are prefixed `/api` and JWT-guarded unless marked public.
 | Autocount | POST | `/api/autocount/projects/:id/invoice` | Push sales invoice for a project |
 | Autocount | PATCH | `/api/autocount/documents/:id/status` | Mark document PAID or VOID |
 | Autocount | GET | `/api/autocount/due-soon` | Docs due within N days |
+| Project Costs | GET | `/api/project-costs?projectId=` | List costs for a project |
+| Project Costs | POST | `/api/project-costs` | Add a cost entry (WARM_POOL / SUPPLIER / ADDITIONAL) |
+| Project Costs | PATCH | `/api/project-costs/:id` | Update a cost entry |
+| Project Costs | DELETE | `/api/project-costs/:id` | Remove a cost entry |
+| Commission Tiers | GET | `/api/commission-tiers` | List global attainment tiers |
+| Commission Tiers | PATCH | `/api/commission-tiers/:id` | Update a tier (threshold, rate, label) |
+| Sales Targets | GET | `/api/sales-targets?year=` | List targets (filterable by year) |
+| Sales Targets | POST | `/api/sales-targets` | Set/upsert a quarterly target for a producer |
+| Sales Targets | DELETE | `/api/sales-targets/:id` | Remove a target |
+| Sales Performance | GET | `/api/sales-performance?year=&quarter=` | Commission report — attainment, net profit, commission per producer |
 | Reports | GET | `/api/reports/projects` | CSV export — all projects |
 | Reports | GET | `/api/reports/capacity` | CSV export — current week capacity |
 | Reports | GET | `/api/reports/ar` | CSV export — AR / accounting documents |
@@ -283,7 +299,7 @@ Company (enum: LPS / PXL)
 ### Models
 
 - **Company** — enum `LPS` / `PXL`. Optional on Person, Project, Account, Lead. Drives the global header filter; untagged records appear under both.
-- **Person** — one record per staff member. Fields: name, role, department, startDate, employmentType, warmPool, `canSignOff` (grants sign-off authority), company, salary (monthly RM — ADMIN + FINANCE only).
+- **Person** — one record per staff member. Fields: name, role, department, startDate, employmentType, warmPool, `canSignOff` (grants sign-off authority), `commissionRateOverride` (optional flat rate that bypasses the global tier table), company, salary (monthly RM — ADMIN + FINANCE only).
 - **Skill** — studio-wide master list. Shared records, not free text.
 - **PersonSkill** — live current rating (1–5) for a person × skill pair.
 - **SkillRatingChange** — every score movement. First entry (source = INTERVIEW) is the candidate score.
@@ -293,8 +309,11 @@ Company (enum: LPS / PXL)
 - **Asset** — one deliverable inside a project. Stage: BRIEF / WIP / INTERNAL_REVIEW / REVISION / FINAL_DELIVERY. `reviewUrl` links to the actual work (Drive, Frame.io). `rejectionNote` stores CD feedback when rejected.
 - **Account** — client company. Has `autocountDebtorCode` for Autocount integration.
 - **Contact** — person at a client company. Linked to Account.
-- **Lead** — sales opportunity. Status: QUALIFICATION → PROPOSAL → NEGOTIATION → WON / LOST. `convertToProject` creates a Project from a WON lead.
+- **Lead** — sales opportunity. Status: QUALIFICATION → PROPOSAL → NEGOTIATION → WON / LOST. `wonAt` is set automatically when status changes to WON — used to bucket deals into quarters for the commission report. `convertToProject` creates a Project from a WON lead.
 - **AccountingDocument** — one Autocount document per row (QUOTATION, SALES_INVOICE, PURCHASE_INVOICE). `dueDate` drives payment alerts and the Finance Dashboard overdue panel.
+- **ProjectCost** — a cost line item on a project. Type: `WARM_POOL` / `SUPPLIER` / `ADDITIONAL`. Added from the project detail view. Summed to calculate net profit in the commission report.
+- **SalesTarget** — quarterly revenue target per producer. Unique on `(personId, year, quarter)`. Used to calculate attainment %.
+- **CommissionTier** — global rate schedule. Each row has a `threshold` (fraction of target, e.g. `0.75` = 75%) and a `rate` (commission fraction, e.g. `0.025` = 2.5%). Seeded with four tiers (50 / 75 / 100 / 150%). Admin-editable from the Performance settings panel.
 - **User** — login credential. Fields: email, name, password (bcrypt), role (6 values), active, `personId` (optional FK to Person).
 
 ---
@@ -372,6 +391,16 @@ Company (enum: LPS / PXL)
 | CSV exports — projects, capacity, AR | Done |
 | Email payment alerts — nodemailer digest | Done |
 | Project Gantt timeline — 16-week SVG view | Done |
+
+### Sales performance & commissions (done)
+| Feature | Status |
+|---|---|
+| Sales Performance tab (admin/sales director) | Done |
+| Global attainment-based commission tiers (50/75/100/150%) | Done |
+| Per-person `commissionRateOverride` — bypasses tier table | Done |
+| Quarterly sales targets per producer — set from Settings panel | Done |
+| Project Costs — add warm pool / supplier / additional costs per project | Done |
+| Commission calculation: `(revenue − costs) × rate`, bucketed by `wonAt` quarter | Done |
 
 ### Deferred
 - Kakitangan.com sync (payroll + leave)
