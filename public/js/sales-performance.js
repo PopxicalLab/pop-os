@@ -361,15 +361,15 @@ function renderSPSettings(data) {
   // Commission tiers table (global rates, editable)
   const tierRows = data.tiers.map(t => `
     <tr class="border-b border-line/60">
-      <td class="py-2 px-3">
-        <input data-tier-id="${t.id}" data-tier-field="threshold" type="number" step="0.05" min="0" max="10"
-          value="${t.threshold}" class="w-20 bg-bg border border-line rounded px-2 py-1 text-xs text-ink focus:outline-none" />
+      <td class="py-2 px-3 whitespace-nowrap">
+        <input data-tier-id="${t.id}" data-tier-field="threshold" type="text"
+          value="${t.threshold}" class="w-10 bg-bg border border-line rounded px-1 py-0.5 text-xs text-ink focus:outline-none" />
       </td>
-      <td class="py-2 px-3">
-        <input data-tier-id="${t.id}" data-tier-field="rate" type="number" step="0.0001" min="0" max="1"
-          value="${t.rate}" class="w-24 bg-bg border border-line rounded px-2 py-1 text-xs text-ink focus:outline-none" />
+      <td class="py-2 px-3 whitespace-nowrap">
+        <input data-tier-id="${t.id}" data-tier-field="rate" type="text"
+          value="${t.rate}" class="w-16 bg-bg border border-line rounded px-1 py-0.5 text-xs text-ink focus:outline-none" />
       </td>
-      <td class="py-2 px-3">
+      <td class="py-2 px-3 w-full">
         <input data-tier-id="${t.id}" data-tier-field="label" type="text"
           value="${esc(t.label)}" class="w-full bg-bg border border-line rounded px-2 py-1 text-xs text-ink focus:outline-none" />
       </td>
@@ -411,9 +411,9 @@ function renderSPSettings(data) {
         <table class="w-full text-sm">
           <thead>
             <tr class="border-b border-line">
-              <th class="text-left pb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted">Threshold</th>
-              <th class="text-left pb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted">Rate</th>
-              <th class="text-left pb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted">Label</th>
+              <th class="text-left pb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted whitespace-nowrap">Tier</th>
+              <th class="text-left pb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted whitespace-nowrap">Rate</th>
+              <th class="text-left pb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted w-full">Label</th>
               <th class="pb-2 px-3"></th>
             </tr>
           </thead>
@@ -444,8 +444,8 @@ function renderSPSettings(data) {
           ${[1,2,3,4].map(q => `
             <div class="flex flex-col gap-1">
               <label class="text-[10px] font-semibold text-muted uppercase tracking-wider text-center">Q${q}</label>
-              <input id="sp-t-q${q}" type="number" min="0" step="1000" placeholder="—"
-                class="w-full bg-bg border border-line rounded px-2 py-1.5 text-xs text-ink text-center focus:outline-none focus:border-accent/60" />
+              <input id="sp-t-q${q}" type="text" placeholder="—"
+                class="w-full bg-bg border border-line rounded px-1 py-0.5 text-xs text-ink text-center focus:outline-none focus:border-accent/60" />
             </div>`).join('')}
         </div>
         <p id="sp-t-hint" class="text-[11px] text-muted/50">Select a producer to configure targets.</p>
@@ -506,9 +506,9 @@ function renderPersonTierRates(personId) {
       <td class="py-2 pr-3 text-[10px] text-muted whitespace-nowrap">Default: ${globalPct}%</td>
       <td class="py-2 pr-2">
         <div class="flex items-center gap-1">
-          <input id="sp-ptr-${personId}-${t.id}" type="number" min="0" max="100" step="0.01"
+          <input id="sp-ptr-${personId}-${t.id}" type="text"
             value="${customVal}" placeholder="${globalPct}"
-            class="w-24 bg-bg border ${hasCustom ? 'border-accent/60' : 'border-line'} rounded px-2 py-1 text-xs text-ink focus:outline-none" />
+            class="w-16 bg-bg border ${hasCustom ? 'border-accent/60' : 'border-line'} rounded px-1 py-0.5 text-xs text-ink focus:outline-none" />
           <span class="text-[10px] text-muted">%</span>
         </div>
       </td>
