@@ -108,7 +108,6 @@ model Person {
   employmentType EmploymentType @default(FULL_TIME)
   warmPool       Boolean        @default(false) // true = in the Warm Talent Pool (alumni/rejected/freelance)
   canSignOff             Boolean  @default(false) // true = this person can approve/reject assets in the sign-off queue
-  commissionRateOverride Float?                   // if set, bypasses the global tier table (e.g. 0.025 = 2.5% flat)
   company        Company?       // LPS or PXL — optional so existing records are unaffected
   salary         Float?         // monthly salary in RM — used by the Financial Engine for man-day costing
 
@@ -127,6 +126,8 @@ model Person {
   salesTargets       SalesTarget[]
   // Assets assigned to this person for production work.
   assignedAssets     Asset[]     @relation("AssetAssignments")
+  // Per-person commission tier rate overrides (replaces the old flat commissionRateOverride).
+  tierRates          PersonTierRate[]
   user               User?       // login account, if this person has one
 
   createdAt      DateTime       @default(now())
@@ -511,10 +512,30 @@ model CommissionTier {
   rate      Float    // commission fraction, e.g. 0.0035 = 0.35%
   label     String   // display label, e.g. "Hit 50%"
 
+  // Per-person rate overrides for this tier.
+  personOverrides PersonTierRate[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([threshold])
+}
+
+// Per-person commission tier rate. If a row exists for (person, tier), that rate
+// is used instead of the global CommissionTier.rate. Admin-managed via Sales Performance settings.
+model PersonTierRate {
+  id       String @id @default(cuid())
+  personId String
+  tierId   String
+  rate     Float  // commission fraction, e.g. 0.03 = 3%
+
+  person   Person         @relation(fields: [personId], references: [id], onDelete: Cascade)
+  tier     CommissionTier @relation(fields: [tierId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([personId, tierId])
 }
 
 // Project costs deducted from deal value before commission is applied.

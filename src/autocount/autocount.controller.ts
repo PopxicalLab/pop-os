@@ -27,6 +27,18 @@ export class AutocountController {
     return this.svc.listDebtors();
   }
 
+  // Pull all Autocount debtors and upsert them as Account records in Pop OS.
+  @Post('sync-debtors')
+  syncDebtors() {
+    return this.svc.syncDebtors();
+  }
+
+  // Pull all Autocount quotations and invoices and upsert as AccountingDocument rows.
+  @Post('sync-documents')
+  syncDocuments() {
+    return this.svc.syncDocuments();
+  }
+
   // Documents due within N days — used by the Dashboard payment alert strip.
   @Get('due-soon')
   getDueSoon(@Query('days') days?: string) {

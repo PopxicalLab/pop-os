@@ -12,6 +12,32 @@ async function loadClients() {
   renderClientList(_clientsAll);
 }
 
+async function syncDebtorsFromAutocount() {
+  const btn   = $('btn-sync-debtors');
+  const msgEl = $('sync-debtors-msg');
+  btn.disabled = true;
+  btn.textContent = '↓ Syncing…';
+  msgEl.className = 'text-xs mb-2 text-muted';
+  msgEl.textContent = 'Pulling debtors from Autocount…';
+  msgEl.classList.remove('hidden');
+
+  const res = await fetch('/api/autocount/sync-debtors', { method: 'POST' }).catch(() => null);
+
+  btn.disabled = false;
+  btn.textContent = '↓ Sync from Autocount';
+
+  if (!res || !res.ok) {
+    msgEl.className = 'text-xs mb-2 text-warm';
+    msgEl.textContent = 'Sync failed — check Autocount credentials in .env.';
+    return;
+  }
+
+  const { total, created, updated, skipped } = await res.json();
+  msgEl.className = 'text-xs mb-2 text-accent';
+  msgEl.textContent = `Sync done — ${total} debtors: ${created} created, ${updated} updated, ${skipped} unchanged.`;
+  loadClients(); // refresh the list
+}
+
 function renderClientList(accounts) {
   const search = ($('client-search')?.value || '').toLowerCase();
   const list   = accounts.filter(a =>

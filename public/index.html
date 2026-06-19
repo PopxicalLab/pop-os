@@ -916,8 +916,16 @@
               <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">Accounts</h2>
               <div id="clients-stats" class="text-xs text-muted mt-0.5"></div>
             </div>
-            <input id="client-search" class="form-input w-48 text-xs" placeholder="Search accounts…" style="margin-top:0" />
+            <div class="flex items-center gap-2">
+              <button id="btn-sync-debtors" onclick="syncDebtorsFromAutocount()"
+                class="text-[11px] bg-sky-500/15 border border-sky-500/30 text-sky-400 px-2.5 py-1 rounded-lg
+                       hover:bg-sky-500/25 transition-colors cursor-pointer whitespace-nowrap">
+                ↓ Sync from Autocount
+              </button>
+              <input id="client-search" class="form-input w-48 text-xs" placeholder="Search accounts…" style="margin-top:0" />
+            </div>
           </div>
+          <div id="sync-debtors-msg" class="text-xs mb-2 hidden"></div>
           <div id="clients-list">
             <div class="text-center text-muted text-sm py-10">Switch to this tab to load clients.</div>
           </div>
@@ -1087,9 +1095,15 @@
                    hover:text-ink hover:border-accent/50 transition cursor-pointer">
             ↓ Export AR CSV
           </a>
+          <button id="fin-sync-btn" onclick="syncDocumentsFromAutocount()"
+            class="px-3 py-2 rounded-lg border border-sky-500/30 bg-sky-500/10 text-xs text-sky-400
+                   hover:bg-sky-500/20 transition cursor-pointer whitespace-nowrap">
+            ↓ Sync from Autocount
+          </button>
         </div>
       </div>
       <div id="fin-alert-msg" class="hidden text-xs px-4 py-2 rounded-lg bg-panel border border-line text-muted"></div>
+      <div id="fin-sync-msg" class="hidden text-xs px-4 py-2 rounded-lg bg-panel border border-line text-muted"></div>
 
       <!-- ── AR KPI cards ─────────────────────────────────────── -->
       <div id="fin-kpi" class="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -1359,6 +1373,7 @@
       });
       if (name === 'capacity')   loadCapacityBoard();
       if (name === 'dashboard')  loadDashboard();
+      if (name === 'projects')   loadProjects();
       if (name === 'mywork')     loadMyWork();
       if (name === 'assets')     { loadAssetProjects().then(loadAssets); }
       if (name === 'sales')      { initSalesTab().then(loadSales); }

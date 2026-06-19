@@ -104,8 +104,10 @@ function renderSPLeaderboard(data) {
 }
 
 function producerCard(r, tiers) {
-  const tierBadge = r.override !== null
-    ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-400 border border-sky-500/30">Override: ${(r.override * 100).toFixed(2)}%</span>`
+  // Show "Custom" badge if any tier has a per-person override for this person.
+  const hasCustom   = r.customTierRates && Object.keys(r.customTierRates).length > 0;
+  const tierBadge   = hasCustom
+    ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-400 border border-sky-500/30">Custom rates</span>`
     : r.tier
       ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">${esc(r.tier.label)}</span>`
       : `<span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-line/50 text-muted border border-line">No tier</span>`;
@@ -248,7 +250,7 @@ async function addProjectCost(projectId, btn) {
 function renderSPSettings(data) {
   const el = $('sp-settings');
 
-  // Commission tiers
+  // Commission tiers table (global rates, editable)
   const tierRows = data.tiers.map(t => `
     <tr class="border-b border-line/60">
       <td class="py-2 px-3">
@@ -271,39 +273,32 @@ function renderSPSettings(data) {
       </td>
     </tr>`).join('');
 
-  // Sales targets
   const thisYear = new Date().getFullYear();
   const producerOptions = _spPeople.filter(p => !p.warmPool)
     .map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
 
   el.innerHTML = `
+    <!-- Per-person tier rates -->
     <div class="bg-panel border border-line rounded-xl p-4 mb-4">
-      <h3 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Per-person Rate Override</h3>
-      <p class="text-[11px] text-muted/70 mb-3">If set, this rate is used instead of the tier table for that producer.</p>
-      <div id="sp-overrides-list" class="space-y-2 mb-3"></div>
-      <div class="flex gap-2 items-end flex-wrap">
-        <div class="flex flex-col gap-1">
-          <label class="text-[10px] text-muted uppercase tracking-wider">Producer</label>
-          <select id="sp-ov-person" class="bg-bg border border-line rounded px-2 py-1.5 text-xs text-ink focus:outline-none cursor-pointer">
-            <option value="">— select —</option>
-            ${_spPeople.filter(p => !p.warmPool).map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}
-          </select>
-        </div>
-        <div class="flex flex-col gap-1">
-          <label class="text-[10px] text-muted uppercase tracking-wider">Rate %</label>
-          <input id="sp-ov-rate" type="number" min="0" max="100" step="0.01" placeholder="e.g. 2.5"
-            class="w-24 bg-bg border border-line rounded px-2 py-1.5 text-xs text-ink focus:outline-none" />
-        </div>
-        <button onclick="saveOverride()"
-          class="py-1.5 px-3 bg-accent text-bg text-xs font-semibold rounded-lg cursor-pointer hover:bg-accent/90 self-end">
-          Set override
-        </button>
+      <h3 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-1">Per-person Commission Rates</h3>
+      <p class="text-[11px] text-muted/70 mb-3">
+        Set a custom rate for a specific producer at each tier threshold.
+        Leave blank to use the global rate shown in the tier table below.
+      </p>
+      <div class="flex gap-2 mb-3">
+        <select id="sp-ptr-person"
+          class="bg-bg border border-line rounded px-2 py-1.5 text-xs text-ink focus:outline-none cursor-pointer flex-1"
+          onchange="renderPersonTierRates(this.value)">
+          <option value="">— select producer —</option>
+          ${_spPeople.filter(p => !p.warmPool).map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}
+        </select>
       </div>
-      <p id="sp-ov-msg" class="text-[11px] mt-1 hidden"></p>
+      <div id="sp-ptr-rows"></div>
     </div>
 
+    <!-- Global commission tiers -->
     <div class="bg-panel border border-line rounded-xl p-4 mb-4">
-      <h3 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Commission Tiers</h3>
+      <h3 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Commission Tiers (Global Defaults)</h3>
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead>
@@ -317,9 +312,10 @@ function renderSPSettings(data) {
           <tbody>${tierRows}</tbody>
         </table>
       </div>
-      <p class="text-[10px] text-muted/60 mt-2">Threshold = fraction of target (0.50 = 50%). Rate = commission fraction (0.025 = 2.5%).</p>
+      <p class="text-[10px] text-muted/60 mt-2">Threshold = fraction of target (0.50 = 50%). Rate = commission fraction (0.025 = 2.5%). These are the defaults — override per-person above.</p>
     </div>
 
+    <!-- Sales targets -->
     <div class="bg-panel border border-line rounded-xl p-4">
       <h3 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Sales Targets</h3>
       <div class="space-y-2 mb-3">
@@ -367,56 +363,105 @@ function renderSPSettings(data) {
   });
 
   loadTargetsList();
-  loadOverridesList();
 }
 
-async function loadOverridesList() {
-  const el = $('sp-overrides-list');
+// Render the per-person tier rate table for the selected producer.
+// _spData.tiers contains global tiers; result.customTierRates has any overrides.
+function renderPersonTierRates(personId) {
+  const el = $('sp-ptr-rows');
   if (!el) return;
-  const people = await fetch('/api/people').then(r => r.json()).catch(() => []);
-  const withOverride = people.filter(p => p.commissionRateOverride != null);
-  if (!withOverride.length) {
-    el.innerHTML = '<p class="text-[11px] text-muted/60">No overrides set — all producers use the tier table.</p>';
+  if (!personId) { el.innerHTML = ''; return; }
+
+  const result = _spData?.results.find(r => r.person.id === personId);
+  // customTierRates is a map of tierId → rate from the server
+  const customRates = result?.customTierRates ?? {};
+  const tiers = _spData?.tiers ?? [];
+
+  if (!tiers.length) {
+    el.innerHTML = '<p class="text-[11px] text-muted/60">No tiers configured.</p>';
     return;
   }
-  el.innerHTML = withOverride.map(p => `
-    <div class="flex items-center justify-between py-1.5 border-b border-line/40">
-      <div>
-        <p class="text-xs text-ink">${esc(p.name)}</p>
-        <p class="text-[10px] text-sky-400 font-semibold">${(p.commissionRateOverride * 100).toFixed(2)}% flat</p>
-      </div>
-      <button onclick="clearOverride('${p.id}')"
-        class="text-[10px] text-muted hover:text-warm cursor-pointer">Clear</button>
-    </div>`).join('');
-}
 
-async function saveOverride() {
-  const personId = $('sp-ov-person').value;
-  const rateStr  = $('sp-ov-rate').value;
-  const msgEl    = $('sp-ov-msg');
-  if (!personId || !rateStr) { msg(msgEl, 'Select a producer and enter a rate.', 'err'); return; }
-  const rate = parseFloat(rateStr) / 100; // convert % to fraction
-  if (isNaN(rate) || rate < 0) { msg(msgEl, 'Enter a valid rate (e.g. 2.5 for 2.5%).', 'err'); return; }
-  const res = await fetch(`/api/people/${personId}`, {
-    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ commissionRateOverride: rate }),
-  });
-  if (res.ok) {
-    $('sp-ov-rate').value = '';
-    msg(msgEl, 'Override saved.', 'ok');
-    loadOverridesList();
-    loadSalesPerformance();
-  } else {
-    msg(msgEl, 'Failed to save override.', 'err');
-  }
-}
+  const rows = tiers.map(t => {
+    const hasCustom  = t.id in customRates;
+    const customVal  = hasCustom ? (customRates[t.id] * 100).toFixed(4) : '';
+    const globalPct  = (t.rate * 100).toFixed(4);
+    return `<tr class="border-b border-line/40">
+      <td class="py-2 pr-3 text-xs text-ink whitespace-nowrap">${esc(t.label)}</td>
+      <td class="py-2 pr-3 text-[10px] text-muted whitespace-nowrap">≥ ${(t.threshold * 100).toFixed(0)}% of target</td>
+      <td class="py-2 pr-3 text-[10px] text-muted whitespace-nowrap">Default: ${globalPct}%</td>
+      <td class="py-2 pr-2">
+        <div class="flex items-center gap-1">
+          <input id="sp-ptr-${personId}-${t.id}" type="number" min="0" max="100" step="0.01"
+            value="${customVal}" placeholder="${globalPct}"
+            class="w-24 bg-bg border ${hasCustom ? 'border-accent/60' : 'border-line'} rounded px-2 py-1 text-xs text-ink focus:outline-none" />
+          <span class="text-[10px] text-muted">%</span>
+        </div>
+      </td>
+      <td class="py-2">
+        <div class="flex gap-1">
+          <button data-ptr-save="${t.id}"
+            class="text-[10px] bg-accent/15 text-accent border border-accent/30 px-2 py-0.5 rounded cursor-pointer hover:bg-accent/25">
+            Save
+          </button>
+          ${hasCustom ? `<button data-ptr-clear="${t.id}"
+            class="text-[10px] text-muted hover:text-warm border border-line px-2 py-0.5 rounded cursor-pointer">
+            Clear
+          </button>` : ''}
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
 
-async function clearOverride(personId) {
-  const res = await fetch(`/api/people/${personId}`, {
-    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ commissionRateOverride: null }),
+  el.innerHTML = `
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-line">
+          <th class="text-left pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">Tier</th>
+          <th class="text-left pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">Attainment</th>
+          <th class="text-left pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">Global rate</th>
+          <th class="text-left pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">Custom rate %</th>
+          <th class="pb-1.5"></th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p class="text-[10px] text-muted/60 mt-2">
+      Enter a custom % to override the global rate for this person at that threshold.
+      Leave blank (or click Clear) to revert to the global rate.
+    </p>`;
+
+  // Wire save buttons
+  el.querySelectorAll('[data-ptr-save]').forEach(btn => {
+    btn.onclick = async () => {
+      const tierId  = btn.dataset.ptrSave;
+      const input   = document.getElementById(`sp-ptr-${personId}-${tierId}`);
+      const rateStr = input?.value.trim();
+      if (!rateStr) return; // empty = nothing to save
+      const rate = parseFloat(rateStr) / 100;
+      if (isNaN(rate) || rate < 0) return;
+      btn.disabled = true; btn.textContent = '…';
+      const res = await fetch('/api/sales-performance/person-tier-rates', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ personId, tierId, rate }),
+      });
+      if (res.ok) loadSalesPerformance().then(() => renderPersonTierRates(personId));
+      else { btn.disabled = false; btn.textContent = 'Save'; }
+    };
   });
-  if (res.ok) { loadOverridesList(); loadSalesPerformance(); }
+
+  // Wire clear buttons
+  el.querySelectorAll('[data-ptr-clear]').forEach(btn => {
+    btn.onclick = async () => {
+      const tierId = btn.dataset.ptrClear;
+      btn.disabled = true;
+      const res = await fetch(`/api/sales-performance/person-tier-rates/${personId}/${tierId}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) loadSalesPerformance().then(() => renderPersonTierRates(personId));
+      else btn.disabled = false;
+    };
+  });
 }
 
 async function loadTargetsList() {

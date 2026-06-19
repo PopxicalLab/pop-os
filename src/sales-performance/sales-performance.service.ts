@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 
 // Returns the UTC start and end of a calendar quarter.
@@ -42,8 +42,7 @@ export class SalesPerformanceService {
         name:           true,
         estimatedValue: true,
         closedById:     true,
-        closedBy:       { select: { id: true, name: true, company: true, commissionRateOverride: true } },
-        // Project costs are stored on the linked project.
+        closedBy:       { select: { id: true, name: true, company: true } },
         project: {
           select: {
             id:    true,
@@ -57,8 +56,30 @@ export class SalesPerformanceService {
     // Sales targets for the period (all quarters if YTD).
     const targets = await this.prisma.salesTarget.findMany({
       where: { year, quarter: { in: quarters } },
-      include: { person: { select: { id: true, name: true, company: true, commissionRateOverride: true } } },
+      include: { person: { select: { id: true, name: true, company: true } } },
     });
+
+    // Load all PersonTierRates for people who appear in leads or targets.
+    const personIds = new Set([
+      ...leads.map(l => l.closedById!),
+      ...targets.map(t => t.personId),
+    ]);
+    const allPersonTierRates = await this.prisma.personTierRate.findMany({
+      where: { personId: { in: [...personIds] } },
+    });
+    // Build a fast lookup: `${personId}:${tierId}` → rate
+    const personTierRateMap = new Map<string, number>();
+    for (const ptr of allPersonTierRates) {
+      personTierRateMap.set(`${ptr.personId}:${ptr.tierId}`, ptr.rate);
+    }
+    // Build personId → map of tierId → rate for the response payload.
+    const personTierRatesByPerson = new Map<string, Record<string, number>>();
+    for (const ptr of allPersonTierRates) {
+      if (!personTierRatesByPerson.has(ptr.personId)) {
+        personTierRatesByPerson.set(ptr.personId, {});
+      }
+      personTierRatesByPerson.get(ptr.personId)![ptr.tierId] = ptr.rate;
+    }
 
     // Group leads by producer.
     const byProducer = new Map<string, {
@@ -83,11 +104,11 @@ export class SalesPerformanceService {
       entry.costs     += dealCosts;
       entry.leadCount += 1;
       entry.deals.push({
-        id:       lead.id,
-        name:     lead.name,
-        value:    dealValue,
-        costs:    dealCosts,
-        project:  lead.project ? { id: lead.project.id, name: lead.project.name } : null,
+        id:      lead.id,
+        name:    lead.name,
+        value:   dealValue,
+        costs:   dealCosts,
+        project: lead.project ? { id: lead.project.id, name: lead.project.name } : null,
       });
     }
 
@@ -113,11 +134,12 @@ export class SalesPerformanceService {
       const attainment = target > 0 ? data.revenue / target : 0;
       const netProfit  = data.revenue - data.costs;
 
-      // Highest tier whose threshold is not exceeded by attainment.
-      const tier     = [...tiers].reverse().find(t => attainment >= t.threshold) ?? null;
-      // Personal override takes precedence over the global tier table.
-      const override = person.commissionRateOverride ?? null;
-      const commissionRate = override !== null ? override : (tier?.rate ?? 0);
+      // Highest tier whose threshold does not exceed attainment.
+      const tier = [...tiers].reverse().find(t => attainment >= t.threshold) ?? null;
+
+      // Use this person's custom rate for this tier if set; otherwise the global tier rate.
+      const customRate     = tier ? (personTierRateMap.get(`${personId}:${tier.id}`) ?? null) : null;
+      const commissionRate = customRate !== null ? customRate : (tier?.rate ?? 0);
       const commission     = netProfit > 0 ? netProfit * commissionRate : 0;
 
       results.push({
@@ -128,7 +150,8 @@ export class SalesPerformanceService {
         target,
         attainment:     Math.round(attainment * 1000) / 10, // e.g. 82.5 (%)
         tier,
-        override,                        // null = using tier table
+        // Per-person tier rate overrides (tierId → rate), used by the UI to render the settings panel.
+        customTierRates: personTierRatesByPerson.get(personId) ?? {},
         commissionRate: commissionRate * 100, // e.g. 2.5 (%)
         commission,
         leadCount:      data.leadCount,
@@ -139,5 +162,23 @@ export class SalesPerformanceService {
     results.sort((a, b) => b.attainment - a.attainment);
 
     return { year, quarter: quarter ?? null, tiers, results };
+  }
+
+  // Upsert a per-person tier rate. Creates or updates the row for (personId, tierId).
+  async upsertPersonTierRate(personId: string, tierId: string, rate: number) {
+    return this.prisma.personTierRate.upsert({
+      where:  { personId_tierId: { personId, tierId } },
+      create: { personId, tierId, rate },
+      update: { rate },
+    });
+  }
+
+  // Delete a per-person tier rate (revert to global tier rate).
+  async deletePersonTierRate(personId: string, tierId: string) {
+    const row = await this.prisma.personTierRate.findUnique({
+      where: { personId_tierId: { personId, tierId } },
+    });
+    if (!row) throw new NotFoundException('No custom rate found for this person/tier combination');
+    return this.prisma.personTierRate.delete({ where: { id: row.id } });
   }
 }

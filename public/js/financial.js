@@ -324,6 +324,36 @@ function renderFinancialProjects(rows) {
   }).join('');
 }
 
+// ── Sync documents from Autocount ─────────────────────────────
+async function syncDocumentsFromAutocount() {
+  const btn   = document.getElementById('fin-sync-btn');
+  const msgEl = document.getElementById('fin-sync-msg');
+  if (btn) { btn.textContent = '↓ Syncing…'; btn.disabled = true; }
+  if (msgEl) { msgEl.classList.remove('hidden'); msgEl.className = 'text-xs px-4 py-2 rounded-lg bg-panel border border-line text-muted'; msgEl.textContent = 'Pulling from Autocount…'; }
+
+  const res  = await fetch('/api/autocount/sync-documents', { method: 'POST' }).catch(() => null);
+
+  if (btn) { btn.textContent = '↓ Sync from Autocount'; btn.disabled = false; }
+
+  if (!res || !res.ok) {
+    if (msgEl) {
+      msgEl.className = 'text-xs px-4 py-2 rounded-lg bg-warm/10 border border-warm/30 text-warm';
+      msgEl.textContent = 'Sync failed — check Autocount credentials in .env.';
+      msgEl.classList.remove('hidden');
+    }
+    return;
+  }
+
+  const { quotationsTotal, invoicesTotal, created, updated, skipped } = await res.json();
+  if (msgEl) {
+    msgEl.className = 'text-xs px-4 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400';
+    msgEl.textContent = `Sync done — ${quotationsTotal} quotations + ${invoicesTotal} invoices: ${created} created, ${updated} updated, ${skipped} skipped.`;
+    msgEl.classList.remove('hidden');
+    setTimeout(() => msgEl.classList.add('hidden'), 8000);
+  }
+  loadFinancial(); // refresh Finance dashboard
+}
+
 // ── Payment alert email ───────────────────────────────────────
 async function sendPaymentAlerts() {
   const btn = document.getElementById('fin-alert-btn');

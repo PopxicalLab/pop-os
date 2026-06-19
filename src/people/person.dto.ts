@@ -61,5 +61,4 @@ export class UpdatePersonDto {
   @IsBoolean() @IsOptional() canSignOff?: boolean;
   @IsEnum(Company) @IsOptional() company?: Company;
   @IsNumber() @Min(0) @IsOptional() salary?: number;
-  @IsNumber() @Min(0) @IsOptional() commissionRateOverride?: number | null;
 }
