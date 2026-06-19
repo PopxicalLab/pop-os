@@ -80,6 +80,13 @@ enum EmploymentType {
   INTERN
 }
 
+// Commission tier cost type — what kind of cost is deducted from a project's revenue.
+enum CostType {
+  WARM_POOL  // freelance / warm pool talent hired for the project
+  SUPPLIER   // external vendor / supplier cost
+  ADDITIONAL // any other project cost
+}
+
 // Where a skill-rating change came from.
 // INTERVIEW is the very first entry (candidate stage); the others
 // happen after hire and can move a score up or down.
@@ -116,6 +123,7 @@ model Person {
 
   // Leads this person closed (as the winning or losing salesperson).
   leadsWon           Lead[]      @relation("LeadClosedBy")
+  salesTargets       SalesTarget[]
   // Assets assigned to this person for production work.
   assignedAssets     Asset[]     @relation("AssetAssignments")
   user               User?       // login account, if this person has one
@@ -224,6 +232,7 @@ model Project {
 
   accountingDocuments AccountingDocument[] // quotations and invoices tied to this project
   changeRequests      ChangeRequest[]      // formal client scope-change requests
+  costs               ProjectCost[]        // deductible costs used in commission calculation
 
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
@@ -320,6 +329,7 @@ model Lead {
   completed      Boolean      @default(false)
   notes          String?
   closedById     String?      // who won or lost this deal
+  wonAt          DateTime?    // set automatically when status changes to WON
   projectId      String?      @unique // set when converted to a Project
   company        Company?
   airtableId     String?      @unique
@@ -472,4 +482,51 @@ model AccountingDocument {
 
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+}
+
+// ── SALES PERFORMANCE ─────────────────────────────────────────────
+
+// Quarterly sales target per producer. Admin sets this; drives attainment % calculation.
+model SalesTarget {
+  id           String   @id @default(cuid())
+  personId     String
+  year         Int
+  quarter      Int      // 1–4
+  targetAmount Float    // RM target for the quarter
+
+  person       Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([personId, year, quarter]) // one target per person per quarter
+}
+
+// Commission tiers — admin-configurable thresholds and rates.
+// Seeded with 4 default tiers; admin can adjust via the Sales Performance settings.
+model CommissionTier {
+  id        String   @id @default(cuid())
+  threshold Float    // attainment fraction, e.g. 0.50 = 50% of target
+  rate      Float    // commission fraction, e.g. 0.0035 = 0.35%
+  label     String   // display label, e.g. "Hit 50%"
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([threshold])
+}
+
+// Project costs deducted from deal value before commission is applied.
+// Warm pool talent, suppliers, or any other project-level cost.
+model ProjectCost {
+  id          String   @id @default(cuid())
+  projectId   String
+  description String
+  amount      Float
+  costType    CostType @default(ADDITIONAL)
+
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }

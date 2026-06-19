@@ -22,6 +22,10 @@ import { MeModule } from './me/me.module';
 import { ChangeRequestsModule } from './change-requests/change-requests.module';
 import { ReportsModule } from './reports/reports.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { ProjectCostsModule } from './project-costs/project-costs.module';
+import { CommissionTiersModule } from './commission-tiers/commission-tiers.module';
+import { SalesTargetsModule } from './sales-targets/sales-targets.module';
+import { SalesPerformanceModule } from './sales-performance/sales-performance.module';
 import { JwtAuthGuard } from './auth/jwt.guard';
 
 @Module({
@@ -50,6 +54,10 @@ import { JwtAuthGuard } from './auth/jwt.guard';
     ChangeRequestsModule,
     ReportsModule,
     NotificationsModule,
+    ProjectCostsModule,
+    CommissionTiersModule,
+    SalesTargetsModule,
+    SalesPerformanceModule,
   ],
   providers: [
     // Register JwtAuthGuard globally — every API route requires a valid JWT

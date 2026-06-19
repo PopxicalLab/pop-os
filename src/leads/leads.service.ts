@@ -53,12 +53,15 @@ export class LeadsService {
   }
 
   async update(id: string, dto: UpdateLeadDto) {
-    await this.findOne(id);
+    const current = await this.findOne(id);
+    // Record the exact moment a lead becomes WON — used for quarterly commission bucketing.
+    const wonAt = dto.status === 'WON' && current.status !== 'WON' ? new Date() : undefined;
     return this.prisma.lead.update({
       where: { id },
       data: {
         ...dto,
         paymentDate: dto.paymentDate ? new Date(dto.paymentDate) : undefined,
+        ...(wonAt ? { wonAt } : {}),
       },
       include: WITH_RELATIONS,
     });
