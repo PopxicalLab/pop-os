@@ -472,9 +472,15 @@ function openLoginModal(person) {
       </div>`;
   } else {
     // No login yet — show create form
-    const ROLE_OPTS = ['PRODUCER','SALES','FINANCE','ADMIN'].map(r =>
-      `<option value="${r}"${r === 'PRODUCER' ? ' selected' : ''}>${r[0] + r.slice(1).toLowerCase()}</option>`
-    ).join('');
+    const ROLE_OPTS = [
+      { v: 'STAFF',     l: 'Staff' },
+      { v: 'PRODUCER',  l: 'Producer' },
+      { v: 'PM',        l: 'Project Manager' },
+      { v: 'TEAM_LEAD', l: 'Team Lead' },
+      { v: 'SALES',     l: 'Sales' },
+      { v: 'FINANCE',   l: 'Finance' },
+      { v: 'ADMIN',     l: 'Admin' },
+    ].map(r => `<option value="${r.v}"${r.v === 'STAFF' ? ' selected' : ''}>${r.l}</option>`).join('');
 
     modal.innerHTML = `
       <div class="absolute inset-0 bg-bg/80 backdrop-blur-sm" onclick="closeLoginModal()"></div>
