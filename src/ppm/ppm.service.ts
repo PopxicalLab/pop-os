@@ -115,4 +115,98 @@ export class PpmService {
       missingFields,
     };
   }
+
+  // ── AI recommendation via k-Nearest Neighbours ───────────────
+  // Learns from every past project where a producer confirmed the quadrant/priority.
+  // Requires at least 3 projects with PPM data before activating.
+  async aiRecommend(params: {
+    estimatedValue?:  number | null;
+    complexityScore?: number | null;
+    clientTier?:      string | null;
+    marginTarget?:    number | null;
+    excludeId?:       string;           // don't include the project being edited
+  }) {
+    const TIER_NUM: Record<string, number> = { NEW: 0.2, RETURNING: 0.6, KEY_ACCOUNT: 1.0 };
+
+    // Training set: all projects that at least have value + complexity.
+    const training = await this.prisma.project.findMany({
+      where: {
+        id:             params.excludeId ? { not: params.excludeId } : undefined,
+        estimatedValue:  { not: null },
+        complexityScore: { not: null },
+      },
+      select: {
+        id: true, name: true, quadrant: true, priority: true,
+        estimatedValue: true, complexityScore: true,
+        clientTier: true, marginTarget: true,
+      },
+    });
+
+    if (training.length < 3) {
+      return {
+        source: 'insufficient' as const,
+        trainingSize: training.length,
+        recommendedQuadrant: null, recommendedPriority: null,
+        confidence: null, neighbours: [],
+      };
+    }
+
+    // Convert each project into a normalised feature vector [value, effort, tier, margin].
+    // Slots are null when data is missing — distance is computed only over shared slots.
+    const toFeatures = (v: number | null, c: number | null, t: string | null, m: number | null) => [
+      v != null ? Math.min(v / VALUE_MIDPOINT, 2) / 2 : null,  // 0–1, capped at 2× midpoint
+      c != null ? (6 - c) / 5                          : null,  // complexity 1→1.0, 5→0.2
+      t != null ? (TIER_NUM[t] ?? 0.5)                : null,
+      m != null ? m / 100                              : null,
+    ];
+    // Same weights as the PPM scoring formula.
+    const WEIGHTS = [0.40, 0.15, 0.25, 0.20];
+
+    const queryFeat = toFeatures(
+      params.estimatedValue  ?? null,
+      params.complexityScore ?? null,
+      params.clientTier      ?? null,
+      params.marginTarget    ?? null,
+    );
+
+    // Compute weighted Euclidean distance, skipping dimensions where either side is null.
+    const withSim = training.map(p => {
+      const pf = toFeatures(p.estimatedValue, p.complexityScore, p.clientTier, p.marginTarget);
+      const pairs = pf
+        .map((f, i) => ({ f, q: queryFeat[i], w: WEIGHTS[i] }))
+        .filter(x => x.f != null && x.q != null);
+      if (!pairs.length) return { ...p, similarity: 0 };
+      const totalW = pairs.reduce((s, x) => s + x.w, 0);
+      const dist   = Math.sqrt(pairs.reduce((s, x) => s + x.w * (x.f! - x.q!) ** 2, 0) / totalW);
+      return { ...p, similarity: Math.round((1 - Math.min(dist, 1)) * 100) / 100 };
+    }).sort((a, b) => b.similarity - a.similarity);
+
+    // Take top K neighbours and use similarity-weighted voting.
+    const K          = Math.min(5, training.length);
+    const neighbours = withSim.slice(0, K);
+
+    const vote = (field: 'quadrant' | 'priority') => {
+      const tally: Record<string, number> = {};
+      for (const n of neighbours)
+        tally[n[field]] = (tally[n[field]] || 0) + n.similarity;
+      return Object.entries(tally).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+    };
+
+    const topSim     = neighbours[0]?.similarity ?? 0;
+    const confidence = topSim > 0.85 ? 'high' : topSim > 0.60 ? 'medium' : 'low';
+
+    return {
+      source:              'ai' as const,
+      trainingSize:        training.length,
+      recommendedQuadrant: vote('quadrant'),
+      recommendedPriority: vote('priority'),
+      confidence,
+      neighbours: neighbours.map(n => ({
+        name:       n.name,
+        quadrant:   n.quadrant,
+        priority:   n.priority,
+        similarity: n.similarity,
+      })),
+    };
+  }
 }

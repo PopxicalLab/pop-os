@@ -231,8 +231,9 @@ async function convertLead(id) {
   const res = await fetch(`/api/leads/${id}/convert`, { method: 'POST' });
   if (res.ok) {
     const project = await res.json();
-    msg($('sales-msg'), `Project "${project.name}" created. Switch to Projects tab to configure it.`, 'ok');
-    loadSales();
+    loadSales(); // refresh the board so the card shows "✓ Project created"
+    switchTab('projects');
+    showProjectDetail(project.id); // jump straight to the new project's detail view
   } else {
     const e = await res.json().catch(() => ({}));
     msg($('sales-msg'), [].concat(e.message || 'Failed').join(', '), 'err');

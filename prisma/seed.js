@@ -139,7 +139,7 @@ async function main() {
     nike: await prisma.project.create({ data: {
       name: 'Nike AW25 Hero Campaign', client: 'Nike SEA', company: 'LPS',
       quadrant: 'GOLD', priority: 'P1', status: 'IN_PROGRESS',
-      deadline: weeksAhead(3), producerId: P.YJ.id, pmId: P.Emily.id,
+      startDate: weeksAgo(5), deadline: weeksAhead(3), producerId: P.YJ.id, pmId: P.Emily.id,
       accountId: accounts.nike.id,
       estimatedValue: 48000, estimatedDuration: 8, complexityScore: 3,
       clientTier: 'KEY_ACCOUNT', marginTarget: 42,
@@ -147,7 +147,7 @@ async function main() {
     uniqlo: await prisma.project.create({ data: {
       name: 'Uniqlo Brand Film 2025', client: 'Uniqlo Malaysia', company: 'PXL',
       quadrant: 'STRATEGIC_BET', priority: 'P1', status: 'IN_PROGRESS',
-      deadline: weeksAhead(6), producerId: P.Huey.id, pmId: P.Emily.id,
+      startDate: weeksAgo(6), deadline: weeksAhead(6), producerId: P.Huey.id, pmId: P.Emily.id,
       accountId: accounts.uniqlo.id,
       estimatedValue: 65000, estimatedDuration: 12, complexityScore: 4,
       clientTier: 'RETURNING', marginTarget: 35,
@@ -155,21 +155,21 @@ async function main() {
     hm: await prisma.project.create({ data: {
       name: 'H&M Social Asset Pack', client: 'H&M', company: 'LPS',
       quadrant: 'OPERATIONAL_FILLER', priority: 'P2', status: 'IN_PROGRESS',
-      deadline: weeksAhead(2), producerId: P.YJ.id, pmId: P.Emily.id,
+      startDate: weeksAgo(2), deadline: weeksAhead(2), producerId: P.YJ.id, pmId: P.Emily.id,
       estimatedValue: 16000, estimatedDuration: 4, complexityScore: 2,
       clientTier: 'RETURNING', marginTarget: 30,
     }}),
     zara: await prisma.project.create({ data: {
       name: 'Zara Product Launch Viz', client: 'Zara', company: 'PXL',
       quadrant: 'GOLD', priority: 'P2', status: 'BRIEF',
-      deadline: weeksAhead(7), producerId: P.Huey.id, pmId: null,
+      startDate: weeksAhead(1), deadline: weeksAhead(7), producerId: P.Huey.id, pmId: null,
       estimatedValue: 38000, estimatedDuration: 6, complexityScore: 2,
       clientTier: 'KEY_ACCOUNT', marginTarget: 45,
     }}),
     drain: await prisma.project.create({ data: {
       name: 'Indie Artist Collab — VFX', client: 'Self-initiated', company: 'LPS',
       quadrant: 'DRAIN', priority: 'P3', status: 'ON_HOLD',
-      deadline: weeksAhead(4), producerId: P.YJ.id, pmId: P.Emily.id,
+      startDate: weeksAgo(4), deadline: weeksAhead(4), producerId: P.YJ.id, pmId: P.Emily.id,
       estimatedValue: 8000, estimatedDuration: 8, complexityScore: 5,
       clientTier: 'NEW', marginTarget: 10,
       drainApprovedByExec: true, drainApprovedByProducer: true,
@@ -177,14 +177,14 @@ async function main() {
     reel: await prisma.project.create({ data: {
       name: 'Pop Group Annual Reel 2025', client: null, company: null,
       quadrant: 'OPERATIONAL_FILLER', priority: 'P3', status: 'BRIEF',
-      deadline: weeksAhead(10), producerId: P.YJ.id, pmId: null,
+      startDate: weeksAhead(7), deadline: weeksAhead(10), producerId: P.YJ.id, pmId: null,
       estimatedValue: 0, estimatedDuration: 3, complexityScore: 2,
       marginTarget: null,
     }}),
     shopee: await prisma.project.create({ data: {
       name: 'Shopee 12.12 Campaign', client: 'Shopee Malaysia', company: 'LPS',
       quadrant: 'OPERATIONAL_FILLER', priority: 'P2', status: 'IN_PROGRESS',
-      deadline: weeksAhead(1), producerId: P.YJ.id, pmId: P.Emily.id,
+      startDate: weeksAgo(2), deadline: weeksAhead(1), producerId: P.YJ.id, pmId: P.Emily.id,
       accountId: accounts.shopee.id,
       estimatedValue: 14000, estimatedDuration: 3, complexityScore: 2,
       clientTier: 'RETURNING', marginTarget: 25,
@@ -192,7 +192,7 @@ async function main() {
     digi: await prisma.project.create({ data: {
       name: 'Digi-Celcom Brand Refresh', client: 'Celcom Enterprise', company: 'PXL',
       quadrant: 'STRATEGIC_BET', priority: 'P1', status: 'INTERNAL_REVIEW',
-      deadline: weeksAhead(2), producerId: P.Huey.id, pmId: P.Emily.id,
+      startDate: weeksAgo(6), deadline: weeksAhead(2), producerId: P.Huey.id, pmId: P.Emily.id,
       accountId: accounts.celcom.id,
       estimatedValue: 28000, estimatedDuration: 8, complexityScore: 4,
       clientTier: 'KEY_ACCOUNT', marginTarget: 30,
@@ -200,7 +200,7 @@ async function main() {
     astro: await prisma.project.create({ data: {
       name: 'Astro CNY 2025', client: 'Astro Malaysia', company: 'LPS',
       quadrant: 'GOLD', priority: 'P2', status: 'IN_PROGRESS',
-      deadline: weeksAgo(1), producerId: P.YJ.id, pmId: P.Emily.id,
+      startDate: weeksAgo(4), deadline: weeksAgo(1), producerId: P.YJ.id, pmId: P.Emily.id,
       accountId: accounts.astro.id,
       estimatedValue: 12000, estimatedDuration: 3, complexityScore: 3,
       clientTier: 'RETURNING', marginTarget: 30,
@@ -208,7 +208,7 @@ async function main() {
     petronas: await prisma.project.create({ data: {
       name: 'Petronas Raya 2026 Campaign', client: 'Petronas Marketing', company: 'LPS',
       quadrant: 'GOLD', priority: 'P1', status: 'BRIEF',
-      deadline: weeksAhead(14), producerId: P.YJ.id, pmId: P.Emily.id,
+      startDate: weeksAgo(2), deadline: weeksAhead(14), producerId: P.YJ.id, pmId: P.Emily.id,
       accountId: accounts.petronas.id,
       estimatedValue: 85000, estimatedDuration: 16, complexityScore: 4,
       clientTier: 'KEY_ACCOUNT', marginTarget: 40,

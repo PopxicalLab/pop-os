@@ -107,76 +107,341 @@ function toggleColPicker() {
   }
 }
 
+// ── PPM AI recommendation (k-NN, server-side) ───────────────
+
+let _ppmAiTimer = null; // debounce handle
+
+// Renders the AI result into the ppm-ai-{id} div.
+function renderAiResult(id, data) {
+  const el = document.getElementById(`ppm-ai-${id}`);
+  if (!el) return;
+
+  if (!data || data.source === 'insufficient') {
+    const needed = Math.max(0, 3 - (data?.trainingSize ?? 0));
+    el.innerHTML = `
+      <p class="text-[11px] text-muted/70 italic">
+        AI learning active — add ${needed} more project${needed !== 1 ? 's' : ''} with PPM data to unlock.
+      </p>`;
+    return;
+  }
+
+  const recCls   = QUADRANT_CLS[data.recommendedQuadrant]  || 'bg-panel2 text-muted';
+  const recLabel = QUADRANT_LABEL[data.recommendedQuadrant] || '—';
+  const priCls   = PRI_CLS[data.recommendedPriority]        || 'text-muted';
+  const confCls  = { high: 'text-emerald-400', medium: 'text-yellow-400', low: 'text-warm' }[data.confidence] || 'text-muted';
+
+  const neighbours = (data.neighbours || []).slice(0, 3)
+    .map(n => `<span class="text-ink">${esc(n.name)}</span><span class="text-muted/70"> ${Math.round(n.similarity * 100)}%</span>`)
+    .join(' · ');
+
+  const quadEl = document.getElementById(`detail-quadrant-${id}`);
+  const priEl  = document.getElementById(`detail-priority-${id}`);
+  const alreadyApplied = data.recommendedQuadrant === quadEl?.value && data.recommendedPriority === priEl?.value;
+
+  const applyBtn = alreadyApplied
+    ? `<span class="text-xs text-accent font-semibold mt-1 block">✓ AI agrees with current settings</span>`
+    : `<button onclick="applyPpmSuggestion('${id}', '${data.recommendedQuadrant}', '${data.recommendedPriority}')"
+         class="mt-1.5 text-[11px] bg-accent/15 border border-accent/30 text-accent px-2.5 py-1 rounded-lg
+                hover:bg-accent/25 transition-colors cursor-pointer font-semibold">
+         Apply AI suggestion →
+       </button>`;
+
+  el.innerHTML = `
+    <div class="mt-3 pt-3 border-t border-dashed border-line/60">
+      <div class="flex items-center gap-2 mb-1.5 flex-wrap">
+        <p class="text-[10px] font-semibold uppercase tracking-widest text-muted">AI recommendation</p>
+        <span class="text-[10px] ${confCls} font-semibold uppercase">${data.confidence}</span>
+        <span class="text-[10px] text-muted">· ${data.trainingSize} projects learned</span>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <span class="text-xs text-muted">Quadrant:</span>
+        <span class="badge ${recCls}">${recLabel}</span>
+        <span class="text-line">·</span>
+        <span class="text-xs text-muted">Priority:</span>
+        <span class="text-xs font-bold ${priCls}">${data.recommendedPriority || '—'}</span>
+      </div>
+      ${neighbours ? `<p class="text-[11px] text-muted mt-1">Similar: ${neighbours}</p>` : ''}
+      ${applyBtn}
+    </div>`;
+}
+
+// Debounces a call to GET /api/ppm/ai and renders the result.
+// Rule-based suggestion (refreshPpmSuggestion) still fires instantly on every keystroke.
+function scheduleAiFetch(id) {
+  clearTimeout(_ppmAiTimer);
+
+  // Show a subtle loading hint while waiting.
+  const aiEl = document.getElementById(`ppm-ai-${id}`);
+  if (aiEl && aiEl.innerHTML) aiEl.innerHTML += '';
+
+  _ppmAiTimer = setTimeout(async () => {
+    const readNum = fId => { const el = document.getElementById(fId); return el && el.value !== '' ? el.value : null; };
+    const readStr = fId => { const el = document.getElementById(fId); return el?.value || null; };
+
+    const value      = readNum(`detail-est-value-${id}`);
+    const complexity = readNum(`detail-complexity-${id}`);
+
+    // Need at least one of these to make a meaningful AI call.
+    if (!value && !complexity) { if (aiEl) aiEl.innerHTML = ''; return; }
+
+    const tier   = readStr(`detail-tier-${id}`);
+    const margin = readNum(`detail-margin-${id}`);
+
+    const params = new URLSearchParams({ excludeId: id });
+    if (value)      params.set('value',      value);
+    if (complexity) params.set('complexity', complexity);
+    if (tier)       params.set('tier',       tier);
+    if (margin)     params.set('margin',     margin);
+
+    const data = await fetch(`/api/ppm/ai?${params}`).then(r => r.json()).catch(() => null);
+    renderAiResult(id, data);
+  }, 700); // wait 700 ms after the user stops typing before hitting the server
+}
+
+// ── PPM client-side engine ───────────────────────────────────
+// Mirrors ppm.service.ts exactly so we get live recommendations without
+// a server round trip every time a PPM input changes.
+
+const PPM_VALUE_MIDPOINT      = 50_000;
+const PPM_COMPLEXITY_THRESHOLD = 3;
+
+function computePpm({ estimatedValue, complexityScore, clientTier, marginTarget }) {
+  const valueScore  = estimatedValue  != null ? Math.min((estimatedValue / PPM_VALUE_MIDPOINT) * 50, 100) : null;
+  const effortScore = complexityScore != null ? ((6 - complexityScore) / 5) * 100 : null;
+  const tierScore   = clientTier
+    ? ({ NEW: 20, RETURNING: 60, KEY_ACCOUNT: 100 }[clientTier] ?? null)
+    : null;
+  const marginScore = marginTarget != null ? Math.min((marginTarget / 100) * 100, 100) : null;
+
+  const components = [
+    { score: valueScore,  w: 0.40 },
+    { score: effortScore, w: 0.15 },
+    { score: tierScore,   w: 0.25 },
+    { score: marginScore, w: 0.20 },
+  ];
+  const available = components.filter(c => c.score != null);
+  let score = null;
+  if (available.length >= 2) {
+    const totalW = available.reduce((s, c) => s + c.w, 0);
+    score = Math.round(available.reduce((s, c) => s + c.score * c.w, 0) / totalW);
+  }
+
+  let recommendedQuadrant = null;
+  if (estimatedValue != null && complexityScore != null) {
+    const highValue = estimatedValue  >= PPM_VALUE_MIDPOINT;
+    const lowEffort = complexityScore <= PPM_COMPLEXITY_THRESHOLD;
+    if      ( highValue &&  lowEffort) recommendedQuadrant = 'GOLD';
+    else if ( highValue && !lowEffort) recommendedQuadrant = 'STRATEGIC_BET';
+    else if (!highValue &&  lowEffort) recommendedQuadrant = 'OPERATIONAL_FILLER';
+    else                               recommendedQuadrant = 'DRAIN';
+  }
+
+  // Priority suggestion derived from the weighted score.
+  const recommendedPriority = score != null
+    ? (score >= 70 ? 'P1' : score >= 40 ? 'P2' : 'P3')
+    : null;
+
+  return { score, recommendedQuadrant, recommendedPriority };
+}
+
+// Called after any PPM input changes — reads live form values and renders
+// a suggestion callout into the ppm-rec-{id} div.
+function refreshPpmSuggestion(id) {
+  const readNum = fId => { const el = document.getElementById(fId); return el && el.value !== '' ? parseFloat(el.value) : null; };
+  const readStr = fId => { const el = document.getElementById(fId); return el?.value || null; };
+
+  const { score, recommendedQuadrant, recommendedPriority } = computePpm({
+    estimatedValue:  readNum(`detail-est-value-${id}`),
+    complexityScore: readNum(`detail-complexity-${id}`),
+    clientTier:      readStr(`detail-tier-${id}`),
+    marginTarget:    readNum(`detail-margin-${id}`),
+  });
+
+  const recEl = document.getElementById(`ppm-rec-${id}`);
+  if (!recEl) return;
+
+  if (!recommendedQuadrant && score == null) {
+    recEl.innerHTML = `<p class="text-xs text-muted">Add est. value and complexity to unlock recommendation.</p>`;
+    return;
+  }
+
+  const quadEl = document.getElementById(`detail-quadrant-${id}`);
+  const priEl  = document.getElementById(`detail-priority-${id}`);
+  const curQuad = quadEl?.value;
+  const curPri  = priEl?.value;
+  const bothMatch = recommendedQuadrant === curQuad && recommendedPriority === curPri;
+
+  const recCls   = QUADRANT_CLS[recommendedQuadrant]  || 'bg-panel2 text-muted';
+  const recLabel = QUADRANT_LABEL[recommendedQuadrant] || '—';
+  const priCls   = PRI_CLS[recommendedPriority]        || 'text-muted';
+
+  const scoreBar = score != null ? `
+    <div class="flex items-center gap-2 mt-2">
+      <div class="flex-1 h-1.5 bg-line rounded-full overflow-hidden">
+        <div class="h-full bg-accent rounded-full" style="width:${score}%"></div>
+      </div>
+      <span class="text-xs text-muted w-14 text-right">score ${score}/100</span>
+    </div>` : '';
+
+  const action = bothMatch
+    ? `<span class="text-xs text-accent font-semibold mt-1.5 block">✓ Quadrant and priority already match</span>`
+    : `<button onclick="applyPpmSuggestion('${id}', '${recommendedQuadrant}', '${recommendedPriority}')"
+         class="mt-1.5 text-[11px] bg-accent/15 border border-accent/30 text-accent px-2.5 py-1 rounded-lg
+                hover:bg-accent/25 transition-colors cursor-pointer font-semibold">
+         Apply suggestion →
+       </button>`;
+
+  recEl.innerHTML = `
+    <div class="flex items-center gap-2 flex-wrap">
+      <span class="text-xs text-muted">Quadrant:</span>
+      <span class="badge ${recCls}">${recLabel}</span>
+      <span class="text-line">·</span>
+      <span class="text-xs text-muted">Priority:</span>
+      <span class="text-xs font-bold ${priCls}">${recommendedPriority || '—'}</span>
+    </div>
+    ${scoreBar}
+    ${action}`;
+}
+
+// Applies the PPM suggestion to both the quadrant and priority selects,
+// saves to the server, then re-renders the detail view if quadrant changed
+// (so the Drain gate row appears / disappears as needed).
+async function applyPpmSuggestion(id, quadrant, priority) {
+  const quadEl = document.getElementById(`detail-quadrant-${id}`);
+  const priEl  = document.getElementById(`detail-priority-${id}`);
+  const prevQuad = quadEl?.value;
+
+  // Update UI immediately for instant feedback before the server responds.
+  if (quadEl) quadEl.value = quadrant;
+  if (priEl)  priEl.value  = priority;
+
+  await fetch(`/api/projects/${id}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ quadrant, priority }),
+  });
+
+  if (quadrant !== prevQuad) {
+    // Quadrant changed — full re-render so Drain gate row shows/hides correctly.
+    showProjectDetail(id);
+  } else {
+    refreshPpmSuggestion(id);
+  }
+}
+
 // ── project detail view ──────────────────────────────────────
+
+let _prevProjView = 'list'; // remembers which view to return to after closing detail
 
 function showProjectList() {
   $('p-detail-view').classList.add('hidden');
-  $('p-list-view').classList.remove('hidden');
+  // Return to whichever view the user came from
+  const returnTo = _prevProjView;
+  switchProjView(returnTo);
 }
 
 async function showProjectDetail(id) {
   const p = await (await fetch('/api/projects/' + id)).json();
-  $('p-list-view').classList.add('hidden');
+  // Hide all project views before showing detail
+  ['list', 'kanban', 'timeline'].forEach(v =>
+    document.getElementById(`p-${v}-view`)?.classList.add('hidden')
+  );
   $('p-detail-view').classList.remove('hidden');
+  const backLabels = { list: 'All projects', kanban: 'Kanban board', timeline: 'Timeline' };
+  const backEl = $('p-back-label');
+  if (backEl) backEl.textContent = backLabels[_prevProjView] || 'All projects';
 
-  const field = (label, value) => value
-    ? `<div><p class="text-[10px] text-muted font-medium uppercase tracking-wider mb-0.5">${label}</p>
-           <p class="text-sm text-ink">${value}</p></div>`
-    : `<div><p class="text-[10px] text-muted font-medium uppercase tracking-wider mb-0.5">${label}</p>
-           <p class="text-sm text-muted">—</p></div>`;
+  // Shared helper for section labels.
+  const lbl = (label, content) =>
+    `<div><p class="text-[10px] text-muted font-medium uppercase tracking-wider mb-0.5">${label}</p>${content}</div>`;
 
-  const deadline = p.deadline
-    ? new Date(p.deadline).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
-    : null;
+  // Reusable inline input builders — ids are prefixed with "detail-" + field + "-" + project id
+  // so they can be wired up via getElementById after the HTML is injected.
+  const selEl = (fId, opts, cur) =>
+    `<select id="${fId}" class="bg-panel2 border border-line text-ink text-xs px-2 py-1 rounded-md
+      w-full cursor-pointer focus:outline-none focus:border-accent/60">
+      ${opts.map(([v, l]) => `<option value="${v}"${cur === v ? ' selected' : ''}>${l}</option>`).join('')}
+    </select>`;
+
+  const dateEl = (fId, val) => {
+    const iso = val ? new Date(val).toISOString().split('T')[0] : '';
+    return `<input id="${fId}" type="date" value="${iso}"
+      class="bg-panel2 border border-line text-ink text-xs px-2 py-1 rounded-md w-full cursor-pointer
+             focus:outline-none focus:border-accent/60" />`;
+  };
+
+  const numEl = (fId, val, extra = '') =>
+    `<input id="${fId}" type="number" value="${val ?? ''}" ${extra}
+      class="bg-panel2 border border-line text-ink text-xs px-2 py-1 rounded-md w-full
+             focus:outline-none focus:border-accent/60" />`;
+
+  const peopleOpts = (selected) =>
+    `<option value="">— none —</option>` +
+    (typeof PEOPLE !== 'undefined' ? PEOPLE : [])
+      .map(pe => `<option value="${pe.id}"${pe.id === selected ? ' selected' : ''}>${esc(pe.name)}</option>`)
+      .join('');
 
   $('p-detail-content').innerHTML = `
     <div class="mb-6">
-      <div class="flex items-start gap-3 flex-wrap">
-        <span class="badge ${QUADRANT_CLS[p.quadrant] || ''} text-xs">${QUADRANT_LABEL[p.quadrant] || p.quadrant}</span>
-        <span class="text-xs ${PRI_CLS[p.priority] || ''}">${p.priority}</span>
-      </div>
-      <h2 class="text-xl font-bold text-ink mt-2">${esc(p.name)}</h2>
-      ${p.client ? `<p class="text-sm text-muted mt-1">${esc(p.client)}</p>` : ''}
+      <input id="detail-name-${p.id}" type="text" value="${esc(p.name)}"
+        class="text-xl font-bold text-ink bg-transparent border-b border-transparent
+               hover:border-line focus:border-accent/60 focus:outline-none w-full pb-0.5 transition-colors" />
+      <input id="detail-client-${p.id}" type="text" value="${esc(p.client || '')}" placeholder="No client"
+        class="text-sm text-muted bg-transparent border-b border-transparent
+               hover:border-line focus:border-accent/60 focus:outline-none w-full mt-1.5 pb-0.5 transition-colors" />
     </div>
 
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 pb-5 border-b border-line">
-      ${field('Status',   STATUS_LABEL[p.status] || p.status)}
-      ${field('Deadline', deadline)}
+      ${lbl('Status',     selEl(`detail-status-${p.id}`,   Object.entries(STATUS_LABEL), p.status))}
+      ${lbl('Quadrant',   selEl(`detail-quadrant-${p.id}`, Object.entries(QUADRANT_LABEL), p.quadrant))}
+      ${lbl('Priority',   selEl(`detail-priority-${p.id}`, [['P1','P1 — High'],['P2','P2 — Med'],['P3','P3 — Low']], p.priority))}
+      ${lbl('Company',    selEl(`detail-company-${p.id}`,  [['','— any —'],['LPS','LPS'],['PXL','PXL']], p.company || ''))}
+      ${lbl('Start date', dateEl(`detail-start-${p.id}`,   p.startDate))}
+      ${lbl('Deadline',   dateEl(`detail-deadline-${p.id}`, p.deadline))}
       <div>
         <p class="text-[10px] text-muted font-medium uppercase tracking-wider mb-0.5">Producer</p>
         <select id="detail-producer-${p.id}"
           class="bg-panel2 border border-line text-ink text-xs px-2 py-1 rounded-md w-full cursor-pointer focus:outline-none focus:border-accent/60">
-          <option value="">— none —</option>
-          ${(typeof PEOPLE !== 'undefined' ? PEOPLE : []).map(pe =>
-            `<option value="${pe.id}" ${pe.id === p.producer?.id ? 'selected' : ''}>${esc(pe.name)}</option>`
-          ).join('')}
+          ${peopleOpts(p.producer?.id)}
         </select>
       </div>
       <div>
         <p class="text-[10px] text-muted font-medium uppercase tracking-wider mb-0.5">PM</p>
         <select id="detail-pm-${p.id}"
           class="bg-panel2 border border-line text-ink text-xs px-2 py-1 rounded-md w-full cursor-pointer focus:outline-none focus:border-accent/60">
-          <option value="">— none —</option>
-          ${(typeof PEOPLE !== 'undefined' ? PEOPLE : []).map(pe =>
-            `<option value="${pe.id}" ${pe.id === p.pm?.id ? 'selected' : ''}>${esc(pe.name)}</option>`
-          ).join('')}
+          ${peopleOpts(p.pm?.id)}
         </select>
       </div>
-      ${p.quadrant === 'DRAIN' ? field('Drain gate', `Exec: ${p.drainApprovedByExec ? '✓' : '✗'} · Producer: ${p.drainApprovedByProducer ? '✓' : '✗'}`) : ''}
+      ${p.quadrant === 'DRAIN' ? `
+        <div class="col-span-full pt-1">
+          <p class="text-[10px] text-muted font-medium uppercase tracking-wider mb-1.5">Drain gate approvals</p>
+          <div class="flex gap-5">
+            <label class="flex items-center gap-1.5 text-xs text-ink cursor-pointer">
+              <input id="detail-drain-exec-${p.id}" type="checkbox" ${p.drainApprovedByExec ? 'checked' : ''}
+                class="accent-accent cursor-pointer" /> Exec approved
+            </label>
+            <label class="flex items-center gap-1.5 text-xs text-ink cursor-pointer">
+              <input id="detail-drain-prod-${p.id}" type="checkbox" ${p.drainApprovedByProducer ? 'checked' : ''}
+                class="accent-accent cursor-pointer" /> Producer approved
+            </label>
+          </div>
+        </div>` : ''}
     </div>
 
     <div class="mt-5 pb-5 border-b border-line">
       <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">PPM inputs</p>
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        ${field('Est. value',    p.estimatedValue    != null ? fmtValue(p.estimatedValue) : null)}
-        ${field('Duration',      p.estimatedDuration != null ? p.estimatedDuration + ' weeks' : null)}
-        ${field('Complexity',    p.complexityScore   != null ? p.complexityScore + ' / 5' : null)}
-        ${field('Client tier',   p.clientTier ? CLIENT_TIER_LABEL[p.clientTier] : null)}
-        ${field('Margin target', p.marginTarget      != null ? p.marginTarget + '%' : null)}
+        ${lbl('Est. value (RM)',   numEl(`detail-est-value-${p.id}`, p.estimatedValue, 'min="0"'))}
+        ${lbl('Duration (weeks)',  numEl(`detail-est-dur-${p.id}`,   p.estimatedDuration, 'min="1"'))}
+        ${lbl('Complexity (1–5)', numEl(`detail-complexity-${p.id}`, p.complexityScore, 'min="1" max="5"'))}
+        ${lbl('Client tier', selEl(`detail-tier-${p.id}`,
+          [['','— none —'],['NEW','New'],['RETURNING','Returning'],['KEY_ACCOUNT','Key account']],
+          p.clientTier || ''))}
+        ${lbl('Margin target (%)', numEl(`detail-margin-${p.id}`, p.marginTarget, 'min="0" max="100"'))}
       </div>
       <div class="mt-3 pt-3 border-t border-line/60">
         <p class="text-[10px] font-semibold uppercase tracking-widest text-muted mb-1.5">PPM recommendation</p>
         <div id="ppm-rec-${p.id}" class="text-xs text-muted">Calculating…</div>
+        <div id="ppm-ai-${p.id}"></div>
       </div>
     </div>
 
@@ -240,20 +505,91 @@ async function showProjectDetail(id) {
       <div id="proj-docs-${p.id}" class="text-xs text-muted">Loading…</div>
     </div>`;
 
-  // Wire up the producer/PM inline dropdowns — PATCH the project on change.
-  const patchPerson = async (field, value) => {
+  // Wire up all change/blur handlers — PATCH the project on every edit.
+  const patch = async (data) => {
     await fetch(`/api/projects/${id}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ [field]: value || null }),
+      body: JSON.stringify(data),
     });
   };
-  const prodSel = document.getElementById(`detail-producer-${id}`);
-  const pmSel   = document.getElementById(`detail-pm-${id}`);
-  if (prodSel) prodSel.onchange = () => patchPerson('producerId', prodSel.value);
-  if (pmSel)   pmSel.onchange   = () => patchPerson('pmId',       pmSel.value);
 
-  // Load PPM score, assets, costs, and accounting docs asynchronously.
-  loadPpmBadge(id);
+  // Select elements — patch immediately on change.
+  const wireSel = (fId, field) => {
+    const el = document.getElementById(fId);
+    if (!el) return;
+    el.onchange = () => patch({ [field]: el.value || null });
+  };
+  wireSel(`detail-status-${id}`,   'status');
+  wireSel(`detail-company-${id}`,  'company');
+  wireSel(`detail-producer-${id}`, 'producerId');
+  wireSel(`detail-pm-${id}`,       'pmId');
+  wireSel(`detail-tier-${id}`,     'clientTier');
+  wireSel(`detail-priority-${id}`, 'priority');
+
+  // Quadrant is special — changing it may show/hide the Drain gate row,
+  // so we re-render the whole detail panel after saving.
+  const quadEl = document.getElementById(`detail-quadrant-${id}`);
+  if (quadEl) quadEl.onchange = async () => {
+    await patch({ quadrant: quadEl.value });
+    showProjectDetail(id);
+  };
+
+  // Date inputs — patch on change.
+  const wireDate = (fId, field) => {
+    const el = document.getElementById(fId);
+    if (!el) return;
+    el.onchange = () => patch({ [field]: el.value || null });
+  };
+  wireDate(`detail-start-${id}`,    'startDate');
+  wireDate(`detail-deadline-${id}`, 'deadline');
+
+  // Text inputs — patch on blur to avoid firing on every keystroke.
+  const wireText = (fId, field, required = false) => {
+    const el = document.getElementById(fId);
+    if (!el) return;
+    const original = el.value;
+    el.onblur = () => {
+      const v = el.value.trim();
+      if (required && !v) { el.value = original; return; } // revert blank name
+      patch({ [field]: v || null });
+    };
+  };
+  wireText(`detail-name-${id}`,   'name',   true);
+  wireText(`detail-client-${id}`, 'client', false);
+
+  // Number inputs — patch on blur.
+  const wireNum = (fId, field) => {
+    const el = document.getElementById(fId);
+    if (!el) return;
+    el.onblur = () => {
+      const v = el.value === '' ? null : parseFloat(el.value);
+      patch({ [field]: v });
+    };
+  };
+  wireNum(`detail-est-value-${id}`,  'estimatedValue');
+  wireNum(`detail-est-dur-${id}`,    'estimatedDuration');
+  wireNum(`detail-complexity-${id}`, 'complexityScore');
+  wireNum(`detail-margin-${id}`,     'marginTarget');
+
+  // Drain gate checkboxes (only present when quadrant === 'DRAIN').
+  const drainExec = document.getElementById(`detail-drain-exec-${id}`);
+  const drainProd = document.getElementById(`detail-drain-prod-${id}`);
+  if (drainExec) drainExec.onchange = () => patch({ drainApprovedByExec:     drainExec.checked });
+  if (drainProd) drainProd.onchange = () => patch({ drainApprovedByProducer: drainProd.checked });
+
+  // Wire up live PPM suggestion (instant, rule-based) + debounced AI fetch on every PPM input change.
+  [`detail-est-value-${id}`, `detail-complexity-${id}`, `detail-margin-${id}`].forEach(fId => {
+    const el = document.getElementById(fId);
+    if (el) el.addEventListener('input', () => { refreshPpmSuggestion(id); scheduleAiFetch(id); });
+  });
+  const tierEl = document.getElementById(`detail-tier-${id}`);
+  if (tierEl) tierEl.addEventListener('change', () => { refreshPpmSuggestion(id); scheduleAiFetch(id); });
+
+  // Initial render: rule-based is instant; AI fires after the 700 ms debounce.
+  refreshPpmSuggestion(id);
+  scheduleAiFetch(id);
+
+  // Load assets, costs, and accounting docs asynchronously.
   loadProjectAssets(id);
   loadProjectCosts(id);
   loadProjectDocs(id);
@@ -602,7 +938,7 @@ function renderProjects() {
   applyColVisibility();
 }
 
-// Wire up project filter inputs — re-render without re-fetching.
+// Wire up list-view filter inputs — re-render without re-fetching.
 ['p-search', 'p-filter-status', 'p-filter-producer'].forEach(id => {
   const el = $(id);
   if (el) el.addEventListener('input', renderProjects);
@@ -683,16 +1019,175 @@ function _tlMonday(offset = 0) {
 }
 
 function switchProjView(view) {
-  const isList = view === 'list';
-  document.getElementById('p-list-view')?.classList.toggle('hidden', !isList);
-  document.getElementById('p-timeline-view')?.classList.toggle('hidden', isList);
-  document.getElementById('proj-view-list')?.classList.toggle('bg-panel', isList);
-  document.getElementById('proj-view-list')?.classList.toggle('text-ink', isList);
-  document.getElementById('proj-view-list')?.classList.toggle('text-muted', !isList);
-  document.getElementById('proj-view-timeline')?.classList.toggle('bg-panel', !isList);
-  document.getElementById('proj-view-timeline')?.classList.toggle('text-ink', !isList);
-  document.getElementById('proj-view-timeline')?.classList.toggle('text-muted', isList);
-  if (!isList) renderTimeline();
+  _prevProjView = view; // remember for "back" button in detail view
+  const views = ['list', 'kanban', 'timeline'];
+  views.forEach(v => {
+    document.getElementById(`p-${v}-view`)?.classList.toggle('hidden', v !== view);
+    const btn = document.getElementById(`proj-view-${v}`);
+    if (btn) {
+      btn.classList.toggle('bg-panel',  v === view);
+      btn.classList.toggle('text-ink',  v === view);
+      btn.classList.toggle('text-muted', v !== view);
+    }
+  });
+  if (view === 'kanban')   renderKanban();
+  if (view === 'timeline') renderTimeline();
+}
+
+// ── Kanban view ──────────────────────────────────────────────
+const KANBAN_COLS = [
+  { status: 'BRIEF',           label: 'Brief',           cls: 'border-muted/40',       dot: 'bg-muted'        },
+  { status: 'IN_PROGRESS',     label: 'In Progress',     cls: 'border-accent/50',      dot: 'bg-accent'       },
+  { status: 'INTERNAL_REVIEW', label: 'Internal Review', cls: 'border-yellow-500/50',  dot: 'bg-yellow-400'   },
+  { status: 'ON_HOLD',         label: 'On Hold',         cls: 'border-orange-500/50',  dot: 'bg-orange-400'   },
+  { status: 'DELIVERED',       label: 'Delivered',       cls: 'border-emerald-500/50', dot: 'bg-emerald-400'  },
+  { status: 'CANCELLED',       label: 'Cancelled',       cls: 'border-warm/40',        dot: 'bg-warm'         },
+];
+
+// Kanban-local filter state — persists while the view is open
+let _kbSearch   = '';
+let _kbProducer = '';
+let _kbPriority = '';
+
+function renderKanban() {
+  const board = document.getElementById('kanban-board');
+  if (!board) return;
+
+  // Build unique producer list from current project cache
+  const producers = [...new Map(
+    _allProjects.filter(p => p.producer).map(p => [p.producerId, p.producer.name])
+  ).entries()].sort((a, b) => a[1].localeCompare(b[1]));
+
+  // Filter bar HTML (rendered fresh each time so values stick via _kb* vars)
+  const filterBar = `
+    <div class="flex flex-wrap gap-2 mb-4">
+      <input id="kb-search" type="text" placeholder="Search name or client…" value="${esc(_kbSearch)}"
+        class="bg-panel2 border border-line text-ink text-xs px-3 py-1.5 rounded-lg w-48
+               focus:outline-none focus:border-accent/60" />
+      <select id="kb-filter-priority"
+        class="bg-panel2 border border-line text-ink text-xs px-2 py-1.5 rounded-lg cursor-pointer
+               focus:outline-none focus:border-accent/60">
+        <option value="">All priorities</option>
+        <option value="P1"${_kbPriority==='P1'?' selected':''}>P1 — High</option>
+        <option value="P2"${_kbPriority==='P2'?' selected':''}>P2 — Medium</option>
+        <option value="P3"${_kbPriority==='P3'?' selected':''}>P3 — Low</option>
+      </select>
+      <select id="kb-filter-producer"
+        class="bg-panel2 border border-line text-ink text-xs px-2 py-1.5 rounded-lg cursor-pointer
+               focus:outline-none focus:border-accent/60">
+        <option value="">All producers</option>
+        ${producers.map(([id, name]) => `<option value="${id}"${_kbProducer===id?' selected':''}>${esc(name)}</option>`).join('')}
+      </select>
+    </div>`;
+
+  // Apply filters + company filter
+  const projects = _allProjects.filter(p => {
+    if (!matchesFilter(p.company)) return false;
+    if (_kbSearch   && !((p.name || '') + ' ' + (p.client || '')).toLowerCase().includes(_kbSearch)) return false;
+    if (_kbProducer && p.producerId !== _kbProducer) return false;
+    if (_kbPriority && p.priority   !== _kbPriority) return false;
+    return true;
+  });
+
+  const byStatus = {};
+  KANBAN_COLS.forEach(c => { byStatus[c.status] = []; });
+  projects.forEach(p => { if (byStatus[p.status]) byStatus[p.status].push(p); });
+
+  const columns =
+    `<div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 items-start">` +
+    KANBAN_COLS.map(col => {
+      const items = byStatus[col.status];
+      return `
+        <div class="flex flex-col gap-2">
+          <div class="flex items-center gap-2 px-1 mb-1">
+            <span class="w-2 h-2 rounded-full ${col.dot} shrink-0"></span>
+            <span class="text-[11px] font-semibold text-muted uppercase tracking-wide">${col.label}</span>
+            <span class="text-[11px] text-muted/60 ml-auto">${items.length}</span>
+          </div>
+          ${items.length
+            ? items.map(p => renderKanbanCard(p, col)).join('')
+            : `<div class="bg-panel border border-dashed border-line rounded-xl px-3 py-5 text-center text-[11px] text-muted/40">—</div>`
+          }
+        </div>`;
+    }).join('') +
+    `</div>`;
+
+  board.innerHTML = filterBar + columns;
+
+  // Wire filter inputs — save state then re-render
+  const kbSearch = document.getElementById('kb-search');
+  if (kbSearch) {
+    kbSearch.focus(); // restore focus so typing isn't interrupted
+    kbSearch.setSelectionRange(kbSearch.value.length, kbSearch.value.length);
+    kbSearch.addEventListener('input', () => { _kbSearch = kbSearch.value.toLowerCase(); renderKanban(); });
+  }
+  document.getElementById('kb-filter-producer')?.addEventListener('change', e => { _kbProducer = e.target.value; renderKanban(); });
+  document.getElementById('kb-filter-priority')?.addEventListener('change', e => { _kbPriority = e.target.value; renderKanban(); });
+
+  // Wire status dropdowns on cards — PATCH then update local cache and re-render
+  board.querySelectorAll('[data-kb-status]').forEach(sel => {
+    sel.addEventListener('change', async () => {
+      const id = sel.dataset.kbStatus;
+      const newStatus = sel.value;
+      await fetch(`/api/projects/${id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      const proj = _allProjects.find(p => p.id === id);
+      if (proj) proj.status = newStatus;
+      renderKanban();
+    });
+  });
+
+  // Wire card click → detail view (click on card body, not the dropdown)
+  board.querySelectorAll('[data-kanban-id]').forEach(card => {
+    card.addEventListener('click', e => {
+      if (e.target.closest('select')) return; // don't open detail when using the dropdown
+      showProjectDetail(card.dataset.kanbanId);
+    });
+  });
+}
+
+function renderKanbanCard(p, col) {
+  const priCls     = PRI_CLS[p.priority] || 'text-muted';
+  const quadCls    = QUADRANT_CLS[p.quadrant] || 'bg-panel2 text-muted';
+  const deadline   = p.deadline ? new Date(p.deadline) : null;
+  const now        = new Date();
+  const overdue    = deadline && deadline < now && !['DELIVERED','CANCELLED'].includes(p.status);
+  const dueSoon    = deadline && !overdue && (deadline - now) < 7 * 86_400_000;
+  const deadlineTxt = deadline
+    ? deadline.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+    : null;
+
+  const statusOpts = KANBAN_COLS.map(c =>
+    `<option value="${c.status}"${p.status === c.status ? ' selected' : ''}>${c.label}</option>`
+  ).join('');
+
+  return `
+    <div data-kanban-id="${p.id}"
+      class="bg-panel border ${col.cls} rounded-xl p-3 space-y-2 cursor-pointer
+             hover:border-accent/40 hover:bg-panel2 transition-colors group">
+      <p class="text-xs font-semibold text-ink leading-snug group-hover:text-accent transition-colors">
+        ${esc(p.name)}
+      </p>
+      ${p.client ? `<p class="text-[11px] text-muted truncate">${esc(p.client)}</p>` : ''}
+      <div class="flex items-center gap-1.5 flex-wrap">
+        <span class="text-[10px] font-bold px-1.5 py-0.5 rounded ${quadCls}">
+          ${QUADRANT_LABEL[p.quadrant] || p.quadrant}
+        </span>
+        <span class="text-[11px] ${priCls}">${p.priority}</span>
+      </div>
+      ${deadlineTxt ? `
+        <p class="text-[11px] ${overdue ? 'text-warm font-semibold' : dueSoon ? 'text-yellow-400' : 'text-muted'}">
+          ${overdue ? '⚠ ' : ''}${deadlineTxt}
+        </p>` : ''}
+      ${p.producer ? `<p class="text-[11px] text-muted/70">${esc(p.producer.name)}</p>` : ''}
+      <select data-kb-status="${p.id}"
+        class="w-full mt-1 bg-panel border border-line text-ink px-2 py-1 rounded-md text-[11px]
+               focus:outline-none focus:border-accent/70 cursor-pointer">
+        ${statusOpts}
+      </select>
+    </div>`;
 }
 
 function shiftTimeline(dir) {
@@ -801,9 +1296,10 @@ function renderTimeline() {
 
     return `
       <rect x="0" y="${y}" width="${totalW}" height="${rowH}" fill="${rowBg}"/>
-      <text x="6" y="${y + rowH / 2 + 4}" font-size="11" fill="#e2e8f0"
-        class="cursor-pointer">${esc(p.name.length > 22 ? p.name.slice(0, 21) + '…' : p.name)}</text>
-      ${barSvg}`;
+      <text x="6" y="${y + rowH / 2 + 4}" font-size="11" fill="#e2e8f0">${esc(p.name.length > 22 ? p.name.slice(0, 21) + '…' : p.name)}</text>
+      ${barSvg}
+      <rect data-tl-id="${p.id}" x="0" y="${y}" width="${totalW}" height="${rowH}"
+        fill="transparent" class="cursor-pointer" style="cursor:pointer"/>`;
   }).join('');
 
   canvas.innerHTML = `
@@ -825,4 +1321,9 @@ function renderTimeline() {
       <!-- Rows -->
       ${rows}
     </svg>`;
+
+  // Wire row clicks — transparent overlay rects sit on top so they catch the event
+  canvas.querySelectorAll('[data-tl-id]').forEach(el => {
+    el.addEventListener('click', () => showProjectDetail(el.dataset.tlId));
+  });
 }

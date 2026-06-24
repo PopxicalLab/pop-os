@@ -18,7 +18,7 @@
     };
   </script>
   <style>
-    body { background: #0d0c10; color: #e8e5de; font-family: system-ui, sans-serif; }
+    body { background: #0d0c10; color: #e8e5de; font-family: system-ui, sans-serif; scroll-behavior: smooth; }
     @media print {
       body { background: white; color: #111; }
       .no-print { display: none; }
@@ -65,8 +65,49 @@
       </p>
     </section>
 
+    <!-- Table of Contents -->
+    <section id="toc" class="no-print">
+      <div class="bg-panel border border-line rounded-xl p-5">
+        <p class="text-xs font-semibold uppercase tracking-wider text-muted mb-4">Jump to section</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5">
+          <a href="#login"    class="flex items-center gap-2 text-sm text-muted hover:text-ink transition-colors group">
+            <span class="w-5 h-5 rounded-full bg-panel2 border border-line text-[10px] font-bold text-accent flex items-center justify-center shrink-0 group-hover:border-accent/50">1</span>
+            Logging In &amp; Roles
+          </a>
+          <a href="#dashboard" class="flex items-center gap-2 text-sm text-muted hover:text-ink transition-colors group">
+            <span class="w-5 h-5 rounded-full bg-panel2 border border-line text-[10px] font-bold text-accent flex items-center justify-center shrink-0 group-hover:border-accent/50">2</span>
+            The Dashboard
+          </a>
+          <a href="#financial" class="flex items-center gap-2 text-sm text-muted hover:text-ink transition-colors group">
+            <span class="w-5 h-5 rounded-full bg-panel2 border border-line text-[10px] font-bold text-accent flex items-center justify-center shrink-0 group-hover:border-accent/50">3</span>
+            Financial Dashboard
+          </a>
+          <a href="#navigation" class="flex items-center gap-2 text-sm text-muted hover:text-ink transition-colors group">
+            <span class="w-5 h-5 rounded-full bg-panel2 border border-line text-[10px] font-bold text-accent flex items-center justify-center shrink-0 group-hover:border-accent/50">4</span>
+            Navigation Overview
+          </a>
+          <a href="#company-filter" class="flex items-center gap-2 text-sm text-muted hover:text-ink transition-colors group">
+            <span class="w-5 h-5 rounded-full bg-panel2 border border-line text-[10px] font-bold text-accent flex items-center justify-center shrink-0 group-hover:border-accent/50">5</span>
+            Filtering by Company
+          </a>
+          <a href="#autocount" class="flex items-center gap-2 text-sm text-muted hover:text-ink transition-colors group">
+            <span class="w-5 h-5 rounded-full bg-panel2 border border-line text-[10px] font-bold text-accent flex items-center justify-center shrink-0 group-hover:border-accent/50">6</span>
+            Autocount Integration
+          </a>
+          <a href="#ppm" class="flex items-center gap-2 text-sm text-muted hover:text-ink transition-colors group">
+            <span class="w-5 h-5 rounded-full bg-panel2 border border-line text-[10px] font-bold text-accent flex items-center justify-center shrink-0 group-hover:border-accent/50">7</span>
+            PPM — Project Priority Matrix
+          </a>
+          <a href="#tips" class="flex items-center gap-2 text-sm text-muted hover:text-ink transition-colors group">
+            <span class="w-5 h-5 rounded-full bg-panel2 border border-line text-[10px] font-bold text-accent flex items-center justify-center shrink-0 group-hover:border-accent/50">8</span>
+            Quick Tips
+          </a>
+        </div>
+      </div>
+    </section>
+
     <!-- Step 1: Login -->
-    <section>
+    <section id="login">
       <div class="flex items-center gap-3 mb-4">
         <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">1</span>
         <h2 class="text-lg font-semibold text-ink">Logging In</h2>
@@ -168,10 +209,11 @@
 
         <p class="text-xs text-muted">After logging in you'll be taken to the Dashboard. Your role badge appears next to your name in the top-right corner.</p>
       </div>
+      <a href="#toc" class="block mt-3 text-[11px] text-muted/50 hover:text-muted no-print text-right">↑ Back to contents</a>
     </section>
 
     <!-- Step 2: Dashboard -->
-    <section>
+    <section id="dashboard">
       <div class="flex items-center gap-3 mb-4">
         <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">2</span>
         <h2 class="text-lg font-semibold text-ink">The Dashboard</h2>
@@ -212,10 +254,11 @@
           </div>
         </div>
       </div>
+      <a href="#toc" class="block mt-3 text-[11px] text-muted/50 hover:text-muted no-print text-right">↑ Back to contents</a>
     </section>
 
     <!-- Step 3: Financial tab -->
-    <section>
+    <section id="financial">
       <div class="flex items-center gap-3 mb-4">
         <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">3</span>
         <h2 class="text-lg font-semibold text-ink">Financial Dashboard</h2>
@@ -292,10 +335,11 @@
           <p class="text-xs text-muted">Full table of every active project: estimated value, man-day cost to date, budget remaining, gross margin, and how it compares to the target margin. Sorted worst-first (red projects at the top).</p>
         </div>
       </div>
+      <a href="#toc" class="block mt-3 text-[11px] text-muted/50 hover:text-muted no-print text-right">↑ Back to contents</a>
     </section>
 
     <!-- Step 4: Navigation -->
-    <section>
+    <section id="navigation">
       <div class="flex items-center gap-3 mb-4">
         <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">4</span>
         <h2 class="text-lg font-semibold text-ink">Navigation Overview</h2>
@@ -343,10 +387,11 @@
           <p class="text-[11px] text-muted/70 mt-3 italic">My Work requires your login to be linked to a staff record. If the page looks empty, ask your admin to set up the link via the People tab.</p>
         </div>
       </div>
+      <a href="#toc" class="block mt-3 text-[11px] text-muted/50 hover:text-muted no-print text-right">↑ Back to contents</a>
     </section>
 
     <!-- Step 5: Company Filter -->
-    <section>
+    <section id="company-filter">
       <div class="flex items-center gap-3 mb-4">
         <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">5</span>
         <h2 class="text-lg font-semibold text-ink">Filtering by Company</h2>
@@ -414,10 +459,11 @@
           <p class="text-xs text-muted/70 mt-2 italic">Until this is implemented, the filter is manual — use the logo buttons in the header.</p>
         </div>
       </div>
+      <a href="#toc" class="block mt-3 text-[11px] text-muted/50 hover:text-muted no-print text-right">↑ Back to contents</a>
     </section>
 
     <!-- Step 6: Autocount -->
-    <section>
+    <section id="autocount">
       <div class="flex items-center gap-3 mb-4">
         <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">6</span>
         <h2 class="text-lg font-semibold text-ink">Autocount Integration</h2>
@@ -455,12 +501,233 @@
           <p class="text-xs text-muted">Pop OS initiates documents in Autocount but does not replace it. Tax calculations, bank reconciliation, and financial statements all remain in Autocount. Pop OS just adds project context.</p>
         </div>
       </div>
+      <a href="#toc" class="block mt-3 text-[11px] text-muted/50 hover:text-muted no-print text-right">↑ Back to contents</a>
+    </section>
+
+    <!-- Step 7: PPM -->
+    <section id="ppm">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">7</span>
+        <h2 class="text-lg font-semibold text-ink">PPM — Project Priority Matrix</h2>
+      </div>
+      <div class="bg-panel border border-line rounded-xl p-6 space-y-6">
+
+        <p class="text-muted text-sm leading-relaxed">
+          The PPM engine helps producers decide <strong class="text-ink">which quadrant a project belongs in and how high it should be prioritised</strong>,
+          based on four numbers you fill in on the project detail page.
+          Once you have enough project history, an AI layer also kicks in and learns from past decisions.
+        </p>
+
+        <!-- The four inputs -->
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-muted mb-3">Step 1 — Fill in the four PPM inputs</p>
+          <div class="bg-panel2 border border-line rounded-lg overflow-hidden">
+            <table class="w-full text-xs">
+              <thead>
+                <tr class="border-b border-line bg-panel">
+                  <th class="text-left px-4 py-2.5 text-muted font-medium">Input</th>
+                  <th class="text-left px-4 py-2.5 text-muted font-medium">What to enter</th>
+                  <th class="text-right px-4 py-2.5 text-muted font-medium">Weight</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-line/40">
+                <tr>
+                  <td class="px-4 py-3 font-semibold text-ink">Est. value (RM)</td>
+                  <td class="px-4 py-3 text-muted">The total project fee — what the client pays us.</td>
+                  <td class="px-4 py-3 text-right font-bold text-accent">40%</td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-3 font-semibold text-ink">Client tier</td>
+                  <td class="px-4 py-3 text-muted"><span class="text-ink">New</span> client · <span class="text-ink">Returning</span> client · <span class="text-ink">Key account</span> (long-term strategic client)</td>
+                  <td class="px-4 py-3 text-right font-bold text-accent">25%</td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-3 font-semibold text-ink">Margin target (%)</td>
+                  <td class="px-4 py-3 text-muted">Gross margin you're targeting on this project. Higher is better.</td>
+                  <td class="px-4 py-3 text-right font-bold text-accent">20%</td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-3 font-semibold text-ink">Complexity (1–5)</td>
+                  <td class="px-4 py-3 text-muted">How hard is this project? 1 = straightforward, 5 = maximum effort. <strong class="text-ink">Lower is better</strong> in the score — simple work scores higher than complex work for the same fee.</td>
+                  <td class="px-4 py-3 text-right font-bold text-accent">15%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="text-xs text-muted mt-2">The score bar (0–100) updates in real time as you type. You don't need all four — two or more unlocks the score.</p>
+        </div>
+
+        <!-- The quadrants -->
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-muted mb-3">Step 2 — Read the quadrant recommendation</p>
+          <p class="text-xs text-muted mb-3">
+            Quadrant is determined by just two factors: <strong class="text-ink">estimated value</strong> vs <strong class="text-ink">complexity</strong>.
+            The threshold is <strong class="text-ink">RM 50,000</strong> for value and <strong class="text-ink">3</strong> for complexity.
+          </p>
+          <div class="grid grid-cols-2 gap-2">
+            <div class="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4">
+              <p class="text-xs font-bold text-yellow-400 mb-1">GOLD</p>
+              <p class="text-[11px] text-muted">High value (RM 50k+) · Low complexity (≤ 3)</p>
+              <p class="text-[11px] text-muted mt-1">The ideal project — good fee, manageable effort. Prioritise these.</p>
+            </div>
+            <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4">
+              <p class="text-xs font-bold text-emerald-400 mb-1">STRATEGIC BET</p>
+              <p class="text-[11px] text-muted">High value (RM 50k+) · High complexity (4–5)</p>
+              <p class="text-[11px] text-muted mt-1">Worth doing — big fee justifies the effort. Needs strong resourcing.</p>
+            </div>
+            <div class="bg-sky-500/10 border border-sky-500/30 rounded-lg p-4">
+              <p class="text-xs font-bold text-sky-400 mb-1">OP. FILLER</p>
+              <p class="text-[11px] text-muted">Low value (&lt; RM 50k) · Low complexity (≤ 3)</p>
+              <p class="text-[11px] text-muted mt-1">Fills studio capacity but don't prioritise over Gold or Strategic Bet.</p>
+            </div>
+            <div class="bg-warm/10 border border-warm/30 rounded-lg p-4">
+              <p class="text-xs font-bold text-warm mb-1">DRAIN</p>
+              <p class="text-[11px] text-muted">Low value (&lt; RM 50k) · High complexity (4–5)</p>
+              <p class="text-[11px] text-muted mt-1">Costs more than it returns. Requires exec + producer dual sign-off before proceeding.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Priority -->
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-muted mb-3">Step 3 — Read the priority recommendation</p>
+          <p class="text-xs text-muted mb-3">Priority is derived from the <strong class="text-ink">weighted score (0–100)</strong>, which combines all four inputs.</p>
+          <div class="bg-panel2 border border-line rounded-lg overflow-hidden">
+            <table class="w-full text-xs">
+              <thead>
+                <tr class="border-b border-line bg-panel">
+                  <th class="text-left px-4 py-2.5 text-muted font-medium">Score range</th>
+                  <th class="text-left px-4 py-2.5 text-muted font-medium">Priority</th>
+                  <th class="text-left px-4 py-2.5 text-muted font-medium">Meaning</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-line/40">
+                <tr>
+                  <td class="px-4 py-3 font-mono text-ink">70 – 100</td>
+                  <td class="px-4 py-3 font-bold text-warm">P1 — High</td>
+                  <td class="px-4 py-3 text-muted">Top of the queue. Capacity should be allocated here first.</td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-3 font-mono text-ink">40 – 69</td>
+                  <td class="px-4 py-3 font-bold text-accent">P2 — Medium</td>
+                  <td class="px-4 py-3 text-muted">Normal priority — schedule alongside other P2 work.</td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-3 font-mono text-ink">0 – 39</td>
+                  <td class="px-4 py-3 font-semibold text-muted">P3 — Low</td>
+                  <td class="px-4 py-3 text-muted">Fill-in work. Schedule when capacity allows.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Applying the suggestion -->
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-muted mb-3">Step 4 — Apply or override</p>
+          <div class="space-y-3">
+            <div class="flex gap-3">
+              <div class="w-2 h-2 rounded-full bg-accent mt-1.5 shrink-0"></div>
+              <p class="text-xs text-muted">Click <strong class="text-ink">"Apply suggestion →"</strong> to set both the quadrant and priority to the recommended values in one click. This saves immediately — no separate save button.</p>
+            </div>
+            <div class="flex gap-3">
+              <div class="w-2 h-2 rounded-full bg-accent mt-1.5 shrink-0"></div>
+              <p class="text-xs text-muted">You can always <strong class="text-ink">override</strong> the recommendation — use the Quadrant and Priority dropdowns in the project fields to set them manually. The producer owns this decision.</p>
+            </div>
+            <div class="flex gap-3">
+              <div class="w-2 h-2 rounded-full bg-accent mt-1.5 shrink-0"></div>
+              <p class="text-xs text-muted">If the recommendation already matches what's set, you'll see <strong class="text-ink">"✓ Quadrant and priority already match"</strong> — nothing to do.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Two recommendations side by side -->
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-muted mb-3">Two recommendations — what's the difference?</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+
+            <div class="bg-panel2 border border-accent/30 rounded-xl p-4 space-y-3">
+              <div class="flex items-center gap-2">
+                <p class="text-xs font-bold text-ink">PPM Recommendation</p>
+                <span class="text-[10px] bg-panel border border-line text-muted px-2 py-0.5 rounded-full">rule-based</span>
+              </div>
+              <p class="text-xs text-muted leading-relaxed">Runs a <strong class="text-ink">fixed formula</strong> on your four inputs every time. Same inputs always give the same answer — no history, no learning.</p>
+              <ul class="space-y-1.5 text-xs text-muted">
+                <li class="flex gap-2"><span class="text-accent shrink-0">·</span><span>Quadrant from two hard thresholds: value ≥ RM 50k and complexity ≤ 3</span></li>
+                <li class="flex gap-2"><span class="text-accent shrink-0">·</span><span>Priority from the weighted score (value 40 %, tier 25 %, margin 20 %, complexity 15 %)</span></li>
+                <li class="flex gap-2"><span class="text-accent shrink-0">·</span><span>Available immediately — works even on the very first project</span></li>
+              </ul>
+            </div>
+
+            <div class="bg-panel2 border border-emerald-500/30 rounded-xl p-4 space-y-3">
+              <div class="flex items-center gap-2">
+                <p class="text-xs font-bold text-ink">AI Recommendation</p>
+                <span class="text-[10px] bg-panel border border-line text-muted px-2 py-0.5 rounded-full">learns over time</span>
+              </div>
+              <p class="text-xs text-muted leading-relaxed">Looks at <strong class="text-ink">past producer decisions</strong>. Finds the 5 most similar past projects and asks: <em class="text-ink">"What did the producer actually set on those?"</em> That answer becomes the suggestion.</p>
+              <ul class="space-y-1.5 text-xs text-muted">
+                <li class="flex gap-2"><span class="text-emerald-400 shrink-0">·</span><span>Needs at least 3 projects with PPM data before it activates</span></li>
+                <li class="flex gap-2"><span class="text-emerald-400 shrink-0">·</span><span>Gets more accurate as the project library grows</span></li>
+                <li class="flex gap-2"><span class="text-emerald-400 shrink-0">·</span><span>Learns from final decisions, not the formula — captures studio-specific patterns the formula can't know</span></li>
+              </ul>
+            </div>
+
+          </div>
+
+          <!-- When they disagree -->
+          <div class="bg-yellow-500/5 border border-yellow-500/20 rounded-lg p-4 space-y-2">
+            <p class="text-xs font-semibold text-yellow-400">When the two recommendations disagree — pay attention</p>
+            <p class="text-xs text-muted leading-relaxed">A disagreement is a signal, not a bug. Examples of what it can mean:</p>
+            <div class="space-y-1.5 mt-1">
+              <div class="flex gap-2 text-xs text-muted"><span class="text-yellow-400 shrink-0">→</span><span>Formula says <strong class="text-ink">GOLD</strong>, AI says <strong class="text-ink">STRATEGIC BET</strong> — your team historically treats this type of project as harder than the complexity score suggests.</span></div>
+              <div class="flex gap-2 text-xs text-muted"><span class="text-yellow-400 shrink-0">→</span><span>Formula says <strong class="text-ink">P1</strong>, AI says <strong class="text-ink">P2</strong> — similar projects have been deprioritised in practice, possibly because the client is high-maintenance or delivery risk is higher than the numbers show.</span></div>
+            </div>
+            <p class="text-xs text-muted/70 italic mt-1">Rule: trust the formula when you have few projects. Trust the AI more as the library grows, especially when it disagrees — that disagreement often reflects real knowledge the formula doesn't have.</p>
+          </div>
+
+          <!-- AI internals -->
+          <div class="mt-3 space-y-3">
+            <div class="flex gap-3">
+              <div class="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 shrink-0"></div>
+              <div>
+                <p class="text-xs font-semibold text-ink">Confidence levels</p>
+                <div class="mt-1.5 space-y-1">
+                  <div class="flex items-center gap-2 text-xs"><span class="text-emerald-400 font-semibold w-14">HIGH</span><span class="text-muted">A very close match was found (&gt; 85% similar). Trust this recommendation.</span></div>
+                  <div class="flex items-center gap-2 text-xs"><span class="text-yellow-400 font-semibold w-14">MEDIUM</span><span class="text-muted">Reasonably similar projects found (60–85%). Good guidance but use judgement.</span></div>
+                  <div class="flex items-center gap-2 text-xs"><span class="text-warm font-semibold w-14">LOW</span><span class="text-muted">No close match found (&lt; 60%). Treat as weak signal — rely on rule-based instead.</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="flex gap-3">
+              <div class="w-2 h-2 rounded-full bg-emerald-400 mt-1.5 shrink-0"></div>
+              <div>
+                <p class="text-xs font-semibold text-ink">Privacy</p>
+                <p class="text-xs text-muted mt-0.5">All learning happens entirely within Pop OS using your own project data. No data is sent to any external service.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Drain gate -->
+        <div class="bg-warm/5 border border-warm/30 rounded-lg p-4">
+          <p class="text-xs font-semibold text-warm mb-2">Drain gate — special approval required</p>
+          <p class="text-xs text-muted leading-relaxed">
+            When a project is classified as <strong class="text-warm">DRAIN</strong> (low value, high complexity), it requires two explicit approvals before production begins:
+            an <strong class="text-ink">executive sign-off</strong> and a <strong class="text-ink">producer sign-off</strong>.
+            These appear as checkboxes on the project detail page when the quadrant is set to DRAIN.
+            Both boxes must be checked before work can be considered sanctioned.
+            If the AI or rule-based engine recommends DRAIN, take it seriously — this project is likely to cost more than it earns.
+          </p>
+        </div>
+
+      </div>
+      <a href="#toc" class="block mt-3 text-[11px] text-muted/50 hover:text-muted no-print text-right">↑ Back to contents</a>
     </section>
 
     <!-- Tips -->
-    <section>
+    <section id="tips">
       <div class="flex items-center gap-3 mb-4">
-        <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">7</span>
+        <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">8</span>
         <h2 class="text-lg font-semibold text-ink">Quick Tips</h2>
       </div>
       <div class="bg-panel border border-line rounded-xl p-6">
