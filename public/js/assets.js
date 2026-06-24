@@ -23,16 +23,16 @@ const STAGE_ORDER = ['BRIEF', 'WIP', 'INTERNAL_REVIEW', 'REVISION', 'FINAL_DELIV
 
 // ── project selector (shared between add form and filter) ─────
 
-let _allProjects = [];
-let _allPeople   = [];
+let _assetProjects = [];
+let _assetPeople   = [];
 
 async function loadAssetProjects() {
-  [_allProjects, _allPeople] = await Promise.all([
+  [_assetProjects, _assetPeople] = await Promise.all([
     fetch('/api/projects').then(r => r.json()).catch(() => []),
     fetch('/api/people').then(r => r.json()).catch(() => []),
   ]);
-  const active      = _allProjects.filter(p => !['DELIVERED', 'CANCELLED'].includes(p.status));
-  const activePeople = _allPeople.filter(p => !p.warmPool)
+  const active      = _assetProjects.filter(p => !['DELIVERED', 'CANCELLED'].includes(p.status));
+  const activePeople = _assetPeople.filter(p => !p.warmPool)
                                   .sort((a, b) => a.name.localeCompare(b.name));
 
   // Add form project selector
@@ -54,7 +54,7 @@ async function loadAssetProjects() {
   const filterSel = $('asset-filter-project');
   if (filterSel) {
     filterSel.innerHTML = '<option value="">All projects</option>' +
-      _allProjects.sort((a, b) => a.name.localeCompare(b.name))
+      _assetProjects.sort((a, b) => a.name.localeCompare(b.name))
                   .map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
   }
 }
@@ -185,8 +185,8 @@ function renderAssetCard(a) {
       </div>`
     : `<div id="cd-row-${a.id}" class="hidden"></div>`;
 
-  // Assignee dropdown — populated from the already-loaded _allPeople list
-  const peopleSel = [{ id: '', name: '— unassigned —' }, ..._allPeople.filter(p => !p.warmPool)]
+  // Assignee dropdown — populated from the already-loaded _assetPeople list
+  const peopleSel = [{ id: '', name: '— unassigned —' }, ..._assetPeople.filter(p => !p.warmPool)]
     .map(p => `<option value="${p.id}"${a.assignedTo?.id === p.id ? ' selected' : ''}>${esc(p.name)}</option>`)
     .join('');
 
