@@ -1,8 +1,9 @@
 // The SERVICE holds the logic: it talks to the database via Prisma.
 // (The controller, next file, handles the web requests and calls these.)
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma.service';
-import { CreatePersonDto, UpdatePersonDto } from './person.dto';
+import { CreatePersonDto, UpdatePersonDto, CreateOnboardDto } from './person.dto';
 
 @Injectable()
 export class PeopleService {
@@ -65,5 +66,43 @@ export class PeopleService {
   async remove(id: string) {
     await this.findOne(id);
     return this.prisma.person.delete({ where: { id } });
+  }
+
+  // New Joiner: create Person + User in a single transaction.
+  // If either fails (e.g. duplicate email), both are rolled back — no orphans.
+  async onboard(dto: CreateOnboardDto) {
+    const existing = await this.prisma.user.findUnique({
+      where: { email: dto.email.toLowerCase() },
+    });
+    if (existing) throw new ConflictException('Email already in use');
+
+    const hash = await bcrypt.hash(dto.password, 12);
+
+    return this.prisma.$transaction(async (tx) => {
+      const person = await tx.person.create({
+        data: {
+          name: dto.name,
+          role: dto.role,
+          department: dto.department,
+          startDate: new Date(dto.startDate),
+          employmentType: dto.employmentType ?? 'FULL_TIME',
+          warmPool: false,
+          company: dto.company ?? null,
+          salary: dto.salary ?? null,
+        },
+      });
+
+      await tx.user.create({
+        data: {
+          name: dto.name,
+          email: dto.email.toLowerCase(),
+          password: hash,
+          role: dto.systemRole as any,
+          personId: person.id,
+        },
+      });
+
+      return person;
+    });
   }
 }

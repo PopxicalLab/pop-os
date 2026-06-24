@@ -98,8 +98,12 @@
             <span class="w-5 h-5 rounded-full bg-panel2 border border-line text-[10px] font-bold text-accent flex items-center justify-center shrink-0 group-hover:border-accent/50">7</span>
             PPM — Project Priority Matrix
           </a>
-          <a href="#tips" class="flex items-center gap-2 text-sm text-muted hover:text-ink transition-colors group">
+          <a href="#staffing" class="flex items-center gap-2 text-sm text-muted hover:text-ink transition-colors group">
             <span class="w-5 h-5 rounded-full bg-panel2 border border-line text-[10px] font-bold text-accent flex items-center justify-center shrink-0 group-hover:border-accent/50">8</span>
+            Staffing Suggestions
+          </a>
+          <a href="#tips" class="flex items-center gap-2 text-sm text-muted hover:text-ink transition-colors group">
+            <span class="w-5 h-5 rounded-full bg-panel2 border border-line text-[10px] font-bold text-accent flex items-center justify-center shrink-0 group-hover:border-accent/50">9</span>
             Quick Tips
           </a>
         </div>
@@ -724,10 +728,105 @@
       <a href="#toc" class="block mt-3 text-[11px] text-muted/50 hover:text-muted no-print text-right">↑ Back to contents</a>
     </section>
 
+    <!-- Step 8: Staffing Suggestions -->
+    <section id="staffing">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">8</span>
+        <h2 class="text-lg font-semibold text-ink">Staffing Suggestions</h2>
+      </div>
+      <div class="bg-panel border border-line rounded-xl p-6 space-y-5">
+
+        <p class="text-muted text-sm leading-relaxed">
+          When a project is confirmed, the producer can tag the <strong class="text-ink">skills it needs</strong>
+          directly on the project detail page. Pop OS then ranks every studio staff member
+          by how well they match — combining skill level with available capacity during the project window.
+        </p>
+
+        <!-- How to use -->
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-muted mb-3">How it works — step by step</p>
+          <div class="space-y-3">
+            <div class="flex gap-3">
+              <span class="w-5 h-5 rounded-full bg-accent/20 border border-accent/40 text-accent text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
+              <div>
+                <p class="text-xs font-semibold text-ink">Open the project detail page</p>
+                <p class="text-xs text-muted mt-0.5">Click any project name from the List, Kanban, or Timeline view, or from the Dashboard.</p>
+              </div>
+            </div>
+            <div class="flex gap-3">
+              <span class="w-5 h-5 rounded-full bg-accent/20 border border-accent/40 text-accent text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
+              <div>
+                <p class="text-xs font-semibold text-ink">Tag required skills</p>
+                <p class="text-xs text-muted mt-0.5">In the <strong class="text-ink">Required Skills</strong> section, use the dropdown to add each skill the project needs (e.g. Rigging, Animation, Compositing). Skills are drawn from the master skill list managed in the People tab. Click × on a chip to remove a skill.</p>
+              </div>
+            </div>
+            <div class="flex gap-3">
+              <span class="w-5 h-5 rounded-full bg-accent/20 border border-accent/40 text-accent text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
+              <div>
+                <p class="text-xs font-semibold text-ink">Read the Suggested Staff panel</p>
+                <p class="text-xs text-muted mt-0.5">The <strong class="text-ink">Suggested Staff</strong> section appears automatically. It shows up to 5 ranked candidates per skill, with a score (0–100), their skill rating (dots), and their free capacity percentage during the project window.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scoring -->
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-muted mb-3">How candidates are scored</p>
+          <div class="bg-panel2 border border-line rounded-lg overflow-hidden">
+            <table class="w-full text-xs">
+              <thead>
+                <tr class="border-b border-line bg-panel">
+                  <th class="text-left px-4 py-2.5 text-muted font-medium">Factor</th>
+                  <th class="text-left px-4 py-2.5 text-muted font-medium">What it measures</th>
+                  <th class="text-right px-4 py-2.5 text-muted font-medium">Weight</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-line/40">
+                <tr>
+                  <td class="px-4 py-3 font-semibold text-ink">Skill rating</td>
+                  <td class="px-4 py-3 text-muted">The person's current rating for that skill (1–5), as recorded in the People tab. Higher is better.</td>
+                  <td class="px-4 py-3 text-right font-bold text-accent">60%</td>
+                </tr>
+                <tr>
+                  <td class="px-4 py-3 font-semibold text-ink">Free capacity</td>
+                  <td class="px-4 py-3 text-muted">How much of their weekly capacity is unallocated during the project's start–deadline window. Green = 70 %+ free, yellow = 40–70 %, red = under 40 %.</td>
+                  <td class="px-4 py-3 text-right font-bold text-accent">40%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="text-xs text-muted mt-2">Score 0–100. A score of 100 means the person has a perfect skill rating (5/5) and is completely unallocated during the project period.</p>
+        </div>
+
+        <!-- Practical notes -->
+        <div class="space-y-3">
+          <div class="flex gap-3">
+            <div class="w-2 h-2 rounded-full bg-accent mt-1.5 shrink-0"></div>
+            <p class="text-xs text-muted">Suggestions are <strong class="text-ink">per skill</strong> — a 3D Animation project might need Rigging, Animation, and Compositing, and each skill gets its own ranked list.</p>
+          </div>
+          <div class="flex gap-3">
+            <div class="w-2 h-2 rounded-full bg-accent mt-1.5 shrink-0"></div>
+            <p class="text-xs text-muted">The system ranks staff who are <strong class="text-ink">not in the Warm Pool</strong> — i.e., active full-time, contract, or intern staff only.</p>
+          </div>
+          <div class="flex gap-3">
+            <div class="w-2 h-2 rounded-full bg-accent mt-1.5 shrink-0"></div>
+            <p class="text-xs text-muted">Suggestions are a <strong class="text-ink">starting point</strong>, not a final decision. The producer still decides who to assign. Use the Capacity tab to make the actual allocation once you've chosen.</p>
+          </div>
+          <div class="flex gap-3">
+            <div class="w-2 h-2 rounded-full bg-accent mt-1.5 shrink-0"></div>
+            <p class="text-xs text-muted">If a skill doesn't appear in the dropdown, it hasn't been added to the master list yet. Go to <strong class="text-ink">People tab → Skills</strong> to add it, then come back and tag the project.</p>
+          </div>
+        </div>
+
+      </div>
+      <a href="#toc" class="block mt-3 text-[11px] text-muted/50 hover:text-muted no-print text-right">↑ Back to contents</a>
+    </section>
+
     <!-- Tips -->
     <section id="tips">
       <div class="flex items-center gap-3 mb-4">
-        <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">8</span>
+        <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">9</span>
         <h2 class="text-lg font-semibold text-ink">Quick Tips</h2>
       </div>
       <div class="bg-panel border border-line rounded-xl p-6">
@@ -755,6 +854,10 @@
           <div class="flex gap-2">
             <span class="text-accent shrink-0">→</span>
             <p class="text-muted">Click any project name in the Projects tab for a full detail view: PPM recommendation, assets, cost breakdown, and accounting documents.</p>
+          </div>
+          <div class="flex gap-2">
+            <span class="text-accent shrink-0">→</span>
+            <p class="text-muted">Tag <strong class="text-ink">Required Skills</strong> on a project as soon as it's confirmed — the system immediately shows who's best placed to work on it, balancing skill level with available capacity.</p>
           </div>
           <div class="flex gap-2">
             <span class="text-accent shrink-0">→</span>

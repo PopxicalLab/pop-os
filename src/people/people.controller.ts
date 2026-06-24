@@ -17,7 +17,7 @@ import {
   Body,
 } from '@nestjs/common';
 import { PeopleService } from './people.service';
-import { CreatePersonDto, UpdatePersonDto } from './person.dto';
+import { CreatePersonDto, UpdatePersonDto, CreateOnboardDto } from './person.dto';
 
 @Controller('api/people')
 export class PeopleController {
@@ -36,6 +36,12 @@ export class PeopleController {
   @Post()
   create(@Body() dto: CreatePersonDto) {
     return this.people.create(dto);
+  }
+
+  // POST /api/people/onboard — creates Person + User in one step
+  @Post('onboard')
+  onboard(@Body() dto: CreateOnboardDto) {
+    return this.people.onboard(dto);
   }
 
   @Patch(':id')

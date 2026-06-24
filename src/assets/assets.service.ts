@@ -12,10 +12,13 @@ const WITH_PROJECT = {
 export class AssetsService {
   constructor(private prisma: PrismaService) {}
 
-  // List all assets, optionally filtered to one project.
-  findAll(projectId?: string) {
+  // List all assets, optionally filtered to one project or one assignee (STAFF).
+  findAll(projectId?: string, assignedToId?: string) {
+    const where: any = {};
+    if (projectId)    where.projectId    = projectId;
+    if (assignedToId) where.assignedToId = assignedToId;
     return this.prisma.asset.findMany({
-      where:   projectId ? { projectId } : undefined,
+      where:   Object.keys(where).length ? where : undefined,
       include: WITH_PROJECT,
       orderBy: [{ projectId: 'asc' }, { createdAt: 'asc' }],
     });

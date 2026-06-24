@@ -346,6 +346,7 @@ async function showProjectDetail(id) {
     document.getElementById(`p-${v}-view`)?.classList.add('hidden')
   );
   $('p-detail-view').classList.remove('hidden');
+  msg($('p-detail-msg'), '', '');
   const backLabels = { list: 'All projects', kanban: 'Kanban board', timeline: 'Timeline' };
   const backEl = $('p-back-label');
   if (backEl) backEl.textContent = backLabels[_prevProjView] || 'All projects';
@@ -447,16 +448,40 @@ async function showProjectDetail(id) {
 
     <div class="mt-5 pb-5 border-b border-line">
       <div class="flex items-center justify-between mb-2">
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted">Required Skills</p>
+        <span class="text-[11px] text-muted/50">Tag skills this project needs → system suggests best-matched staff</span>
+      </div>
+      <div id="proj-skills-${p.id}">Loading…</div>
+    </div>
+
+    <div class="mt-5 pb-5 border-b border-line">
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted">Suggested Staff</p>
+        <button onclick="loadStaffSuggestions('${p.id}')"
+          class="text-[11px] text-accent hover:underline cursor-pointer">Refresh ↻</button>
+      </div>
+      <div id="proj-suggestions-${p.id}"
+        data-proj-start="${p.startDate ? new Date(p.startDate).toISOString().split('T')[0] : ''}"
+        data-proj-name="${esc(p.name)}"
+        class="text-xs text-muted">Add required skills above to generate suggestions.</div>
+    </div>
+
+    <div class="mt-5 pb-5 border-b border-line">
+      <div class="flex items-center justify-between mb-2">
         <p class="text-[11px] font-semibold uppercase tracking-widest text-muted">Assets</p>
-        <button onclick="switchTab('assets')"
+        <button onclick="_assetPendingProjectId='${p.id}'; switchTab('assets');"
           class="text-[11px] text-accent hover:underline cursor-pointer">Manage in Assets tab →</button>
       </div>
       <div id="proj-assets-${p.id}" class="text-xs text-muted">Loading…</div>
     </div>
 
     <div class="mt-5 pb-5 border-b border-line">
-      <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-2">Capacity</p>
-      <p class="text-xs text-muted">Coming soon — team allocations by week will appear here.</p>
+      <div class="flex items-center justify-between mb-2">
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted">Capacity</p>
+        <button onclick="_capPendingProjectName='${esc(p.name)}'; switchTab('capacity');"
+          class="text-[11px] text-accent hover:underline cursor-pointer">Manage in Capacity tab →</button>
+      </div>
+      <div id="proj-capacity-${p.id}" class="text-xs text-muted">Loading…</div>
     </div>
 
     <div class="mt-5 pb-5 border-b border-line">
@@ -507,10 +532,15 @@ async function showProjectDetail(id) {
 
   // Wire up all change/blur handlers — PATCH the project on every edit.
   const patch = async (data) => {
-    await fetch(`/api/projects/${id}`, {
+    const res = await fetch(`/api/projects/${id}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
+    if (!res.ok) {
+      const e = await res.json().catch(() => ({}));
+      return [].concat(e.message || 'Save failed').join(', ');
+    }
+    return null; // null = success
   };
 
   // Select elements — patch immediately on change.
@@ -519,7 +549,22 @@ async function showProjectDetail(id) {
     if (!el) return;
     el.onchange = () => patch({ [field]: el.value || null });
   };
-  wireSel(`detail-status-${id}`,   'status');
+
+  // Status needs error handling — server rejects DELIVERED when assets are incomplete.
+  const statusEl = document.getElementById(`detail-status-${id}`);
+  if (statusEl) {
+    statusEl.onchange = async () => {
+      const chosen = statusEl.value;
+      const err = await patch({ status: chosen });
+      if (err) {
+        statusEl.value = p.status; // revert dropdown
+        msg($('p-detail-msg'), err, 'err');
+      } else {
+        p.status = chosen; // keep local copy in sync
+        msg($('p-detail-msg'), '', '');
+      }
+    };
+  }
   wireSel(`detail-company-${id}`,  'company');
   wireSel(`detail-producer-${id}`, 'producerId');
   wireSel(`detail-pm-${id}`,       'pmId');
@@ -589,7 +634,9 @@ async function showProjectDetail(id) {
   refreshPpmSuggestion(id);
   scheduleAiFetch(id);
 
-  // Load assets, costs, and accounting docs asynchronously.
+  // Load async sections.
+  loadProjectSkills(id);
+  loadProjectCapacity(id);
   loadProjectAssets(id);
   loadProjectCosts(id);
   loadProjectDocs(id);
@@ -619,6 +666,51 @@ async function loadProjectAssets(projectId) {
       ${cdBadge}
     </div>`;
   }).join('');
+}
+
+async function loadProjectCapacity(projectId) {
+  const el = document.getElementById('proj-capacity-' + projectId);
+  if (!el) return;
+
+  const entries = await fetch('/api/capacity?projectId=' + projectId).then(r => r.json()).catch(() => null);
+  if (!entries || !entries.length) {
+    el.innerHTML = '<span class="text-muted">No allocations yet — use Suggested Staff above or the Capacity tab to add people.</span>';
+    return;
+  }
+
+  const fmt = iso => new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const ROLE_CLS = { MAIN: 'text-accent', SUPPORT: 'text-muted' };
+
+  el.innerHTML = `<table class="w-full text-[11px]">
+    <thead><tr class="text-muted border-b border-line">
+      <th class="text-left pb-1.5 font-medium">Week</th>
+      <th class="text-left pb-1.5 font-medium">Person</th>
+      <th class="text-left pb-1.5 font-medium">Role</th>
+      <th class="text-right pb-1.5 font-medium">%</th>
+      <th class="pb-1.5"></th>
+    </tr></thead>
+    <tbody>
+      ${entries.map(e => `
+        <tr class="border-b border-line/40 last:border-0" id="cap-row-${e.id}">
+          <td class="py-1.5 pr-3 text-muted">${fmt(e.weekStart)}</td>
+          <td class="py-1.5 pr-3 text-ink font-medium">${esc(e.person.name)}</td>
+          <td class="py-1.5 pr-3">
+            <span class="text-[10px] font-semibold ${ROLE_CLS[e.role] || 'text-muted'}">${e.role}</span>
+          </td>
+          <td class="py-1.5 text-right font-semibold text-ink pr-3">${e.pctWeek}%</td>
+          <td class="py-1.5">
+            <button onclick="removeProjectCapacity('${e.id}','${projectId}')"
+              class="text-[10px] text-warm hover:underline cursor-pointer">Remove</button>
+          </td>
+        </tr>`).join('')}
+    </tbody>
+  </table>`;
+}
+
+async function removeProjectCapacity(entryId, projectId) {
+  if (!confirm('Remove this allocation?')) return;
+  await fetch('/api/capacity/' + entryId, { method: 'DELETE' });
+  loadProjectCapacity(projectId);
 }
 
 const PROJ_COST_LABEL = { WARM_POOL: 'Warm pool', SUPPLIER: 'Supplier', ADDITIONAL: 'Additional' };
@@ -685,6 +777,274 @@ async function removeProjectCost(costId, projectId) {
   if (!confirm('Remove this cost entry?')) return;
   await fetch('/api/project-costs/' + costId, { method: 'DELETE' });
   loadProjectCosts(projectId);
+}
+
+// ── Required skills + staffing suggestions ────────────────────────
+
+let _allSkillsCache = null; // fetched once per session
+
+async function loadProjectSkills(projectId) {
+  const el = document.getElementById('proj-skills-' + projectId);
+  if (!el) return;
+
+  // Fetch required skills for this project and the master skills list in parallel.
+  if (!_allSkillsCache) {
+    _allSkillsCache = await fetch('/api/projects/all-skills').then(r => r.json()).catch(() => []);
+  }
+  const [required] = await Promise.all([
+    fetch(`/api/projects/${projectId}/skills`).then(r => r.json()).catch(() => []),
+  ]);
+
+  const requiredIds = new Set(required.map(ps => ps.skillId));
+  const available   = _allSkillsCache.filter(s => !requiredIds.has(s.id));
+
+  // Skill chips (existing required skills)
+  const chips = required.length
+    ? required.map(ps => `
+        <span class="inline-flex items-center gap-1.5 bg-accent/15 border border-accent/30 text-accent
+                     text-[11px] px-2.5 py-1 rounded-full">
+          ${esc(ps.skill.name)}
+          <button onclick="removeProjectSkill('${projectId}','${ps.skillId}')"
+            class="text-accent/60 hover:text-warm transition-colors leading-none cursor-pointer font-bold">×</button>
+        </span>`).join('')
+    : `<span class="text-[11px] text-muted/60 italic">No skills tagged yet.</span>`;
+
+  // Add skill picker (only shows skills not already tagged)
+  const pickerOpts = available.length
+    ? available.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')
+    : '';
+
+  el.innerHTML = `
+    <div class="flex flex-wrap gap-1.5 mb-2">${chips}</div>
+    ${available.length ? `
+    <div class="flex items-center gap-2 mt-2">
+      <select id="skill-pick-${projectId}"
+        class="bg-panel2 border border-line text-ink text-xs px-2 py-1 rounded-md
+               focus:outline-none focus:border-accent/60 cursor-pointer">
+        <option value="">+ Add required skill…</option>
+        ${pickerOpts}
+      </select>
+    </div>` : ''}`;
+
+  const sel = document.getElementById('skill-pick-' + projectId);
+  if (sel) {
+    sel.onchange = async () => {
+      const skillId = sel.value;
+      if (!skillId) return;
+      await fetch(`/api/projects/${projectId}/skills/${skillId}`, { method: 'POST' });
+      sel.value = '';
+      loadProjectSkills(projectId);      // re-render chips
+      loadStaffSuggestions(projectId);   // refresh suggestions
+    };
+  }
+
+  // Auto-load suggestions whenever skills change
+  if (required.length) loadStaffSuggestions(projectId);
+}
+
+async function removeProjectSkill(projectId, skillId) {
+  await fetch(`/api/projects/${projectId}/skills/${skillId}`, { method: 'DELETE' });
+  loadProjectSkills(projectId);
+  loadStaffSuggestions(projectId);
+}
+
+async function loadStaffSuggestions(projectId) {
+  const el = document.getElementById('proj-suggestions-' + projectId);
+  if (!el) return;
+  el.innerHTML = '<span class="text-muted/60 italic text-[11px]">Calculating…</span>';
+
+  const suggestions = await fetch(`/api/projects/${projectId}/staff-suggestions`)
+    .then(r => r.json()).catch(() => null);
+
+  if (!suggestions || !suggestions.length) {
+    el.innerHTML = '<span class="text-muted">Add required skills above to generate suggestions.</span>';
+    return;
+  }
+
+  // Default week = project start date (or next Monday if in the past / not set)
+  const projStart = el.dataset.projStart || '';
+  const defaultWeek = (() => {
+    const candidate = projStart ? new Date(projStart) : new Date();
+    const today     = new Date();
+    const base      = candidate > today ? candidate : today;
+    const day       = base.getDay();
+    const diff      = day === 0 ? 1 : day === 1 ? 0 : 8 - day;
+    base.setDate(base.getDate() + diff);
+    return base.toISOString().split('T')[0];
+  })();
+
+  el.innerHTML = suggestions.map(sg => {
+    const candidateRows = sg.candidates.length
+      ? sg.candidates.map((c, i) => {
+          const uid        = `${projectId}-${c.person.id}`;
+          const ratingDots = Array.from({ length: 5 }, (_, di) =>
+            `<span class="w-1.5 h-1.5 rounded-full inline-block ${di < c.skillRating ? 'bg-accent' : 'bg-line'}"></span>`
+          ).join('');
+          const capCls = c.freeCapacityPct >= 70 ? 'text-emerald-400'
+                       : c.freeCapacityPct >= 40 ? 'text-yellow-400'
+                       : 'text-warm';
+          const rank = ['🥇','🥈','🥉','4.','5.'][i] || '';
+          return `
+            <div class="border-b border-line/40 last:border-0">
+              <div class="flex items-center gap-3 py-1.5">
+                <span class="text-[11px] w-5 shrink-0 text-center">${rank}</span>
+                <div class="flex-1 min-w-0">
+                  <p class="text-xs font-semibold text-ink truncate">${esc(c.person.name)}</p>
+                  <p class="text-[11px] text-muted truncate">${esc(c.person.role)}${c.person.department ? ` · ${esc(c.person.department)}` : ''}</p>
+                </div>
+                <div class="flex items-center gap-1 shrink-0">${ratingDots}</div>
+                <div class="text-right shrink-0 mr-1">
+                  <p class="text-[11px] ${capCls} font-semibold">${c.freeCapacityPct}% free</p>
+                  <p class="text-[10px] text-muted">score ${c.score}</p>
+                </div>
+                <button data-alloc-toggle="${uid}"
+                  class="shrink-0 text-[11px] bg-accent/10 border border-accent/30 text-accent
+                         px-2 py-0.5 rounded-lg hover:bg-accent/20 transition-colors cursor-pointer">
+                  + Allocate
+                </button>
+              </div>
+              <!-- Quick-allocate form (hidden until button clicked) -->
+              <div id="alloc-form-${uid}" class="hidden bg-panel border border-accent/20 rounded-lg px-3 py-2.5 mb-2 ml-8">
+                <p class="text-[10px] text-muted font-semibold uppercase tracking-wider mb-2">
+                  Allocate ${esc(c.person.name)} → ${esc(sg.skill.name)}
+                </p>
+                <div class="flex flex-wrap gap-2 items-end">
+                  <div class="flex flex-col gap-1">
+                    <label class="text-[10px] text-muted uppercase tracking-wider">Week starting</label>
+                    <input type="date" id="alloc-week-${uid}" value="${defaultWeek}"
+                      class="bg-panel2 border border-line text-ink text-xs px-2 py-1 rounded-md
+                             focus:outline-none focus:border-accent/60 cursor-pointer" />
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <label class="text-[10px] text-muted uppercase tracking-wider">Role</label>
+                    <select id="alloc-role-${uid}"
+                      class="bg-panel2 border border-line text-ink text-xs px-2 py-1 rounded-md
+                             focus:outline-none focus:border-accent/60 cursor-pointer">
+                      <option value="MAIN">Main</option>
+                      <option value="SUPPORT">Support</option>
+                    </select>
+                  </div>
+                  <div class="flex flex-col gap-1">
+                    <label class="text-[10px] text-muted uppercase tracking-wider">% of week</label>
+                    <input type="number" id="alloc-pct-${uid}" value="100" min="1" max="140"
+                      class="bg-panel2 border border-line text-ink text-xs px-2 py-1 rounded-md w-20
+                             focus:outline-none focus:border-accent/60" />
+                  </div>
+                  <button data-alloc-submit="${uid}"
+                    data-person-id="${c.person.id}" data-project-id="${projectId}"
+                    class="text-[11px] bg-accent/15 border border-accent/30 text-accent px-3 py-1.5
+                           rounded-lg hover:bg-accent/25 transition-colors cursor-pointer self-end font-semibold">
+                    Confirm →
+                  </button>
+                </div>
+                <div id="alloc-weekend-row-${uid}" class="hidden mt-2">
+                  <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" id="alloc-weekend-${uid}" class="accent-warm cursor-pointer" />
+                    <span class="text-[11px] text-warm font-semibold">Weekend approved by producer</span>
+                    <span class="text-[11px] text-muted">(required when % &gt; 100)</span>
+                  </label>
+                </div>
+                <div id="alloc-msg-${uid}" class="mt-1.5 text-[11px]"></div>
+              </div>
+            </div>`;
+        }).join('')
+      : `<p class="text-xs text-muted py-2">No staff with this skill found in the system.</p>`;
+
+    return `<div class="mb-4 last:mb-0">
+      <div class="flex items-center gap-2 mb-1.5">
+        <span class="badge bg-accent/15 border-accent/30 text-accent text-[11px]">${esc(sg.skill.name)}</span>
+        <span class="text-[10px] text-muted">${sg.candidates.length} candidate${sg.candidates.length !== 1 ? 's' : ''}</span>
+      </div>
+      <div class="bg-panel2 border border-line rounded-lg px-3 py-1">
+        ${candidateRows}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Wire toggle buttons — show/hide the allocate form
+  el.querySelectorAll('[data-alloc-toggle]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const form = document.getElementById('alloc-form-' + btn.dataset.allocToggle);
+      if (!form) return;
+      const isOpen = !form.classList.contains('hidden');
+      // Close all other open forms first
+      el.querySelectorAll('[id^="alloc-form-"]').forEach(f => f.classList.add('hidden'));
+      el.querySelectorAll('[data-alloc-toggle]').forEach(b => b.textContent = '+ Allocate');
+      if (!isOpen) {
+        form.classList.remove('hidden');
+        btn.textContent = '✕ Cancel';
+      }
+    });
+  });
+
+  // Wire % inputs — show weekend approval row when > 100
+  el.querySelectorAll('[id^="alloc-pct-"]').forEach(pctEl => {
+    const uid         = pctEl.id.replace('alloc-pct-', '');
+    const weekendRow  = document.getElementById(`alloc-weekend-row-${uid}`);
+    pctEl.addEventListener('input', () => {
+      if (!weekendRow) return;
+      const over = parseInt(pctEl.value || '0') > 100;
+      weekendRow.classList.toggle('hidden', !over);
+      if (!over) {
+        const cb = document.getElementById(`alloc-weekend-${uid}`);
+        if (cb) cb.checked = false;
+      }
+    });
+  });
+
+  // Wire confirm buttons
+  el.querySelectorAll('[data-alloc-submit]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const uid            = btn.dataset.allocSubmit;
+      const personId       = btn.dataset.personId;
+      const projectId      = btn.dataset.projectId;
+      const week           = document.getElementById(`alloc-week-${uid}`)?.value;
+      const role           = document.getElementById(`alloc-role-${uid}`)?.value;
+      const pct            = parseInt(document.getElementById(`alloc-pct-${uid}`)?.value || '0');
+      const weekendApproved = document.getElementById(`alloc-weekend-${uid}`)?.checked ?? false;
+      const msgEl          = document.getElementById(`alloc-msg-${uid}`);
+
+      if (!week || !pct || pct < 1) {
+        if (msgEl) { msgEl.textContent = 'Fill in all fields.'; msgEl.className = 'mt-1.5 text-[11px] text-warm'; }
+        return;
+      }
+      if (pct > 100 && !weekendApproved) {
+        if (msgEl) { msgEl.textContent = 'Check "Weekend approved by producer" — % exceeds 100.'; msgEl.className = 'mt-1.5 text-[11px] text-warm'; }
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+
+      const res = await fetch('/api/capacity', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ personId, projectId, weekStart: week, role, pctWeek: pct, weekendApproved }),
+      });
+
+      btn.disabled = false;
+      btn.textContent = 'Confirm →';
+
+      if (res.ok) {
+        if (msgEl) {
+          const projName = el.dataset.projName || '';
+          msgEl.innerHTML = `✓ Allocated — <button onclick="_capPendingProjectName=${JSON.stringify(projName)}; switchTab('capacity');" class="underline cursor-pointer hover:text-emerald-300 transition-colors">View in Capacity tab →</button>`;
+          msgEl.className = 'mt-1.5 text-[11px] text-emerald-400 font-semibold';
+        }
+        loadProjectCapacity(projectId); // refresh capacity section immediately
+        setTimeout(() => {
+          const form = document.getElementById('alloc-form-' + uid);
+          if (form) form.classList.add('hidden');
+          const toggleBtn = el.querySelector(`[data-alloc-toggle="${uid}"]`);
+          if (toggleBtn) toggleBtn.textContent = '+ Allocate';
+          if (msgEl) msgEl.textContent = '';
+        }, 4000);
+      } else {
+        const e = await res.json().catch(() => ({}));
+        const errMsg = [].concat(e.message || 'Failed').join(', ');
+        if (msgEl) { msgEl.textContent = errMsg; msgEl.className = 'mt-1.5 text-[11px] text-warm'; }
+      }
+    });
+  });
 }
 
 async function loadProjectDocs(projectId) {
@@ -856,6 +1216,10 @@ async function loadPpmBadge(projectId) {
 let _allProjects = []; // full cache — filters apply client-side
 
 async function loadProjects() {
+  // STAFF are read-only — hide the add-project sidebar and Remove column
+  const addSidebar = document.querySelector('#tab-projects > div > .space-y-4:first-child > .bg-panel:first-child');
+  if (addSidebar) addSidebar.classList.toggle('hidden', isStaff());
+
   _allProjects = await (await fetch('/api/projects')).json();
   _tlProjects  = _allProjects; // timeline view cache
 
@@ -922,7 +1286,7 @@ function renderProjects() {
       <td data-col="complexity" class="py-3 px-2 whitespace-nowrap">${complexityDots(p.complexityScore)}</td>
       <td data-col="tier"       class="py-3 px-2 text-xs whitespace-nowrap">${p.clientTier ? `<span class="badge bg-panel2 border border-line text-muted">${CLIENT_TIER_LABEL[p.clientTier]}</span>` : '<span class="text-muted">—</span>'}</td>
       <td data-col="margin"     class="py-3 px-2 text-xs whitespace-nowrap">${p.marginTarget != null ? `<span class="text-ink">${p.marginTarget}</span><span class="text-muted">%</span>` : '<span class="text-muted">—</span>'}</td>
-      <td class="py-3 px-2 whitespace-nowrap"><button class="btn-del" data-proj-del="${p.id}">Remove</button></td>`;
+      ${isStaff() ? '' : `<td class="py-3 px-2 whitespace-nowrap"><button class="btn-del" data-proj-del="${p.id}">Remove</button></td>`}`;
     rows.appendChild(tr);
   }
   rows.querySelectorAll('[data-field="status"]').forEach(sel => {
@@ -1019,7 +1383,8 @@ function _tlMonday(offset = 0) {
 }
 
 function switchProjView(view) {
-  _prevProjView = view; // remember for "back" button in detail view
+  _prevProjView = view;
+  $('p-detail-view')?.classList.add('hidden');
   const views = ['list', 'kanban', 'timeline'];
   views.forEach(v => {
     document.getElementById(`p-${v}-view`)?.classList.toggle('hidden', v !== view);

@@ -59,9 +59,13 @@ export const LANE_META: Record<string, {
 export class ProductionService {
   constructor(private prisma: PrismaService) {}
 
-  async getLanes() {
+  async getLanes(personId?: string) {
+    // STAFF only see lanes for projects where they have assigned assets.
+    const where: any = { status: { notIn: ['DELIVERED', 'CANCELLED'] } };
+    if (personId) where.assets = { some: { assignedToId: personId } };
+
     const projects = await this.prisma.project.findMany({
-      where:   { status: { notIn: ['DELIVERED', 'CANCELLED'] } },
+      where,
       include: {
         producer: { select: { id: true, name: true } },
         pm:       { select: { id: true, name: true } },

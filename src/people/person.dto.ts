@@ -10,6 +10,8 @@ import {
   IsBoolean,
   IsOptional,
   IsNumber,
+  IsEmail,
+  MinLength,
   Min,
 } from 'class-validator';
 import { EmploymentType, Company } from '@prisma/client';
@@ -48,6 +50,23 @@ export class CreatePersonDto {
   @Min(0)
   @IsOptional()
   salary?: number; // monthly salary in RM, used for man-day costing
+}
+
+// Onboard = Person + User in one shot. Creates both records in a transaction.
+export class CreateOnboardDto {
+  // Person fields
+  @IsString() @IsNotEmpty() name: string;
+  @IsString() @IsNotEmpty() role: string;
+  @IsString() @IsNotEmpty() department: string;
+  @IsDateString() startDate: string;
+  @IsEnum(EmploymentType) @IsOptional() employmentType?: EmploymentType;
+  @IsEnum(Company) @IsOptional() company?: Company;
+  @IsNumber() @Min(0) @IsOptional() salary?: number;
+
+  // User / login fields
+  @IsEmail() email: string;
+  @IsString() @MinLength(6) password: string;
+  @IsString() @IsNotEmpty() systemRole: string; // e.g. 'PRODUCER', 'PM'
 }
 
 // For updates, every field is optional (you might change just one thing).

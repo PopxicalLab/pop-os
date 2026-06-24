@@ -23,11 +23,12 @@ export class AuthService {
     const valid = await bcrypt.compare(dto.password, user.password);
     if (!valid) throw new UnauthorizedException('Invalid email or password');
 
-    // JWT payload — available on req.user in every guarded controller
-    const payload = { sub: user.id, email: user.email, name: user.name, role: user.role };
+    // JWT payload — available on req.user in every guarded controller.
+    // personId is included so STAFF role can filter data to their own records.
+    const payload = { sub: user.id, email: user.email, name: user.name, role: user.role, personId: user.personId ?? null };
     return {
       token: this.jwt.sign(payload),
-      user: { id: user.id, email: user.email, name: user.name, role: user.role },
+      user: { id: user.id, email: user.email, name: user.name, role: user.role, personId: user.personId ?? null },
     };
   }
 }

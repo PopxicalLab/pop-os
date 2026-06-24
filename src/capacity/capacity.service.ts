@@ -25,17 +25,26 @@ const WITH_DETAILS = {
 export class CapacityService {
   constructor(private prisma: PrismaService) {}
 
-  // Return all allocations for a given week.
-  // If weekStr is omitted, default to the current week.
-  findByWeek(weekStr?: string) {
+  // Return all allocations for a given week (defaults to current week).
+  // Pass personId to restrict results to that person's rows only (STAFF role).
+  findByWeek(weekStr?: string, personId?: string) {
     const weekStart = weekStr ? toMonday(new Date(weekStr)) : toMonday(new Date());
     return this.prisma.capacity.findMany({
-      where: { weekStart },
+      where: { weekStart, ...(personId ? { personId } : {}) },
       include: WITH_DETAILS,
       orderBy: [
         { person: { name: 'asc' } },
         { pctWeek: 'desc' },
       ],
+    });
+  }
+
+  // Return all allocations for a given project, ordered by week then person.
+  findByProject(projectId: string) {
+    return this.prisma.capacity.findMany({
+      where: { projectId },
+      include: WITH_DETAILS,
+      orderBy: [{ weekStart: 'asc' }, { person: { name: 'asc' } }],
     });
   }
 

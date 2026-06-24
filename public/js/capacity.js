@@ -80,10 +80,16 @@ async function loadCapacityBoard() {
       .map(p => `<option value="${p.id}"${p.id === curProj ? ' selected' : ''}>${esc(p.name)}</option>`)
       .join('');
 
+  if (_capPendingProjectName) {
+    const f = $('cap-filter-project');
+    if (f) f.value = _capPendingProjectName;
+    _capPendingProjectName = null;
+  }
   renderCapacityBoard(entries);
 }
 
 let _capAllEntries = []; // full cache — filters apply client-side
+let _capPendingProjectName = null; // set before switchTab('capacity') to pre-filter by project
 
 function renderCapacityBoard(entries) {
   if (entries) _capAllEntries = entries; // refresh cache when called from loadCapacityBoard

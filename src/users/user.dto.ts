@@ -1,6 +1,6 @@
 import { IsEmail, IsString, MinLength, IsEnum, IsOptional, IsBoolean } from 'class-validator';
 
-export enum Role { ADMIN = 'ADMIN', PRODUCER = 'PRODUCER', SALES = 'SALES', FINANCE = 'FINANCE' }
+export enum Role { ADMIN = 'ADMIN', PRODUCER = 'PRODUCER', SALES = 'SALES', FINANCE = 'FINANCE', PM = 'PM', TEAM_LEAD = 'TEAM_LEAD', STAFF = 'STAFF' }
 
 export class CreateUserDto {
   @IsEmail()        email: string;

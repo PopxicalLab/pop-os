@@ -143,6 +143,14 @@ async function load() {
   const salaryField = $('salary-field');
   if (salaryField) salaryField.classList.toggle('hidden', !canSeeSalary());
 
+  // New Joiner button is admin-only (it creates a login account)
+  const onboardBtn = document.querySelector('[onclick="openOnboardModal()"]');
+  if (onboardBtn) onboardBtn.classList.toggle('hidden', !isAdmin());
+
+  // STAFF: hide the add-person form entirely (read-only view)
+  const addPersonPanel = document.querySelector('#tab-people .space-y-4 > .bg-panel');
+  if (addPersonPanel) addPersonPanel.classList.toggle('hidden', isStaff());
+
   PEOPLE = await (await fetch('/api/people')).json();
 
   // Populate department filter from loaded data.
@@ -230,9 +238,7 @@ function renderPeople() {
           }
         </div>
       </td>
-      <td class="py-3 px-2 whitespace-nowrap">
-        <button class="btn-del" data-del="${p.id}">Remove</button>
-      </td>`;
+      ${isStaff() ? '<td></td>' : `<td class="py-3 px-2 whitespace-nowrap"><button class="btn-del" data-del="${p.id}">Remove</button></td>`}`;
     rows.appendChild(tr);
   }
   rows.querySelectorAll('[data-del]').forEach(b => b.onclick = () => removePerson(b.dataset.del));
@@ -521,6 +527,60 @@ async function createPersonLogin(personId) {
   if (res.ok) {
     msg(msgEl, 'Login created.', 'ok');
     setTimeout(() => { closeLoginModal(); load(); }, 800);
+  } else {
+    const e = await res.json().catch(() => ({}));
+    msg(msgEl, [].concat(e.message || 'Failed').join(', '), 'err');
+  }
+}
+
+// ── New Joiner modal ──────────────────────────────────────────────────────────
+
+function openOnboardModal() {
+  // Default start date to today
+  $('ob-start').value = new Date().toISOString().slice(0, 10);
+  $('ob-msg').textContent = '';
+  $('onboard-overlay').classList.remove('hidden');
+  $('ob-name').focus();
+}
+
+function closeOnboardModal() {
+  $('onboard-overlay').classList.add('hidden');
+  ['ob-name','ob-role','ob-dept','ob-email','ob-pw'].forEach(id => $(id).value = '');
+}
+
+async function submitOnboard() {
+  const name  = $('ob-name').value.trim();
+  const role  = $('ob-role').value.trim();
+  const dept  = $('ob-dept').value.trim();
+  const email = $('ob-email').value.trim();
+  const pw    = $('ob-pw').value;
+  const msgEl = $('ob-msg');
+
+  if (!name || !role || !dept) { msg(msgEl, 'Name, job title and department are required.', 'err'); return; }
+  if (!email)                  { msg(msgEl, 'Work email is required.', 'err'); return; }
+  if (pw.length < 6)           { msg(msgEl, 'Password must be at least 6 characters.', 'err'); return; }
+
+  const body = {
+    name,
+    role,
+    department: dept,
+    startDate:      $('ob-start').value || new Date().toISOString().slice(0, 10),
+    employmentType: $('ob-emptype').value,
+    company:        $('ob-company').value || undefined,
+    email,
+    password: pw,
+    systemRole: $('ob-sysrole').value,
+  };
+
+  const res = await fetch('/api/people/onboard', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (res.ok) {
+    msg(msgEl, 'Joiner created with login.', 'ok');
+    setTimeout(() => { closeOnboardModal(); load(); }, 800);
   } else {
     const e = await res.json().catch(() => ({}));
     msg(msgEl, [].concat(e.message || 'Failed').join(', '), 'err');

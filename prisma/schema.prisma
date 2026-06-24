@@ -143,7 +143,8 @@ model Skill {
   name      String        @unique // e.g. "Modeling", "Rigging", "Animation"
   createdAt DateTime      @default(now())
 
-  people    PersonSkill[]
+  people              PersonSkill[]
+  projectRequirements ProjectSkill[]  // projects that need this skill
 }
 
 // ── PERSON SKILL ────────────────────────────────────────────────
@@ -165,6 +166,21 @@ model PersonSkill {
   updatedAt DateTime @updatedAt
 
   @@unique([personId, skillId]) // a person can't have the same skill twice
+}
+
+// ── PROJECT SKILL ────────────────────────────────────────────────
+// Skills the producer has tagged as required on a project.
+// The suggestion engine reads these to find best-matched staff.
+// One row per project-per-skill; no rating — it's a requirement tag, not a score.
+model ProjectSkill {
+  id        String   @id @default(cuid())
+  projectId String
+  skillId   String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  skill     Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, skillId]) // a skill can only be required once per project
 }
 
 // ── SKILL RATING CHANGE ─────────────────────────────────────────
@@ -235,6 +251,7 @@ model Project {
   accountingDocuments AccountingDocument[] // quotations and invoices tied to this project
   changeRequests      ChangeRequest[]      // formal client scope-change requests
   costs               ProjectCost[]        // deductible costs used in commission calculation
+  requiredSkills      ProjectSkill[]       // skills the producer has tagged as needed
 
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
@@ -390,6 +407,7 @@ enum Role {
   FINANCE   // financial tab + read-only projects
   PM        // project manager: all production tabs + project-level costs (no AR)
   TEAM_LEAD // creative/3D leads: dashboard, projects, assets, production, capacity, people (read)
+  STAFF     // normal staff: my work, own projects/assets/capacity, read-only people
 }
 
 // ── USER ─────────────────────────────────────────────────────────

@@ -25,6 +25,7 @@ const STAGE_ORDER = ['BRIEF', 'WIP', 'INTERNAL_REVIEW', 'REVISION', 'FINAL_DELIV
 
 let _assetProjects = [];
 let _assetPeople   = [];
+let _assetPendingProjectId = null; // set before switchTab to pre-filter on load
 
 async function loadAssetProjects() {
   [_assetProjects, _assetPeople] = await Promise.all([
@@ -62,6 +63,15 @@ async function loadAssetProjects() {
 // ── load & render ─────────────────────────────────────────────
 
 async function loadAssets() {
+  // STAFF: hide the add-asset sidebar (they can't create assets)
+  const addPanel = document.querySelector('#tab-assets .lg\\:grid-cols-\\[280px_1fr\\] > .space-y-4');
+  if (addPanel) addPanel.classList.toggle('hidden', isStaff());
+
+  if (_assetPendingProjectId) {
+    const f = $('asset-filter-project');
+    if (f) f.value = _assetPendingProjectId;
+    _assetPendingProjectId = null;
+  }
   const projectId = $('asset-filter-project')?.value || '';
   const url = '/api/assets' + (projectId ? '?projectId=' + projectId : '');
   const all = await fetch(url).then(r => r.json()).catch(() => []);
@@ -193,7 +203,7 @@ function renderAssetCard(a) {
   return `<div class="bg-panel2 border border-line rounded-xl p-3 space-y-2">
     <div class="flex items-start justify-between gap-1">
       <p class="text-xs font-semibold text-ink leading-snug flex-1">${esc(a.name)}</p>
-      <button class="btn-del shrink-0" data-asset-del="${a.id}">×</button>
+      ${isStaff() ? '' : `<button class="btn-del shrink-0" data-asset-del="${a.id}">×</button>`}
     </div>
     ${a.description ? `<p class="text-[11px] text-muted leading-snug">${esc(a.description)}</p>` : ''}
     <div class="flex items-center gap-1.5 flex-wrap">
