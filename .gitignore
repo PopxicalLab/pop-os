@@ -7,3 +7,5 @@ dist/
 .vscode/
 .claude/settings.local.json
 .claude/settings.json
+.agents/
+skills-lock.json

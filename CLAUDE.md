@@ -65,6 +65,14 @@ These work identically on Windows (PowerShell) and macOS (Terminal).
 9. `node prisma/seed-users.js`  ← seed default login accounts
 10. `npm run start:dev`
 
+### Claude Code skills (optional but recommended)
+The `.agents/` folder and `skills-lock.json` are git-ignored — they don't clone with the repo.
+To restore the caveman token-saving skill on a new machine:
+```
+/install JuliusBrussee/caveman
+```
+Then use `/caveman` to activate compressed responses, `stop caveman` to return to normal.
+
 ### Default login accounts (change passwords after first login)
 | Email | Password | Role |
 |---|---|---|
@@ -155,6 +163,10 @@ login. Click (admin only) to create a login or view the linked account.
   PersonSkill, Capacity, and optionally one User.
 
 - **Skill / PersonSkill / SkillRatingChange** — see Skills design decisions below.
+
+- **ProjectSkill** — join table: which skills a project *requires* (no rating — just a tag).
+  Producer tags skills on the project detail page. The staffing suggestion engine
+  reads these to rank staff by skill rating + free capacity.
 
 - **Project** — spine of the system. PPM fields, producer/PM links, Drain gate,
   accountId (optional link to Account), autocountInvoiceRef (deprecated — use
@@ -291,6 +303,13 @@ is its own mini-dashboard in context.
 - **Autocount Cloud** — DONE. Push quotations from WON leads, invoices from
   projects. AccountingDocument model tracks all documents with due dates.
   Finance Dashboard shows AR position, overdue alerts, pipeline, health.
+
+### Staffing suggestion engine (done)
+12. **Required Skills + Staff Suggestions** — DONE. Producer tags `ProjectSkill` records
+    (project ↔ skill join table). `GET /api/projects/:id/staff-suggestions` returns per-skill
+    ranked candidates scored by skill rating (60%) + free capacity during project window (40%).
+    UI: Required Skills chip-tag section + Suggested Staff ranked panel in project detail.
+    Endpoints: `GET /api/projects/all-skills`, `GET/POST/DELETE /api/projects/:id/skills/:skillId`.
 
 ### Deferred
 - Kakitangan.com sync (payroll + leave).
