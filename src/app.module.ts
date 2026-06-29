@@ -4,6 +4,8 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { PeopleModule } from './people/people.module';
 import { SkillsModule } from './skills/skills.module';
+import { JobTitlesModule } from './job-titles/job-titles.module';
+import { DepartmentsModule } from './departments/departments.module';
 import { ProjectsModule } from './projects/projects.module';
 import { CapacityModule } from './capacity/capacity.module';
 import { DashboardModule } from './dashboard/dashboard.module';
@@ -26,6 +28,7 @@ import { ProjectCostsModule } from './project-costs/project-costs.module';
 import { CommissionTiersModule } from './commission-tiers/commission-tiers.module';
 import { SalesTargetsModule } from './sales-targets/sales-targets.module';
 import { SalesPerformanceModule } from './sales-performance/sales-performance.module';
+import { CommitteesModule } from './committees/committees.module';
 import { JwtAuthGuard } from './auth/jwt.guard';
 
 @Module({
@@ -38,6 +41,8 @@ import { JwtAuthGuard } from './auth/jwt.guard';
     UsersModule,
     PeopleModule,
     SkillsModule,
+    JobTitlesModule,
+    DepartmentsModule,
     ProjectsModule,
     CapacityModule,
     DashboardModule,
@@ -58,6 +63,7 @@ import { JwtAuthGuard } from './auth/jwt.guard';
     CommissionTiersModule,
     SalesTargetsModule,
     SalesPerformanceModule,
+    CommitteesModule,
   ],
   providers: [
     // Register JwtAuthGuard globally — every API route requires a valid JWT

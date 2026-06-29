@@ -99,11 +99,12 @@ Change these passwords after first login. PM and TEAM_LEAD accounts must be crea
 | Role | Access |
 |---|---|
 | ADMIN | Everything — users, all tabs, Autocount push, salary data |
-| PRODUCER | Dashboard, My Work, Projects, Change Requests, Capacity, Assets, Production, People, Staffing |
-| PM | Same as PRODUCER; scoped to own projects on My Work |
-| TEAM_LEAD | Dashboard, My Work, Projects (read), Assets, Production, Capacity, People |
-| FINANCE | Financial tab, Projects (read), salary data |
-| SALES | Sales pipeline + Clients only |
+| PRODUCER | My Work, Dashboard, Projects, Change Requests, Capacity, Assets, Production, People, Staffing |
+| PM | Same as PRODUCER; owns the Change Request process |
+| TEAM_LEAD | My Work, Dashboard, Projects (read), Assets, Production, Capacity, Change Requests, People (read) |
+| FINANCE | My Work, Financial tab, Projects (read), salary data |
+| SALES | My Work, Sales pipeline + Clients only |
+| STAFF | My Work, Dashboard, Projects (read), Assets, Production, Capacity, People (read) |
 
 **Sign-off authority** is not tied to role — it is a per-person flag (`canSignOff`) set by an admin on the People tab. Only people with this flag enabled see the sign-off queue on My Work. Currently granted to: Calvin, Frankie, Tom.
 

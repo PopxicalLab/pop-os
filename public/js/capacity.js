@@ -34,6 +34,10 @@ function shiftWeek(delta) {
 }
 
 async function loadCapacityBoard() {
+  // STAFF: hide the add-allocation sidebar and remove buttons (read-only view)
+  const addPanel = document.querySelector('#tab-capacity .lg\\:grid-cols-\\[280px_1fr\\] > .space-y-4');
+  if (addPanel) addPanel.classList.toggle('hidden', isStaff());
+
   $('cap-week-label').textContent = fmtWeekRange(_capWeek);
 
   const [people, projects, entries] = await Promise.all([
@@ -56,7 +60,7 @@ async function loadCapacityBoard() {
   const curPer = pSel.value;
   pSel.innerHTML = '<option value="">— select —</option>' +
     people
-      .filter(p => !p.warmPool)
+      .filter(p => p.status === 'ACTIVE')
       .sort((a, b) => a.name.localeCompare(b.name))
       .map(p => {
         const used      = weekTotals[p.id] || 0;
@@ -168,7 +172,7 @@ function renderCapacityBoard(entries) {
         <td class="py-2.5 px-2 text-ink">${esc(e.project.name)}${coBadge(e.project.company)}${weekendBadge}</td>
         <td class="py-2.5 px-2"><span class="text-xs ${roleCls}">${roleLabel}</span></td>
         <td class="py-2.5 px-2 text-right text-muted text-xs">${e.pctWeek}%</td>
-        <td class="py-2.5 px-2"><button class="btn-del" data-cap-del="${e.id}">Remove</button></td>
+        ${isStaff() ? '<td></td>' : `<td class="py-2.5 px-2"><button class="btn-del" data-cap-del="${e.id}">Remove</button></td>`}
       </tr>`;
     }
   }

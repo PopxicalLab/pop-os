@@ -9,6 +9,6 @@ export class ProductionController {
   @Get('lanes')
   getLanes(@Req() req: any) {
     const personId = req.user?.role === 'STAFF' ? req.user.personId : undefined;
-    return this.production.getLanes(personId ?? undefined);
+    return this.production.getLanes(personId ?? undefined, req.user?.company);
   }
 }

@@ -382,7 +382,7 @@ function renderSPSettings(data) {
     </tr>`).join('');
 
   const thisYear = new Date().getFullYear();
-  const producerOptions = _spPeople.filter(p => !p.warmPool)
+  const producerOptions = _spPeople.filter(p => p.status === 'ACTIVE')
     .map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
 
   el.innerHTML = `
@@ -398,7 +398,7 @@ function renderSPSettings(data) {
           class="bg-bg border border-line rounded px-2 py-1.5 text-xs text-ink focus:outline-none cursor-pointer flex-1"
           onchange="renderPersonTierRates(this.value)">
           <option value="">— select producer —</option>
-          ${_spPeople.filter(p => !p.warmPool).map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}
+          ${_spPeople.filter(p => p.status === 'ACTIVE').map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}
         </select>
       </div>
       <div id="sp-ptr-rows"></div>

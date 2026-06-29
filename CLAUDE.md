@@ -24,8 +24,9 @@ not just describe.
   `public/index.html` is a thin shell (HTML structure, shared utilities, theme,
   tab switching, auth check, global fetch wrapper). Each tab's logic lives in its
   own file under `public/js/`:
-  `dashboard.js`, `sales.js`, `clients.js`, `projects.js`, `assets.js`,
-  `production.js`, `capacity.js`, `financial.js`, `people.js`, `staffing.js`.
+  `mywork.js`, `dashboard.js`, `sales.js`, `clients.js`, `sales-performance.js`,
+  `projects.js`, `change-requests.js`, `assets.js`, `production.js`,
+  `capacity.js`, `financial.js`, `people.js`, `staffing.js`.
   Adding a new tab = new file + one `<script src>` line in `index.html`.
   Keep it framework-free.
 - **Auth:** JWT (`@nestjs/jwt`). Global `JwtAuthGuard` via `APP_GUARD`. Routes
@@ -133,20 +134,23 @@ Conventions already in use (keep them consistent):
 
 ## Auth & roles
 
-Four roles, enforced on both backend (controller guards) and frontend (tab
+Seven roles, enforced on both backend (controller guards) and frontend (tab
 visibility via `TAB_ACCESS` map in `index.html`):
 
 | Role | Access |
 |---|---|
-| ADMIN | Everything — users, all tabs, Autocount push |
-| PRODUCER | Projects, Capacity, Assets, Production, People, Staffing, Dashboard |
-| SALES | Sales + Clients only |
-| FINANCE | Financial tab + read-only Projects |
+| ADMIN | Everything — users, all tabs, Autocount push, salary data |
+| PRODUCER | My Work, Dashboard, Projects, Change Requests, Capacity, Assets, Production, People, Staffing |
+| PM | Same as PRODUCER; owns the Change Request process |
+| TEAM_LEAD | My Work, Dashboard, Projects (read), Assets, Production, Capacity, Change Requests, People (read) |
+| FINANCE | My Work, Financial tab, Projects (read), salary data |
+| SALES | My Work, Sales pipeline, Clients only |
+| STAFF | My Work, Dashboard, Projects (read), Assets, Production, Capacity, People (read) |
 
 **User vs Person distinction:** `User` = login credential. `Person` = production
 staff record (ELC). They are separate models. A `User` optionally links to a
 `Person` via `personId` FK — set via the lock icon on People tab (admin only).
-This link enables the future "My week" personal dashboard for staff.
+This link powers the My Work personal dashboard and sign-off queue.
 
 **Lock icon on People tab:** Filled green = person has a login. Outline grey = no
 login. Click (admin only) to create a login or view the linked account.
@@ -159,8 +163,11 @@ login. Click (admin only) to create a login or view the linked account.
   Global filter in the header filters all tabs simultaneously.
 
 - **Person** — staff record. Fields: name, role, department, startDate,
-  employmentType, warmPool, company, salary (monthly RM, optional). Has many
-  PersonSkill, Capacity, and optionally one User.
+  employmentType, warmPool, company, salary (monthly RM, optional — ADMIN +
+  FINANCE only), `canSignOff` (grants CD/3D sign-off authority — per-person
+  flag, not tied to role), `commissionRateOverride` (optional flat rate that
+  bypasses the global CommissionTier table). Has many PersonSkill, Capacity,
+  PersonTierRate, and optionally one User.
 
 - **Skill / PersonSkill / SkillRatingChange** — see Skills design decisions below.
 
@@ -169,8 +176,16 @@ login. Click (admin only) to create a login or view the linked account.
   reads these to rank staff by skill rating + free capacity.
 
 - **Project** — spine of the system. PPM fields, producer/PM links, Drain gate,
-  accountId (optional link to Account), autocountInvoiceRef (deprecated — use
-  AccountingDocument instead).
+  accountId (optional link to Account). Has many ChangeRequest, ProjectSkill,
+  ProjectCost, AccountingDocument.
+
+- **ChangeRequest** — formal change request per project. Status: PENDING →
+  APPROVED / REJECTED. Includes budget impact and approval note. PM owns the
+  process; producers and team leads can view.
+
+- **ProjectCost** — cost line item on a project. Type: `WARM_POOL` / `SUPPLIER`
+  / `ADDITIONAL`. Added from project detail view. Summed to calculate net profit
+  in the commission report.
 
 - **Capacity** — weekly board. One row per person × project × week. 100% cap
   enforced in service. weekStart always Monday 00:00 UTC.
@@ -197,8 +212,19 @@ login. Click (admin only) to create a login or view the linked account.
   - When a lead converts to a project, existing AccountingDocuments are
     auto-linked to the new project.
 
-- **User** — login credential. Fields: email, name, password (bcrypt), role,
-  active, personId (optional FK to Person). Seeded via `prisma/seed-users.js`.
+- **SalesTarget** — quarterly revenue target per producer. Unique on
+  `(personId, year, quarter)`. Drives attainment % in the commission report.
+
+- **CommissionTier** — global rate schedule. Rows: threshold (e.g. `0.75` = 75%
+  of target) + rate (e.g. `0.025` = 2.5%). Seeded with four tiers (50 / 75 /
+  100 / 150%). Admin-editable from the Sales Performance settings panel.
+
+- **PersonTierRate** — per-person override for a specific CommissionTier row.
+  Takes precedence over the global tier rate for that person.
+
+- **User** — login credential. Fields: email, name, password (bcrypt), role
+  (7 values), active, personId (optional FK to Person). Seeded via
+  `prisma/seed-users.js`.
 
 ### Skills design decisions (do not undo these without asking)
 
@@ -254,9 +280,10 @@ The global Dashboard is the cross-module command centre. Each module's strip
 is its own mini-dashboard in context.
 
 **Navigation** uses grouped dropdowns:
-- Dashboard (direct)
-- Sales ▾ → Sales pipeline, Clients
-- Production ▾ → Projects, Assets, Production engine, Capacity
+- My Work (direct — personal dashboard for all roles)
+- Dashboard (direct — cross-module command centre)
+- Sales ▾ → Sales pipeline, Clients, Sales Performance (admin only)
+- Production ▾ → Projects, Change Requests, Assets, Production engine, Capacity
 - Financial (direct — FINANCE + ADMIN only)
 - HR ▾ → People, Staffing
 
@@ -286,12 +313,16 @@ is its own mini-dashboard in context.
    pipeline by stage, project health RAG, recent Autocount documents.
 
 ### Auth & access control (done)
-- **JWT auth** — DONE. Login page at `/login.html`. 4 roles. Global guard.
+- **JWT auth** — DONE. Login page at `/login.html`. 7 roles. Global guard.
   `POST /api/auth/login`, `GET /api/auth/me`.
 - **Users module** — DONE. `GET/POST/PATCH/DELETE /api/users` (admin only).
   User manager modal in the header (admin).
 - **Person ↔ User link** — DONE. Lock icon on People tab lets admin create a
   login for a staff member.
+- **canSignOff flag** — DONE. Per-person sign-off authority (not role-based).
+  Admin toggles on People tab. Affects sign-off queue visibility on My Work.
+- **Salary visibility** — DONE. Restricted to ADMIN + FINANCE. All other roles
+  see `—` in salary column.
 
 ### Growth & client layer (done)
 10. **Sales & Growth Hub** — DONE. Accounts, Contacts, Leads. Pipeline board.
@@ -311,12 +342,32 @@ is its own mini-dashboard in context.
     UI: Required Skills chip-tag section + Suggested Staff ranked panel in project detail.
     Endpoints: `GET /api/projects/all-skills`, `GET/POST/DELETE /api/projects/:id/skills/:skillId`.
 
+### Workflow & productivity (done)
+- **Change Requests** — DONE. Per-project formal CRs with PENDING/APPROVED/REJECTED
+  status, budget impact, and approval notes. `GET/POST/PATCH/DELETE /api/change-requests`.
+- **My Work tab** — DONE. Personal dashboard for all roles — capacity, assigned
+  assets, sign-off queue (canSignOff), payment alerts. `GET /api/me/dashboard`.
+  CD approve/reject from sign-off queue with rejection note back to REVISION.
+- **Email payment alerts** — DONE. Nodemailer digest via SMTP. Configure
+  `SMTP_*` vars in `.env`. `POST /api/notifications/payment-alerts`. Trigger from
+  Financial tab ("✉ Send alert email").
+- **CSV exports** — DONE. Projects, capacity, AR. `GET /api/reports/*`.
+- **Project Gantt timeline** — DONE. 16-week SVG view in project detail.
+- **Kanban views** — DONE. Assets kanban board in assets.js.
+
+### Sales performance & commissions (done)
+- **Sales Performance tab** — DONE. Commission report — attainment %, net profit,
+  commission per producer. `GET /api/sales-performance`.
+- **CommissionTier** — DONE. Global rate schedule (50/75/100/150%). Admin-editable.
+- **SalesTarget** — DONE. Quarterly targets per producer.
+- **ProjectCost** — DONE. Per-project cost lines (WARM_POOL / SUPPLIER / ADDITIONAL).
+- **PersonTierRate** — DONE. Per-person commission rate override per tier.
+- **STAFF role + onboarding flow** — DONE. STAFF has My Work access; onboarding
+  flow guides new staff without a linked Person record.
+
 ### Deferred
 - Kakitangan.com sync (payroll + leave).
-- Email notifications (nodemailer + SMTP) for payment due alerts — in-app alerts
-  exist today; email needs SMTP config.
 - `changedBy` on SkillRatingChange linking to a real Person.
-- STAFF role personal dashboard ("My week, My projects, My skills").
 
 ---
 

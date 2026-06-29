@@ -3,6 +3,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateCapacityDto, UpdateCapacityDto } from './capacity.dto';
+import { companyWhere } from '../common/company-filter';
 
 // Snap any date to the Monday of its ISO week at UTC midnight.
 // This is the canonical weekStart stored in the DB so queries always match.
@@ -26,11 +27,16 @@ export class CapacityService {
   constructor(private prisma: PrismaService) {}
 
   // Return all allocations for a given week (defaults to current week).
-  // Pass personId to restrict results to that person's rows only (STAFF role).
-  findByWeek(weekStr?: string, personId?: string) {
+  // personId restricts to one person (STAFF). company scopes by project's company.
+  findByWeek(weekStr?: string, personId?: string, company?: string | null) {
     const weekStart = weekStr ? toMonday(new Date(weekStr)) : toMonday(new Date());
+    const co = companyWhere(company);
     return this.prisma.capacity.findMany({
-      where: { weekStart, ...(personId ? { personId } : {}) },
+      where: {
+        weekStart,
+        ...(personId ? { personId } : {}),
+        ...(co ? { project: co } : {}),
+      },
       include: WITH_DETAILS,
       orderBy: [
         { person: { name: 'asc' } },

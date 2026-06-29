@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateLeadDto, UpdateLeadDto } from './lead.dto';
+import { companyWhere } from '../common/company-filter';
 
 const WITH_RELATIONS = {
   account:  { select: { id: true, name: true, industry: true, autocountDebtorCode: true } },
@@ -18,10 +19,12 @@ const WITH_RELATIONS = {
 export class LeadsService {
   constructor(private prisma: PrismaService) {}
 
-  findAll() {
+  findAll(company?: string | null) {
+    const co = companyWhere(company);
     return this.prisma.lead.findMany({
-      include:  WITH_RELATIONS,
-      orderBy:  { createdAt: 'desc' },
+      where:   co ?? undefined,
+      include: WITH_RELATIONS,
+      orderBy: { createdAt: 'desc' },
     });
   }
 

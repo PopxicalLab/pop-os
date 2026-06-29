@@ -13,9 +13,8 @@ export class AssetsController {
 
   @Get()
   findAll(@Query('projectId') projectId: string | undefined, @Req() req: any) {
-    // STAFF only see assets assigned to them
     const personId = req.user?.role === 'STAFF' ? req.user.personId : undefined;
-    return this.assets.findAll(projectId, personId ?? undefined);
+    return this.assets.findAll(projectId, personId ?? undefined, req.user?.company);
   }
 
   @Get(':id')

@@ -33,7 +33,7 @@ async function loadAssetProjects() {
     fetch('/api/people').then(r => r.json()).catch(() => []),
   ]);
   const active      = _assetProjects.filter(p => !['DELIVERED', 'CANCELLED'].includes(p.status));
-  const activePeople = _assetPeople.filter(p => !p.warmPool)
+  const activePeople = _assetPeople.filter(p => p.status === 'ACTIVE')
                                   .sort((a, b) => a.name.localeCompare(b.name));
 
   // Add form project selector
@@ -196,7 +196,7 @@ function renderAssetCard(a) {
     : `<div id="cd-row-${a.id}" class="hidden"></div>`;
 
   // Assignee dropdown — populated from the already-loaded _assetPeople list
-  const peopleSel = [{ id: '', name: '— unassigned —' }, ..._assetPeople.filter(p => !p.warmPool)]
+  const peopleSel = [{ id: '', name: '— unassigned —' }, ..._assetPeople.filter(p => p.status === 'ACTIVE')]
     .map(p => `<option value="${p.id}"${a.assignedTo?.id === p.id ? ' selected' : ''}>${esc(p.name)}</option>`)
     .join('');
 

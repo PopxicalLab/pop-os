@@ -20,7 +20,7 @@ export class ProjectsController {
   @Get()
   findAll(@Req() req: any) {
     const personId = req.user?.role === 'STAFF' ? req.user.personId : undefined;
-    return this.projects.findAll(personId ?? undefined);
+    return this.projects.findAll(personId ?? undefined, req.user?.company);
   }
 
   @Get('all-skills')

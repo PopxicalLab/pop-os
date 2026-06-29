@@ -80,6 +80,21 @@ function renderMyWork(data) {
     ? parts.join(' <span class="text-line mx-2">·</span> ')
     : '<span class="text-muted">Nothing needs your attention right now.</span>';
 
+  // ── profile button (self) ─────────────────────────────────
+  const profileBtn = $('mw-profile-btn');
+  if (profileBtn) {
+    if (profile.hasPersonLink && profile.personId) {
+      profileBtn.innerHTML =
+        `<button onclick="openPersonProfile('${profile.personId}')"
+           class="text-xs bg-panel2 border border-line text-ink px-3 py-1.5 rounded-lg
+                  hover:border-accent/50 transition-colors cursor-pointer">
+           My profile
+         </button>`;
+    } else {
+      profileBtn.innerHTML = '';
+    }
+  }
+
   // ── no person link banner ──────────────────────────────────
   if (!profile.hasPersonLink) {
     $('mw-no-link').classList.remove('hidden');

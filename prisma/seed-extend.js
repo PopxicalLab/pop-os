@@ -26,7 +26,7 @@ function daysAhead(n)  { return new Date(Date.now() + n * 86_400_000); }
 
 async function main() {
   // ── Resolve people by name (works regardless of IDs) ────────────────────
-  const everyone = await prisma.person.findMany({ where: { warmPool: false } });
+  const everyone = await prisma.person.findMany({ where: { status: 'ACTIVE' } });
   const P = Object.fromEntries(everyone.map(p => [p.name, p]));
 
   const required = ['YJ','Huey','Emily','Calvin','Tom','Maya','Kai','Priya','Lucas','Mei'];

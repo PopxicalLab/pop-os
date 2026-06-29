@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { companyWhere } from '../common/company-filter';
 
 // Each PPM quadrant maps to a named workflow lane with its own operating rules.
 // These are fixed business rules — they don't live in the DB.
@@ -59,9 +60,9 @@ export const LANE_META: Record<string, {
 export class ProductionService {
   constructor(private prisma: PrismaService) {}
 
-  async getLanes(personId?: string) {
-    // STAFF only see lanes for projects where they have assigned assets.
-    const where: any = { status: { notIn: ['DELIVERED', 'CANCELLED'] } };
+  async getLanes(personId?: string, company?: string | null) {
+    const co = companyWhere(company);
+    const where: any = { status: { notIn: ['DELIVERED', 'CANCELLED'] }, ...(co ?? {}) };
     if (personId) where.assets = { some: { assignedToId: personId } };
 
     const projects = await this.prisma.project.findMany({

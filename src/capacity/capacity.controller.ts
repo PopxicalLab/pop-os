@@ -16,7 +16,7 @@ export class CapacityController {
   find(@Query('week') week: string | undefined, @Query('projectId') projectId: string | undefined, @Req() req: any) {
     const personId = req.user?.role === 'STAFF' ? req.user.personId : undefined;
     if (projectId) return this.capacity.findByProject(projectId);
-    return this.capacity.findByWeek(week, personId ?? undefined);
+    return this.capacity.findByWeek(week, personId ?? undefined, req.user?.company);
   }
 
   @Get(':id')

@@ -49,12 +49,13 @@ export class MeService {
         })
       : [];
 
-    // ── my projects (PM or PRODUCER) ─────────────────────────────
+    // ── my projects (PM / PRODUCER / TEAM_LEAD / ADMIN) ─────────────
     let myProjects: any[] = [];
-    if (personId && ['PM', 'PRODUCER', 'ADMIN'].includes(role)) {
+    if (personId && ['PM', 'PRODUCER', 'TEAM_LEAD', 'ADMIN'].includes(role)) {
       const projectFilter =
-        role === 'PM'       ? { pmId:       personId } :
-        role === 'PRODUCER' ? { producerId: personId } :
+        role === 'PM'        ? { pmId:       personId } :
+        role === 'PRODUCER'  ? { producerId: personId } :
+        role === 'TEAM_LEAD' ? { capacityEntries: { some: { personId } } } :
         {};                                               // ADMIN: no scope filter
       myProjects = await this.prisma.project.findMany({
         where:   { ...projectFilter, status: { notIn: ['DELIVERED', 'CANCELLED'] } },
@@ -124,13 +125,16 @@ export class MeService {
         },
         orderBy: { dueDate: 'asc' },
       });
-    } else if (role === 'PM' && personId) {
-      // PM only sees docs tied to her projects
+    } else if (['PM', 'PRODUCER'].includes(role) && personId) {
+      // PM: docs on their assigned projects; PRODUCER: docs on their produced projects
+      const projectWhere = role === 'PM'
+        ? { pmId: personId }
+        : { producerId: personId };
       paymentAlerts = await this.prisma.accountingDocument.findMany({
         where: {
           status:  'ACTIVE',
           dueDate: { lte: alertCutoff },
-          project: { pmId: personId },
+          project: projectWhere,
         },
         include: {
           project: { select: { id: true, name: true } },

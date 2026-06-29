@@ -13,9 +13,15 @@ import {
   Delete,
   Param,
   Body,
+  Req,
+  ForbiddenException,
 } from '@nestjs/common';
 import { SkillsService } from './skills.service';
 import { CreateSkillDto, AssignSkillDto, ChangeRatingDto } from './skill.dto';
+
+function requireAdmin(req: any) {
+  if (req.user?.role !== 'ADMIN') throw new ForbiddenException('Admin only');
+}
 
 @Controller('api')
 export class SkillsController {
@@ -27,7 +33,8 @@ export class SkillsController {
   }
 
   @Post('skills')
-  createSkill(@Body() dto: CreateSkillDto) {
+  createSkill(@Body() dto: CreateSkillDto, @Req() req: any) {
+    requireAdmin(req);
     return this.skills.createSkill(dto);
   }
 

@@ -14,7 +14,7 @@ import {
   MinLength,
   Min,
 } from 'class-validator';
-import { EmploymentType, Company } from '@prisma/client';
+import { EmploymentType, Company, PersonStatus } from '@prisma/client';
 
 export class CreatePersonDto {
   @IsString()
@@ -38,9 +38,9 @@ export class CreatePersonDto {
   @IsOptional()
   employmentType?: EmploymentType;
 
-  @IsBoolean()
+  @IsEnum(PersonStatus)
   @IsOptional()
-  warmPool?: boolean;
+  status?: PersonStatus;
 
   @IsEnum(Company)
   @IsOptional()
@@ -76,7 +76,7 @@ export class UpdatePersonDto {
   @IsString() @IsOptional() department?: string;
   @IsDateString() @IsOptional() startDate?: string;
   @IsEnum(EmploymentType) @IsOptional() employmentType?: EmploymentType;
-  @IsBoolean() @IsOptional() warmPool?: boolean;
+  @IsEnum(PersonStatus) @IsOptional() status?: PersonStatus;
   @IsBoolean() @IsOptional() canSignOff?: boolean;
   @IsEnum(Company) @IsOptional() company?: Company;
   @IsNumber() @Min(0) @IsOptional() salary?: number;

@@ -286,6 +286,8 @@ Company (enum: LPS / PXL)
      │     │           └── reviewUrl, rejectionNote
      │     ├──< Capacity
      │     ├──< ChangeRequest
+     │     ├──< ProjectSkill >── Skill
+     │     ├──< ProjectCost
      │     ├──< AccountingDocument
      │     └── Account? (client link)
      │
@@ -314,7 +316,8 @@ Company (enum: LPS / PXL)
 - **ProjectCost** — a cost line item on a project. Type: `WARM_POOL` / `SUPPLIER` / `ADDITIONAL`. Added from the project detail view. Summed to calculate net profit in the commission report.
 - **SalesTarget** — quarterly revenue target per producer. Unique on `(personId, year, quarter)`. Used to calculate attainment %.
 - **CommissionTier** — global rate schedule. Each row has a `threshold` (fraction of target, e.g. `0.75` = 75%) and a `rate` (commission fraction, e.g. `0.025` = 2.5%). Seeded with four tiers (50 / 75 / 100 / 150%). Admin-editable from the Performance settings panel.
-- **User** — login credential. Fields: email, name, password (bcrypt), role (6 values), active, `personId` (optional FK to Person).
+- **PersonTierRate** — per-person override for a specific CommissionTier row. Takes precedence over the global tier rate for that person × tier combination.
+- **User** — login credential. Fields: email, name, password (bcrypt), role (7 values: ADMIN / PRODUCER / PM / TEAM_LEAD / FINANCE / SALES / STAFF), active, `personId` (optional FK to Person).
 
 ---
 
@@ -404,5 +407,4 @@ Company (enum: LPS / PXL)
 
 ### Deferred
 - Kakitangan.com sync (payroll + leave)
-- STAFF role personal dashboard ("My week, My projects, My skills")
 - `changedBy` on SkillRatingChange linking to a real Person

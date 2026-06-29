@@ -182,12 +182,14 @@ function renderDashboard(data) {
   }
 
   // ── panel: payment alerts ────────────────────────────────────
-  const payEl = $('dash-payments');
-  if (!payEl) return; // panel may not exist in older HTML builds
+  const payEl   = $('dash-payments');
+  const payWrap = $('dash-payments-wrap');
+  if (!payEl) return;
   if (!paymentAlerts || !paymentAlerts.length) {
-    payEl.innerHTML = '<div class="text-center text-muted text-sm py-8">No payments due in the next 10 days.</div>';
+    if (payWrap) payWrap.classList.add('hidden');
     return;
   }
+  if (payWrap) payWrap.classList.remove('hidden');
 
   const now = new Date();
   payEl.innerHTML = paymentAlerts.map(d => {

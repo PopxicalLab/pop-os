@@ -47,7 +47,7 @@ async function initSalesTab() {
   const picSel = $('lead-closed-by');
   if (picSel) {
     picSel.innerHTML = '<option value="">— unassigned —</option>' +
-      _salesPeople.filter(p => !p.warmPool)
+      _salesPeople.filter(p => p.status === 'ACTIVE')
         .map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
   }
 }

@@ -17,6 +17,8 @@ const SOURCES = {
 };
 
 let SKILLS = [];
+let JOB_TITLES = [];
+let DEPARTMENTS = [];
 let PEOPLE = [];
 
 const EMP_LABEL = {
@@ -52,7 +54,7 @@ function lockIcon(linked) {
 // ── column visibility (same pattern as Projects tab) ─────────
 
 const PEOPLE_COLS = [
-  { id: 'role',   label: 'Role',            def: true  },
+  { id: 'role',   label: 'Job Title',        def: true  },
   { id: 'dept',   label: 'Dept',            def: true  },
   { id: 'type',   label: 'Employment type', def: false },
   { id: 'start',  label: 'Start date',      def: false },
@@ -135,6 +137,108 @@ $('addSkill').addEventListener('click', async () => {
   }
 });
 
+async function loadJobTitles() {
+  JOB_TITLES = await (await fetch('/api/job-titles')).json();
+
+  // Render master list chips (admin only — others see the list read-only)
+  const listEl = $('jobTitleList');
+  if (listEl) {
+    listEl.innerHTML = JOB_TITLES.length
+      ? JOB_TITLES.map(jt =>
+          isAdmin()
+            ? `<span class="inline-flex items-center gap-1 bg-panel2 border border-line px-2.5 py-0.5 rounded-full text-xs text-ink">
+                 ${esc(jt.name)}
+                 <button onclick="removeJobTitle('${jt.id}')" title="Remove"
+                   class="text-muted hover:text-warm ml-0.5 leading-none cursor-pointer">×</button>
+               </span>`
+            : `<span class="inline-flex items-center bg-panel2 border border-line px-2.5 py-0.5 rounded-full text-xs text-ink">${esc(jt.name)}</span>`
+        ).join('')
+      : '<span class="text-xs text-muted">No job titles yet.</span>';
+  }
+
+  // Populate add-person role dropdown
+  const roleOpts = '<option value="">— select job title —</option>' +
+    JOB_TITLES.map(jt => `<option value="${esc(jt.name)}">${esc(jt.name)}</option>`).join('');
+  const roleSel = $('role');
+  if (roleSel) roleSel.innerHTML = roleOpts;
+
+  // Populate onboard modal job title dropdown
+  const obRoleSel = $('ob-role');
+  if (obRoleSel) obRoleSel.innerHTML = roleOpts;
+}
+
+async function removeJobTitle(id) {
+  if (!confirm('Remove this job title from the master list?')) return;
+  const res = await fetch('/api/job-titles/' + id, { method: 'DELETE' });
+  if (res.ok) { msg($('jobTitleMsg'), 'Removed.', 'ok'); await loadJobTitles(); }
+  else msg($('jobTitleMsg'), 'Could not remove.', 'err');
+}
+
+$('addJobTitle').addEventListener('click', async () => {
+  const name = $('newJobTitle').value.trim();
+  if (!name) { msg($('jobTitleMsg'), 'Enter a job title.', 'err'); return; }
+  const res = await fetch('/api/job-titles', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }),
+  });
+  if (res.ok) {
+    $('newJobTitle').value = '';
+    msg($('jobTitleMsg'), 'Job title added.', 'ok');
+    await loadJobTitles();
+  } else {
+    const e = await res.json().catch(() => ({}));
+    msg($('jobTitleMsg'), [].concat(e.message || 'Failed').join(', '), 'err');
+  }
+});
+
+async function loadDepartments() {
+  DEPARTMENTS = await (await fetch('/api/departments')).json();
+
+  const listEl = $('deptList');
+  if (listEl) {
+    listEl.innerHTML = DEPARTMENTS.length
+      ? DEPARTMENTS.map(d =>
+          isAdmin()
+            ? `<span class="inline-flex items-center gap-1 bg-panel2 border border-line px-2.5 py-0.5 rounded-full text-xs text-ink">
+                 ${esc(d.name)}
+                 <button onclick="removeDepartment('${d.id}')" title="Remove"
+                   class="text-muted hover:text-warm ml-0.5 leading-none cursor-pointer">×</button>
+               </span>`
+            : `<span class="inline-flex items-center bg-panel2 border border-line px-2.5 py-0.5 rounded-full text-xs text-ink">${esc(d.name)}</span>`
+        ).join('')
+      : '<span class="text-xs text-muted">No departments yet.</span>';
+  }
+
+  const deptOpts = '<option value="">— select department —</option>' +
+    DEPARTMENTS.map(d => `<option value="${esc(d.name)}">${esc(d.name)}</option>`).join('');
+  const deptSel = $('department');
+  if (deptSel) deptSel.innerHTML = deptOpts;
+  const obDeptSel = $('ob-dept');
+  if (obDeptSel) obDeptSel.innerHTML = deptOpts;
+}
+
+async function removeDepartment(id) {
+  if (!confirm('Remove this department from the master list?')) return;
+  const res = await fetch('/api/departments/' + id, { method: 'DELETE' });
+  if (res.ok) { msg($('deptMsg'), 'Removed.', 'ok'); await loadDepartments(); }
+  else msg($('deptMsg'), 'Could not remove.', 'err');
+}
+
+$('addDept').addEventListener('click', async () => {
+  const name = $('newDept').value.trim();
+  if (!name) { msg($('deptMsg'), 'Enter a department name.', 'err'); return; }
+  const res = await fetch('/api/departments', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }),
+  });
+  if (res.ok) {
+    $('newDept').value = '';
+    msg($('deptMsg'), 'Department added.', 'ok');
+    await loadDepartments();
+  } else {
+    const e = await res.json().catch(() => ({}));
+    msg($('deptMsg'), [].concat(e.message || 'Failed').join(', '), 'err');
+  }
+});
+
 async function load() {
   // Hide salary column header and add-form field for non-privileged roles
   document.querySelectorAll('[data-pcol="salary"]').forEach(el => {
@@ -147,11 +251,23 @@ async function load() {
   const onboardBtn = document.querySelector('[onclick="openOnboardModal()"]');
   if (onboardBtn) onboardBtn.classList.toggle('hidden', !isAdmin());
 
-  // STAFF: hide the add-person form entirely (read-only view)
+  // Only admins can add/remove people or manage master lists
   const addPersonPanel = document.querySelector('#tab-people .space-y-4 > .bg-panel');
-  if (addPersonPanel) addPersonPanel.classList.toggle('hidden', isStaff());
+  if (addPersonPanel) addPersonPanel.classList.toggle('hidden', !isAdmin());
+  const skillMasterPanel = $('skill-master-panel');
+  if (skillMasterPanel) skillMasterPanel.classList.toggle('hidden', !isAdmin());
+  const jobTitleMasterPanel = $('job-title-master-panel');
+  if (jobTitleMasterPanel) jobTitleMasterPanel.classList.toggle('hidden', !isAdmin());
+  const deptMasterPanel = $('dept-master-panel');
+  if (deptMasterPanel) deptMasterPanel.classList.toggle('hidden', !isAdmin());
 
-  PEOPLE = await (await fetch('/api/people')).json();
+  // Load master lists and people data in parallel
+  await Promise.all([
+    loadSkills(),
+    loadJobTitles(),
+    loadDepartments(),
+    (async () => { PEOPLE = await (await fetch('/api/people')).json(); })(),
+  ]);
 
   // Populate department filter from loaded data.
   const deptSel = $('people-filter-dept');
@@ -193,9 +309,13 @@ function renderPeople() {
        </span>`
     ).join('') || '<span class="text-xs text-muted">No skills rated</span>';
 
-    const statusBadge = p.warmPool
-      ? '<span class="badge bg-warm/15 text-warm">Warm pool</span>'
-      : '<span class="badge bg-accent/15 text-accent">Active</span>';
+    const STATUS_BADGE = {
+      ACTIVE:     '<span class="badge bg-accent/15 text-accent">Active</span>',
+      WARM_POOL:  '<span class="badge bg-warm/15 text-warm">Warm pool</span>',
+      RESIGNED:   '<span class="badge bg-zinc-500/15 text-zinc-400">Resigned</span>',
+      TERMINATED: '<span class="badge bg-rose-500/15 text-rose-400">Terminated</span>',
+    };
+    const statusBadge = STATUS_BADGE[p.status] || STATUS_BADGE.ACTIVE;
     const companyBadge = coBadge(p.company);
 
     const startDate = p.startDate
@@ -205,7 +325,12 @@ function renderPeople() {
     const tr = document.createElement('tr');
     tr.className = 'border-b border-line hover:bg-panel2/40 transition-colors';
     tr.innerHTML = `
-      <td class="py-3 px-2 font-medium whitespace-nowrap">${esc(p.name)}${companyBadge}</td>
+      <td class="py-3 px-2 font-medium whitespace-nowrap">
+        ${isAdmin()
+          ? `<button class="text-ink hover:text-accent transition-colors cursor-pointer text-left"
+               onclick="openPersonProfile('${p.id}')">${esc(p.name)}</button>`
+          : esc(p.name)}${companyBadge}
+      </td>
       <td data-pcol="role"   class="py-3 px-2 text-muted text-xs whitespace-nowrap">${esc(p.role)}</td>
       <td data-pcol="dept"   class="py-3 px-2 text-muted text-xs whitespace-nowrap">${esc(p.department)}</td>
       <td data-pcol="type"   class="py-3 px-2 text-muted text-xs whitespace-nowrap">${EMP_LABEL[p.employmentType] || p.employmentType}</td>
@@ -238,10 +363,19 @@ function renderPeople() {
           }
         </div>
       </td>
-      ${isStaff() ? '<td></td>' : `<td class="py-3 px-2 whitespace-nowrap"><button class="btn-del" data-del="${p.id}">Remove</button></td>`}`;
+      ${isAdmin() ? `<td class="py-3 px-2 whitespace-nowrap">
+        <div class="flex items-center gap-1.5">
+          <button class="btn-edit" data-edit="${p.id}">Edit</button>
+          <button class="btn-del"  data-del="${p.id}">Remove</button>
+        </div>
+      </td>` : '<td></td>'}`;
     rows.appendChild(tr);
   }
-  rows.querySelectorAll('[data-del]').forEach(b => b.onclick = () => removePerson(b.dataset.del));
+  rows.querySelectorAll('[data-edit]').forEach(b => {
+    const person = PEOPLE.find(p => p.id === b.dataset.edit);
+    b.onclick = () => openEditModal(person);
+  });
+  rows.querySelectorAll('[data-del]').forEach(b => b.onclick = () => openExitModal(b.dataset.del));
   rows.querySelectorAll('[data-assign]').forEach(b => b.onclick = () => showAssign(b.dataset.assign));
   rows.querySelectorAll('[data-ps]').forEach(b => b.onclick = () => showChange(b.dataset.ps, b));
   rows.querySelectorAll('[data-login]').forEach(b => {
@@ -274,7 +408,7 @@ async function addPerson() {
     department:     $('department').value.trim(),
     startDate:      $('startDate').value || new Date().toISOString().slice(0, 10),
     employmentType: $('employmentType').value,
-    warmPool:       $('warmPool').value === 'true',
+    status:         $('status').value || 'ACTIVE',
     company:        $('company').value || undefined,
     salary:         parseFloat($('salary').value) || undefined,
   };
@@ -294,11 +428,97 @@ async function addPerson() {
   }
 }
 
-async function removePerson(id) {
-  if (!confirm('Remove this person? Their skill ratings and history go too.')) return;
+function openExitModal(id) {
+  const person = PEOPLE.find(p => p.id === id);
+  if (!person) return;
+
+  let modal = $('exit-person-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'exit-person-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center';
+    document.body.appendChild(modal);
+  }
+
+  modal.innerHTML = `
+    <div class="absolute inset-0 bg-bg/80 backdrop-blur-sm" onclick="closeExitModal()"></div>
+    <div class="relative bg-panel border border-line rounded-2xl p-6 w-full max-w-sm mx-4 z-10">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm font-semibold text-ink">How is ${esc(person.name)} leaving?</h2>
+        <button onclick="closeExitModal()" class="text-muted hover:text-ink text-lg leading-none cursor-pointer">×</button>
+      </div>
+      <p class="text-xs text-muted mb-4">The person record is kept for history. Status is updated — they will no longer appear in active staff lists.</p>
+      <div class="space-y-2 mb-5">
+        <label class="flex items-center gap-3 p-3 rounded-lg border border-line hover:border-accent/50 cursor-pointer transition-colors">
+          <input type="radio" name="exit-status" value="WARM_POOL" class="accent-accent cursor-pointer" />
+          <div>
+            <p class="text-xs font-semibold text-ink">Warm pool</p>
+            <p class="text-[11px] text-muted">Left on good terms — may return as freelance or contract</p>
+          </div>
+        </label>
+        <label class="flex items-center gap-3 p-3 rounded-lg border border-line hover:border-accent/50 cursor-pointer transition-colors">
+          <input type="radio" name="exit-status" value="RESIGNED" class="accent-accent cursor-pointer" />
+          <div>
+            <p class="text-xs font-semibold text-ink">Resigned</p>
+            <p class="text-[11px] text-muted">Quit voluntarily</p>
+          </div>
+        </label>
+        <label class="flex items-center gap-3 p-3 rounded-lg border border-line hover:border-accent/50 cursor-pointer transition-colors">
+          <input type="radio" name="exit-status" value="TERMINATED" class="accent-accent cursor-pointer" />
+          <div>
+            <p class="text-xs font-semibold text-ink">Terminated</p>
+            <p class="text-[11px] text-muted">Employment ended by the company</p>
+          </div>
+        </label>
+      </div>
+      <button onclick="submitExit('${person.id}')"
+        class="w-full bg-accent text-bg text-xs font-semibold py-2.5 rounded-lg
+               hover:brightness-110 transition-all cursor-pointer">
+        Confirm exit
+      </button>
+      <div class="border-t border-line mt-4 pt-4">
+        <p class="text-[11px] text-muted mb-2">Permanent delete — removes all history. Use only for test/duplicate records.</p>
+        <button onclick="hardDeletePerson('${person.id}')"
+          class="w-full border border-rose-500/40 text-rose-400 text-xs font-medium py-2 rounded-lg
+                 hover:bg-rose-500/10 transition-colors cursor-pointer">
+          Hard delete (irreversible)
+        </button>
+      </div>
+      <div id="exit-msg" class="text-xs mt-2 min-h-[16px]"></div>
+    </div>`;
+
+  modal.classList.remove('hidden');
+}
+
+function closeExitModal() {
+  const modal = $('exit-person-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function submitExit(personId) {
+  const selected = document.querySelector('input[name="exit-status"]:checked');
+  if (!selected) { msg($('exit-msg'), 'Please select a reason.', 'err'); return; }
+
+  const res = await fetch('/api/people/' + personId, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: selected.value }),
+  });
+
+  if (res.ok) {
+    msg($('exit-msg'), 'Status updated.', 'ok');
+    setTimeout(() => { closeExitModal(); load(); }, 600);
+  } else {
+    const e = await res.json().catch(() => ({}));
+    msg($('exit-msg'), [].concat(e.message || 'Failed').join(', '), 'err');
+  }
+}
+
+async function hardDeletePerson(id) {
+  if (!confirm('Permanently delete this person and ALL their history?\n\nThis cannot be undone.')) return;
   const res = await fetch('/api/people/' + id, { method: 'DELETE' });
-  if (res.ok) { msg($('msg'), 'Removed.', 'ok'); load(); }
-  else msg($('msg'), 'Could not remove.', 'err');
+  if (res.ok) { closeExitModal(); msg($('msg'), 'Deleted.', 'ok'); load(); }
+  else msg($('exit-msg'), 'Could not delete.', 'err');
 }
 
 function showAssign(personId) {
@@ -590,5 +810,140 @@ async function submitOnboard() {
   } else {
     const e = await res.json().catch(() => ({}));
     msg(msgEl, [].concat(e.message || 'Failed').join(', '), 'err');
+  }
+}
+
+// ── Edit Person modal ─────────────────────────────────────────────────────────
+
+function openEditModal(person) {
+  let modal = $('edit-person-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'edit-person-modal';
+    modal.className = 'fixed inset-0 z-50 flex items-center justify-center';
+    document.body.appendChild(modal);
+  }
+
+  const jtOpts = JOB_TITLES.map(jt =>
+    `<option value="${esc(jt.name)}" ${jt.name === person.role ? 'selected' : ''}>${esc(jt.name)}</option>`
+  ).join('');
+  const deptOpts = DEPARTMENTS.map(d =>
+    `<option value="${esc(d.name)}" ${d.name === person.department ? 'selected' : ''}>${esc(d.name)}</option>`
+  ).join('');
+  const startVal = person.startDate ? person.startDate.slice(0, 10) : '';
+  const salaryRow = canSeeSalary() ? `
+    <div>
+      <label class="block text-xs text-muted font-medium mb-1.5">Monthly salary (RM)</label>
+      <input id="ep-salary" type="number" min="0" class="form-input text-xs" style="margin-top:0"
+        value="${person.salary ?? ''}" placeholder="Optional" />
+    </div>` : '';
+
+  modal.innerHTML = `
+    <div class="absolute inset-0 bg-bg/80 backdrop-blur-sm" onclick="closeEditModal()"></div>
+    <div class="relative bg-panel border border-line rounded-2xl p-6 w-full max-w-md mx-4 z-10 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-sm font-semibold text-ink">Edit — ${esc(person.name)}</h2>
+        <button onclick="closeEditModal()" class="text-muted hover:text-ink text-lg leading-none cursor-pointer">×</button>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs text-muted font-medium mb-1.5">Name</label>
+          <input id="ep-name" class="form-input text-xs" style="margin-top:0" value="${esc(person.name)}" />
+        </div>
+        <div>
+          <label class="block text-xs text-muted font-medium mb-1.5">Job title</label>
+          <select id="ep-role" class="form-input text-xs cursor-pointer" style="margin-top:0">
+            <option value="">— select job title —</option>
+            ${jtOpts}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-muted font-medium mb-1.5">Department</label>
+          <select id="ep-dept" class="form-input text-xs cursor-pointer" style="margin-top:0">
+            <option value="">— select department —</option>
+            ${deptOpts}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-muted font-medium mb-1.5">Start date</label>
+          <input id="ep-start" type="date" class="form-input text-xs" style="margin-top:0" value="${startVal}" />
+        </div>
+        <div>
+          <label class="block text-xs text-muted font-medium mb-1.5">Employment type</label>
+          <select id="ep-emptype" class="form-input text-xs cursor-pointer" style="margin-top:0">
+            ${['FULL_TIME','CONTRACT','FREELANCE','INTERN'].map(t =>
+              `<option value="${t}" ${t === person.employmentType ? 'selected' : ''}>${EMP_LABEL[t]}</option>`
+            ).join('')}
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-muted font-medium mb-1.5">Company</label>
+          <select id="ep-company" class="form-input text-xs cursor-pointer" style="margin-top:0">
+            <option value="" ${!person.company ? 'selected' : ''}>— none —</option>
+            <option value="LPS"   ${person.company === 'LPS'   ? 'selected' : ''}>LPS</option>
+            <option value="PXL"   ${person.company === 'PXL'   ? 'selected' : ''}>PXL</option>
+            <option value="GROUP" ${person.company === 'GROUP' ? 'selected' : ''}>Group</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs text-muted font-medium mb-1.5">Status</label>
+          <select id="ep-status" class="form-input text-xs cursor-pointer" style="margin-top:0">
+            <option value="ACTIVE"     ${person.status === 'ACTIVE'     ? 'selected' : ''}>Active</option>
+            <option value="WARM_POOL"  ${person.status === 'WARM_POOL'  ? 'selected' : ''}>Warm pool</option>
+            <option value="RESIGNED"   ${person.status === 'RESIGNED'   ? 'selected' : ''}>Resigned</option>
+            <option value="TERMINATED" ${person.status === 'TERMINATED' ? 'selected' : ''}>Terminated</option>
+          </select>
+        </div>
+        ${salaryRow}
+      </div>
+      <div class="flex items-center gap-3 mt-5">
+        <button onclick="submitEdit('${person.id}')"
+          class="flex-1 bg-accent text-bg text-xs font-semibold py-2.5 rounded-lg
+                 hover:brightness-110 transition-all cursor-pointer">
+          Save changes
+        </button>
+        <button onclick="closeEditModal()"
+          class="px-4 py-2.5 text-xs text-muted hover:text-ink transition-colors cursor-pointer">
+          Cancel
+        </button>
+      </div>
+      <div id="ep-msg" class="text-xs mt-2 min-h-[16px]"></div>
+    </div>`;
+
+  modal.classList.remove('hidden');
+}
+
+function closeEditModal() {
+  const modal = $('edit-person-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function submitEdit(personId) {
+  const body = {
+    name:           $('ep-name').value.trim(),
+    role:           $('ep-role').value,
+    department:     $('ep-dept').value,
+    startDate:      $('ep-start').value || undefined,
+    employmentType: $('ep-emptype').value,
+    company:        $('ep-company').value || undefined,
+    status:         $('ep-status').value || undefined,
+    salary:         canSeeSalary() && $('ep-salary')
+                      ? (parseFloat($('ep-salary').value) || undefined)
+                      : undefined,
+  };
+  if (!body.name) { msg($('ep-msg'), 'Name is required.', 'err'); return; }
+
+  const res = await fetch('/api/people/' + personId, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  if (res.ok) {
+    msg($('ep-msg'), 'Saved.', 'ok');
+    setTimeout(() => { closeEditModal(); load(); }, 600);
+  } else {
+    const e = await res.json().catch(() => ({}));
+    msg($('ep-msg'), [].concat(e.message || 'Failed').join(', '), 'err');
   }
 }

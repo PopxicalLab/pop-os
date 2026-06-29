@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateAssetDto, UpdateAssetDto } from './asset.dto';
+import { companyWhere } from '../common/company-filter';
 
 // Always include project name and assignee so the frontend can display context.
 const WITH_PROJECT = {
@@ -12,11 +13,14 @@ const WITH_PROJECT = {
 export class AssetsService {
   constructor(private prisma: PrismaService) {}
 
-  // List all assets, optionally filtered to one project or one assignee (STAFF).
-  findAll(projectId?: string, assignedToId?: string) {
+  // List all assets, optionally filtered to one project, one assignee (STAFF), or company.
+  findAll(projectId?: string, assignedToId?: string, company?: string | null) {
+    const co = companyWhere(company);
     const where: any = {};
     if (projectId)    where.projectId    = projectId;
     if (assignedToId) where.assignedToId = assignedToId;
+    // Company scope is applied via the related project.
+    if (co)           where.project      = co;
     return this.prisma.asset.findMany({
       where:   Object.keys(where).length ? where : undefined,
       include: WITH_PROJECT,

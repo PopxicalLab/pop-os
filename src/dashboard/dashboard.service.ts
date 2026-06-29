@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { companyWhere } from '../common/company-filter';
 
 // Reuse the same Monday-normalisation logic as the capacity service.
 function toMonday(d: Date): Date {
@@ -15,7 +16,8 @@ function toMonday(d: Date): Date {
 export class DashboardService {
   constructor(private prisma: PrismaService) {}
 
-  async getSummary() {
+  async getSummary(company?: string | null, role?: string | null) {
+    const co = companyWhere(company);
     const now       = new Date();
     const weekStart = toMonday(now);
 
@@ -26,12 +28,13 @@ export class DashboardService {
     // Fetch all base data in parallel — one round-trip to the DB.
     const [allPeople, activeProjects, thisWeekAllocations, paymentAlerts] = await Promise.all([
       this.prisma.person.findMany({
-        select: { id: true, name: true, role: true, company: true, warmPool: true },
+        where:   co ?? undefined,
+        select:  { id: true, name: true, role: true, company: true, status: true },
         orderBy: { name: 'asc' },
       }),
       // "Active" = anything not yet finished or cancelled.
       this.prisma.project.findMany({
-        where:   { status: { notIn: ['DELIVERED', 'CANCELLED'] } },
+        where:   { status: { notIn: ['DELIVERED', 'CANCELLED'] }, ...(co ?? {}) },
         include: {
           producer: { select: { id: true, name: true } },
           pm:       { select: { id: true, name: true } },
@@ -39,34 +42,36 @@ export class DashboardService {
         orderBy: [{ priority: 'asc' }, { createdAt: 'desc' }],
       }),
       this.prisma.capacity.findMany({
-        where:   { weekStart },
+        where:   { weekStart, ...(co ? { project: co } : {}) },
         include: {
           person:  { select: { id: true, name: true, role: true, company: true } },
           project: { select: { id: true, name: true, quadrant: true, priority: true, company: true } },
         },
         orderBy: [{ person: { name: 'asc' } }, { pctWeek: 'desc' }],
       }),
-      // Accounting documents due within 10 days (or already overdue but unpaid).
-      this.prisma.accountingDocument.findMany({
-        where: {
-          status:  'ACTIVE',
-          dueDate: { not: null, lte: alertCutoff },
-        },
-        include: {
-          project: {
-            select: {
-              id: true, name: true,
-              producer: { select: { id: true, name: true } },
+      // Payment alerts: only for roles that handle billing (not TEAM_LEAD, STAFF, SALES).
+      ['ADMIN', 'FINANCE', 'PM', 'PRODUCER'].includes(role ?? '')
+        ? this.prisma.accountingDocument.findMany({
+            where: {
+              status:  'ACTIVE',
+              dueDate: { not: null, lte: alertCutoff },
             },
-          },
-        },
-        orderBy: { dueDate: 'asc' },
-      }),
+            include: {
+              project: {
+                select: {
+                  id: true, name: true,
+                  producer: { select: { id: true, name: true } },
+                },
+              },
+            },
+            orderBy: { dueDate: 'asc' },
+          })
+        : Promise.resolve([]),
     ]);
 
     // Compute derived stats in memory — avoids extra DB round-trips.
-    const activePeople     = allPeople.filter(p => !p.warmPool);
-    const warmPoolCount    = allPeople.filter(p =>  p.warmPool).length;
+    const activePeople     = allPeople.filter(p => p.status === 'ACTIVE');
+    const warmPoolCount    = allPeople.filter(p => p.status !== 'ACTIVE').length;
     const lpsPeople        = allPeople.filter(p => p.company === 'LPS').length;
     const pxlPeople        = allPeople.filter(p => p.company === 'PXL').length;
 

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { companyWhere } from '../common/company-filter';
 
 // Studio cost assumptions — adjust as the business evolves.
 const OVERHEAD_MULTIPLIER   = 1.20; // salary + 20% employer overhead
@@ -33,10 +34,11 @@ export class FinancialService {
   constructor(private prisma: PrismaService) {}
 
   // Cost breakdown per active project: man-days, cost to date, margin.
-  async getProjectCosts() {
+  async getProjectCosts(company?: string | null) {
+    const co = companyWhere(company);
     const [projects, allAllocations] = await Promise.all([
       this.prisma.project.findMany({
-        where:   { status: { notIn: ['DELIVERED', 'CANCELLED'] } },
+        where:   { status: { notIn: ['DELIVERED', 'CANCELLED'] }, ...(co ?? {}) },
         include: {
           producer: { select: { id: true, name: true } },
           pm:       { select: { id: true, name: true } },
@@ -92,7 +94,8 @@ export class FinancialService {
   // ── Finance Dashboard ────────────────────────────────────────────
   // One call that returns everything a finance boss needs at a glance:
   // AR position, overdue invoices, due-soon alerts, pipeline, project health.
-  async getFinanceDashboard() {
+  async getFinanceDashboard(company?: string | null) {
+    const co = companyWhere(company);
     const now         = new Date();
     const alertCutoff = new Date(now);
     alertCutoff.setDate(alertCutoff.getDate() + 10);
@@ -112,10 +115,10 @@ export class FinancialService {
       }),
       // All leads except LOST — we want the full pipeline view.
       this.prisma.lead.findMany({
-        where:  { status: { not: 'LOST' } },
+        where:  { status: { not: 'LOST' }, ...(co ?? {}) },
         select: { estimatedValue: true, status: true },
       }),
-      this.getProjectCosts(),
+      this.getProjectCosts(company),
     ]);
 
     const invoices        = allDocs.filter(d => d.docType === 'SALES_INVOICE');
@@ -161,7 +164,8 @@ export class FinancialService {
   }
 
   // Studio-wide summary: total capacity cost this week, total active project value.
-  async getOverview() {
+  async getOverview(company?: string | null) {
+    const co = companyWhere(company);
     const now       = new Date();
     const day       = now.getUTCDay();
     const diff      = day === 0 ? -6 : 1 - day;
@@ -171,11 +175,11 @@ export class FinancialService {
 
     const [thisWeek, allProjects] = await Promise.all([
       this.prisma.capacity.findMany({
-        where:   { weekStart },
+        where:   { weekStart, ...(co ? { project: co } : {}) },
         include: { person: { select: { salary: true } } },
       }),
       this.prisma.project.findMany({
-        where:  { status: { notIn: ['DELIVERED', 'CANCELLED'] } },
+        where:  { status: { notIn: ['DELIVERED', 'CANCELLED'] }, ...(co ?? {}) },
         select: { estimatedValue: true, marginTarget: true },
       }),
     ]);

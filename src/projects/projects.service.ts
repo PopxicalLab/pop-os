@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateProjectDto, UpdateProjectDto } from './project.dto';
+import { companyWhere } from '../common/company-filter';
 
 // Fields we always include when returning a project — producer and PM names.
 const WITH_PEOPLE = {
@@ -13,16 +14,18 @@ const WITH_PEOPLE = {
 export class ProjectsService {
   constructor(private prisma: PrismaService) {}
 
-  findAll(personId?: string) {
+  findAll(personId?: string, company?: string | null) {
+    const co = companyWhere(company);
     // STAFF only see projects where they have a capacity allocation or an assigned asset.
-    const where = personId
+    const staffFilter = personId
       ? { OR: [
           { capacityEntries: { some: { personId } } },
           { assets:          { some: { assignedToId: personId } } },
         ] }
       : undefined;
+    const where = { ...(co ?? {}), ...(staffFilter ?? {}) };
     return this.prisma.project.findMany({
-      where,
+      where: Object.keys(where).length ? where : undefined,
       orderBy: { createdAt: 'desc' },
       include: WITH_PEOPLE,
     });
@@ -151,7 +154,7 @@ export class ProjectsService {
 
     for (const ps of project.requiredSkills) {
       const matches = await this.prisma.personSkill.findMany({
-        where: { skillId: ps.skillId, person: { warmPool: false } },
+        where: { skillId: ps.skillId, person: { status: 'ACTIVE' } },
         include: { person: { select: { id: true, name: true, role: true, department: true } } },
       });
 

@@ -1,16 +1,17 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateAccountDto, UpdateAccountDto } from './account.dto';
+import { companyWhere } from '../common/company-filter';
 
 @Injectable()
 export class AccountsService {
   constructor(private prisma: PrismaService) {}
 
-  findAll() {
+  findAll(company?: string | null) {
+    const co = companyWhere(company);
     return this.prisma.account.findMany({
-      include: {
-        _count: { select: { leads: true, projects: true, contacts: true } },
-      },
+      where:   co ?? undefined,
+      include: { _count: { select: { leads: true, projects: true, contacts: true } } },
       orderBy: { name: 'asc' },
     });
   }

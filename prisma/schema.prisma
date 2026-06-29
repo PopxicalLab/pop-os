@@ -17,8 +17,9 @@ datasource db {
 // ── COMPANY ─────────────────────────────────────────────────────
 // The two studios that make up Pop Group.
 enum Company {
-  LPS // Lorrypop Studio
-  PXL // Popxical Lab
+  LPS   // Lorrypop Studio
+  PXL   // Popxical Lab
+  GROUP // cross-company — sees all data, no company filter applied
 }
 
 // ── CAPACITY ENUM ───────────────────────────────────────────────
@@ -80,11 +81,28 @@ enum EmploymentType {
   INTERN
 }
 
+// Person status — tracks whether staff are active or how they left.
+enum PersonStatus {
+  ACTIVE      // current staff
+  WARM_POOL   // left on good terms; available for freelance/contract
+  RESIGNED    // quit voluntarily
+  TERMINATED  // employment ended by company
+}
+
 // Commission tier cost type — what kind of cost is deducted from a project's revenue.
 enum CostType {
   WARM_POOL  // freelance / warm pool talent hired for the project
   SUPPLIER   // external vendor / supplier cost
   ADDITIONAL // any other project cost
+}
+
+// Person lifecycle event types — recorded on the timeline.
+enum PersonEventType {
+  ROLE_CHANGE        // job title changed
+  DEPARTMENT_CHANGE  // moved to a different department
+  PROMOTION          // formal promotion
+  ACHIEVEMENT        // award, certification, milestone
+  NOTE               // manager note / general observation
 }
 
 // Where a skill-rating change came from.
@@ -106,7 +124,7 @@ model Person {
   department     String         // e.g. "3D", "Art", "Production"
   startDate      DateTime
   employmentType EmploymentType @default(FULL_TIME)
-  warmPool       Boolean        @default(false) // true = in the Warm Talent Pool (alumni/rejected/freelance)
+  status         PersonStatus   @default(ACTIVE) // ACTIVE / WARM_POOL / RESIGNED / TERMINATED
   canSignOff             Boolean  @default(false) // true = this person can approve/reject assets in the sign-off queue
   company        Company?       // LPS or PXL — optional so existing records are unaffected
   salary         Float?         // monthly salary in RM — used by the Financial Engine for man-day costing
@@ -129,9 +147,56 @@ model Person {
   // Per-person commission tier rate overrides (replaces the old flat commissionRateOverride).
   tierRates          PersonTierRate[]
   user               User?       // login account, if this person has one
+  salaryHistory      SalaryHistory[]
+  events             PersonEvent[]
+  committeeMembers   CommitteeMember[]
+  activityAttendances CommitteeActivityAttendee[]
 
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
+}
+
+// ── SALARY HISTORY ──────────────────────────────────────────────
+// Auto-logged every time salary changes. Never edited — append only.
+model SalaryHistory {
+  id            String   @id @default(cuid())
+  personId      String
+  person        Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  amount        Float    // new salary amount
+  prevAmount    Float?   // previous amount (null = first entry)
+  reason        String?  // e.g. "Annual review", "Promotion"
+  effectiveDate DateTime @default(now())
+  createdAt     DateTime @default(now())
+}
+
+// ── PERSON EVENTS ────────────────────────────────────────────────
+// Manual timeline entries: promotions, role changes, achievements, notes.
+model PersonEvent {
+  id        String          @id @default(cuid())
+  personId  String
+  person    Person          @relation(fields: [personId], references: [id], onDelete: Cascade)
+  type      PersonEventType
+  title     String          // e.g. "Promoted to Senior 3D Artist"
+  note      String?         // optional longer description
+  eventDate DateTime        @default(now())
+  createdAt DateTime        @default(now())
+}
+
+// ── JOB TITLE ───────────────────────────────────────────────────
+// Studio-wide master list of job titles.
+// Person.role is a free string that should be picked from this list.
+model JobTitle {
+  id        String   @id @default(cuid())
+  name      String   @unique // e.g. "3D Artist", "Producer", "Motion Designer"
+  createdAt DateTime @default(now())
+}
+
+// Studio-wide master list of departments.
+// Person.department is a free string that should be picked from this list.
+model Department {
+  id        String   @id @default(cuid())
+  name      String   @unique // e.g. "Production", "3D", "Motion", "Creative"
+  createdAt DateTime @default(now())
 }
 
 // ── SKILL ───────────────────────────────────────────────────────
@@ -554,6 +619,77 @@ model PersonTierRate {
   updatedAt DateTime @updatedAt
 
   @@unique([personId, tierId])
+}
+
+// ── COMMITTEES ────────────────────────────────────────────────────
+// HR module: tracks studio committees, their members, and activities.
+// Used for year-end evaluation — who served, for how long, what did they do.
+
+enum CommitteeRole {
+  CHAIR      // leads the committee
+  SECRETARY  // records minutes
+  MEMBER     // regular member
+}
+
+// A named committee, e.g. "Health & Safety", "Creative Review", "Welfare".
+model Committee {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  purpose     String?  // what this committee does
+  active      Boolean  @default(true) // false = dissolved/archived
+
+  members     CommitteeMember[]
+  activities  CommitteeActivity[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// A person's membership record in a committee.
+// leftAt = null means they are still active on the committee.
+model CommitteeMember {
+  id           String        @id @default(cuid())
+  committeeId  String
+  personId     String
+  role         CommitteeRole @default(MEMBER)
+  joinedAt     DateTime      @default(now())
+  leftAt       DateTime?     // null = still serving; filled = stepped down
+
+  committee    Committee     @relation(fields: [committeeId], references: [id], onDelete: Cascade)
+  person       Person        @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@unique([committeeId, personId]) // one membership record per person per committee
+}
+
+// A recorded committee session or activity — meeting, audit, review, etc.
+model CommitteeActivity {
+  id           String   @id @default(cuid())
+  committeeId  String
+  title        String   // e.g. "Q2 Safety Audit", "Monthly Review Meeting"
+  activityDate DateTime
+  notes        String?  // agenda / discussion summary
+  outcome      String?  // decisions made, action items
+
+  committee    Committee @relation(fields: [committeeId], references: [id], onDelete: Cascade)
+  attendees    CommitteeActivityAttendee[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// Who attended a specific committee activity.
+model CommitteeActivityAttendee {
+  id         String @id @default(cuid())
+  activityId String
+  personId   String
+
+  activity   CommitteeActivity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  person     Person            @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([activityId, personId]) // can't attend the same activity twice
 }
 
 // Project costs deducted from deal value before commission is applied.

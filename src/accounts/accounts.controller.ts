@@ -3,7 +3,7 @@
 // POST   /api/accounts        → create
 // PATCH  /api/accounts/:id    → update
 // DELETE /api/accounts/:id    → remove
-import { Controller, Get, Post, Patch, Delete, Param, Body } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Req } from '@nestjs/common';
 import { AccountsService } from './accounts.service';
 import { CreateAccountDto, UpdateAccountDto } from './account.dto';
 
@@ -11,7 +11,7 @@ import { CreateAccountDto, UpdateAccountDto } from './account.dto';
 export class AccountsController {
   constructor(private readonly accounts: AccountsService) {}
 
-  @Get()    findAll()                                      { return this.accounts.findAll(); }
+  @Get()    findAll(@Req() req: any)                       { return this.accounts.findAll(req.user?.company); }
   @Get(':id') findOne(@Param('id') id: string)             { return this.accounts.findOne(id); }
   @Post()   create(@Body() dto: CreateAccountDto)          { return this.accounts.create(dto); }
   @Patch(':id') update(@Param('id') id: string, @Body() dto: UpdateAccountDto) {

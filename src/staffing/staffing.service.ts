@@ -27,7 +27,7 @@ export class StaffingService {
 
     const [people, allocations] = await Promise.all([
       this.prisma.person.findMany({
-        where:   { warmPool: false }, // warm-pool / alumni not available for scheduling
+        where:   { status: 'ACTIVE' }, // only active staff available for scheduling
         include: {
           skills: {
             include: { skill: true },

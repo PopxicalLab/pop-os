@@ -35,6 +35,26 @@ async function main() {
 
   console.log('Seeding Pop OS demo data…\n');
 
+  // ── 0a. DEPARTMENTS ───────────────────────────────────────────────────────────
+  const departmentNames = [
+    'Production', '3D', 'Motion', 'Creative', 'Operations', 'Finance', 'Sales',
+  ];
+  for (const name of departmentNames) {
+    await prisma.department.upsert({ where: { name }, update: {}, create: { name } });
+  }
+  console.log(`✓ ${departmentNames.length} departments`);
+
+  // ── 0b. JOB TITLES ────────────────────────────────────────────────────────────
+  const jobTitleNames = [
+    'Producer', 'Project Manager', 'Creative Director', '3D Director',
+    '3D Artist', 'Motion Designer', 'Concept Artist', 'Animator',
+    'VFX Artist', 'Compositor', 'Team Lead', 'Intern',
+  ];
+  for (const name of jobTitleNames) {
+    await prisma.jobTitle.upsert({ where: { name }, update: {}, create: { name } });
+  }
+  console.log(`✓ ${jobTitleNames.length} job titles`);
+
   // ── 1. SKILLS ────────────────────────────────────────────────────────────────
   const skillNames = [
     '3D Modeling', 'Rigging', 'Animation', 'VFX', 'Motion Design',
@@ -58,7 +78,7 @@ async function main() {
     { name: 'Priya',  role: 'Motion Designer',   department: 'Motion',     type: 'FULL_TIME',  co: 'LPS', salary:  6000, start: '2023-03-06' },
     { name: 'Lucas',  role: 'Concept Artist',    department: 'Creative',   type: 'CONTRACT',   co: 'PXL', salary:  7500, start: '2024-01-15' },
     { name: 'Mei',    role: 'Animator',          department: '3D',         type: 'FREELANCE',  co: null,  salary:  6500, start: '2024-06-01' },
-    { name: 'Ravi',   role: '3D Generalist',     department: '3D',         type: 'FULL_TIME',  co: 'LPS', salary:  null, start: '2020-01-01', warmPool: true },
+    { name: 'Ravi',   role: '3D Generalist',     department: '3D',         type: 'FULL_TIME',  co: 'LPS', salary:  null, start: '2020-01-01', status: 'WARM_POOL' },
   ];
 
   const P = {};
@@ -67,7 +87,7 @@ async function main() {
       data: {
         name: d.name, role: d.role, department: d.department,
         employmentType: d.type, company: d.co ?? null, salary: d.salary ?? null,
-        startDate: new Date(d.start), warmPool: d.warmPool ?? false,
+        startDate: new Date(d.start), status: d.status ?? 'ACTIVE',
       },
     });
   }
