@@ -192,24 +192,27 @@ export class AutocountService {
 
   // ── sync documents (quotations + invoices) ───────────────────────
 
-  // Fetch all pages of a listing endpoint, handling pagination automatically.
+  // Fetch all pages of a listing endpoint for the current calendar year only.
   private async fetchAllDocumentPages(path: string): Promise<any[]> {
     const all: any[] = [];
     let page = 1;
     const pageSize = 200;
+    const year      = new Date().getFullYear();
+    const startDate = `${year}-01-01`;
+    const endDate   = `${year}-12-31`;
 
     while (true) {
       const res = await fetch(
-        this.url(`${path}?page=${page}&pageSize=${pageSize}`),
+        this.url(`${path}?page=${page}&pageSize=${pageSize}&startDate=${startDate}&endDate=${endDate}`),
         { headers: this.authHeaders() },
       );
       if (!res.ok) break;
       const body = await res.json() as { data?: any[] };
       const items = body.data ?? [];
       all.push(...items);
-      if (items.length < pageSize) break; // last page
+      if (items.length < pageSize) break;
       page++;
-      if (page > 50) break; // safety cap — 10 000 documents max
+      if (page > 50) break;
     }
 
     return all;
