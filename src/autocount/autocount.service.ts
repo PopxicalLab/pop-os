@@ -240,29 +240,33 @@ export class AutocountService {
     docType: 'QUOTATION' | 'SALES_INVOICE',
     result: { created: number; updated: number; skipped: number },
   ) {
-    // Swagger confirms these fields on listing responses. Support PascalCase (server)
-    // and camelCase (SDK wrapper) for safety.
-    const docNo      = item.DocNo      ?? item.docNo;
-    const docDateRaw = item.DocDate    ?? item.docDate;
-    const debtorCode = item.DebtorCode ?? item.debtorCode;
-    const debtorName = item.DebtorName ?? item.debtorName ?? item.CompanyName ?? item.companyName;
-    const amount     = item.GrandTotal ?? item.grandTotal ?? 0;
-    const creditTerm = item.CreditTerm ?? item.creditTerm ?? null;
+    // Listing endpoint returns { master: {...}, details: [...] } per item.
+    // Single-doc fetch returns the same shape. Normalise to flat master object.
+    const m = item.master ?? item;
 
-    // DueDate for invoices; ExpiryDate for quotations (both confirmed in Swagger).
-    const dueDateRaw = item.DueDate    ?? item.dueDate
-                    ?? item.ExpiryDate ?? item.expiryDate
+    const docNo      = m.docNo      ?? m.DocNo;
+    const docDateRaw = m.docDate    ?? m.DocDate;
+    const debtorCode = m.debtorCode ?? m.DebtorCode;
+    const debtorName = m.debtorName ?? m.DebtorName ?? m.companyName ?? m.CompanyName;
+    const amount     = m.finalTotal ?? m.FinalTotal ?? m.total ?? m.GrandTotal ?? 0;
+    const creditTerm = m.creditTerm ?? m.CreditTerm ?? null;
+
+    // DueDate for invoices; ExpiryDate for quotations.
+    const dueDateRaw = m.dueDate    ?? m.DueDate
+                    ?? m.expiryDate ?? m.ExpiryDate
                     ?? null;
 
-    // Status mapping.
-    // Invoices: IsPaid (confirmed) → PAID; no IsVoid in listing so leave ACTIVE otherwise.
-    // Quotations: Status field (confirmed) — treat "Void" or "Cancelled" as VOID.
+    // Status: invoices have outstandingAmount (0 = fully paid); quotations have status string.
     let status: 'ACTIVE' | 'PAID' | 'VOID' = 'ACTIVE';
     if (docType === 'SALES_INVOICE') {
-      if (item.IsPaid ?? item.isPaid) status = 'PAID';
+      const outstanding = m.outstandingAmount ?? m.OutstandingAmount ?? null;
+      const isPaid      = m.isPaid ?? m.IsPaid ?? false;
+      if (isPaid || (outstanding !== null && outstanding === 0 && (m.finalTotal ?? 0) > 0)) status = 'PAID';
+      if (m.cancelled === true) status = 'VOID';
     } else {
-      const s = String(item.Status ?? item.status ?? '').toLowerCase();
+      const s = String(m.status ?? m.Status ?? '').toLowerCase();
       if (s === 'void' || s === 'cancelled') status = 'VOID';
+      if (m.cancelled === true) status = 'VOID';
     }
 
     if (!docNo) { result.skipped++; return; }
