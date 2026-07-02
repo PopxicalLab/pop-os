@@ -1314,10 +1314,26 @@
                    hover:bg-sky-500/20 transition cursor-pointer whitespace-nowrap">
             ↓ Sync from Autocount
           </button>
+          <button id="fin-reconcile-btn" onclick="runReconciliation()"
+            class="px-3 py-2 rounded-lg border border-violet-500/30 bg-violet-500/10 text-xs text-violet-400
+                   hover:bg-violet-500/20 transition cursor-pointer whitespace-nowrap">
+            ⚖ Reconcile
+          </button>
         </div>
       </div>
       <div id="fin-alert-msg" class="hidden text-xs px-4 py-2 rounded-lg bg-panel border border-line text-muted"></div>
       <div id="fin-sync-msg" class="hidden text-xs px-4 py-2 rounded-lg bg-panel border border-line text-muted"></div>
+
+      <!-- ── Reconciliation panel (hidden until run) ──────────────── -->
+      <div id="fin-reconcile-panel" class="hidden bg-panel border border-violet-500/20 rounded-xl p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-sm font-semibold text-ink">Autocount Reconciliation</h3>
+          <button onclick="document.getElementById('fin-reconcile-panel').classList.add('hidden')"
+            class="text-muted hover:text-ink text-xs cursor-pointer">✕ Close</button>
+        </div>
+        <div id="fin-reconcile-summary" class="flex flex-wrap gap-3 mb-4"></div>
+        <div id="fin-reconcile-table"></div>
+      </div>
 
       <!-- ── AR KPI cards ─────────────────────────────────────── -->
       <div id="fin-kpi" class="grid grid-cols-2 lg:grid-cols-4 gap-4">

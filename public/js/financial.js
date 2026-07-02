@@ -354,6 +354,93 @@ async function syncDocumentsFromAutocount() {
   loadFinancial(); // refresh Finance dashboard
 }
 
+// ── Autocount reconciliation ──────────────────────────────────
+async function runReconciliation() {
+  const btn   = document.getElementById('fin-reconcile-btn');
+  const panel = document.getElementById('fin-reconcile-panel');
+  const sumEl = document.getElementById('fin-reconcile-summary');
+  const tblEl = document.getElementById('fin-reconcile-table');
+
+  if (btn) { btn.textContent = '⚖ Running…'; btn.disabled = true; }
+
+  const res  = await fetch('/api/autocount/reconcile').catch(() => null);
+
+  if (btn) { btn.textContent = '⚖ Reconcile'; btn.disabled = false; }
+
+  if (!res || !res.ok) {
+    if (panel) { panel.classList.remove('hidden'); }
+    if (sumEl) sumEl.innerHTML = `<span class="text-xs text-warm">Reconciliation failed — check Autocount credentials.</span>`;
+    if (tblEl) tblEl.innerHTML = '';
+    return;
+  }
+
+  const { summary, items } = await res.json();
+  panel.classList.remove('hidden');
+
+  const chip = (label, count, cls) =>
+    `<span class="px-2.5 py-1 rounded-lg text-xs font-semibold border ${cls}">${label}: ${count}</span>`;
+
+  sumEl.innerHTML = [
+    chip('Total',    summary.total,          'border-line text-muted'),
+    chip('✓ Match',  summary.ok,             'border-emerald-500/30 bg-emerald-500/10 text-emerald-400'),
+    chip('Amount ≠', summary.amountMismatch, summary.amountMismatch ? 'border-warm/30 bg-warm/10 text-warm' : 'border-line text-muted'),
+    chip('Status ≠', summary.statusMismatch, summary.statusMismatch ? 'border-yellow-500/30 bg-yellow-500/10 text-yellow-400' : 'border-line text-muted'),
+    chip('Both ≠',   summary.bothMismatch,   summary.bothMismatch   ? 'border-red-500/30 bg-red-500/10 text-red-400' : 'border-line text-muted'),
+    chip('Not found',summary.notFound,       summary.notFound       ? 'border-warm/30 bg-warm/10 text-warm' : 'border-line text-muted'),
+  ].join('');
+
+  const matchBadge = m => ({
+    OK:             `<span class="text-emerald-400 font-semibold">✓</span>`,
+    AMOUNT_MISMATCH:`<span class="text-warm font-semibold">Amount ≠</span>`,
+    STATUS_MISMATCH:`<span class="text-yellow-400 font-semibold">Status ≠</span>`,
+    BOTH_MISMATCH:  `<span class="text-red-400 font-semibold">Both ≠</span>`,
+    NOT_FOUND:      `<span class="text-muted italic">Not in Autocount</span>`,
+    ERROR:          `<span class="text-warm italic">Error</span>`,
+  }[m] || m);
+
+  const fmt = v => v == null ? '<span class="text-muted/50">—</span>' : `RM ${Number(v).toLocaleString('en-MY', { minimumFractionDigits: 2 })}`;
+  const fmtDate = d => d ? new Date(d).toLocaleDateString('en-MY', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+
+  // Show mismatches first, then OK rows.
+  const sorted = [...items].sort((a, b) => {
+    const order = { BOTH_MISMATCH: 0, AMOUNT_MISMATCH: 1, STATUS_MISMATCH: 2, NOT_FOUND: 3, ERROR: 4, OK: 5 };
+    return (order[a.match] ?? 9) - (order[b.match] ?? 9);
+  });
+
+  tblEl.innerHTML = `
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs">
+        <thead>
+          <tr class="text-left text-muted border-b border-line">
+            <th class="py-2 pr-3 font-medium">Doc No</th>
+            <th class="py-2 pr-3 font-medium">Client</th>
+            <th class="py-2 pr-3 font-medium">Date</th>
+            <th class="py-2 pr-3 font-medium text-right">Pop OS</th>
+            <th class="py-2 pr-3 font-medium text-right">Autocount</th>
+            <th class="py-2 pr-3 font-medium text-right">Outstanding</th>
+            <th class="py-2 pr-3 font-medium">Pop Status</th>
+            <th class="py-2 pr-3 font-medium">AC Status</th>
+            <th class="py-2 font-medium">Match</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-line/40">
+          ${sorted.map(r => `
+            <tr class="${r.match !== 'OK' ? 'bg-warn/5' : ''}">
+              <td class="py-2 pr-3 font-mono text-ink">${esc(r.docNo)}</td>
+              <td class="py-2 pr-3 text-muted max-w-[140px] truncate">${esc(r.debtorName ?? '—')}</td>
+              <td class="py-2 pr-3 text-muted whitespace-nowrap">${fmtDate(r.docDate)}</td>
+              <td class="py-2 pr-3 text-right text-ink">${fmt(r.popAmount)}</td>
+              <td class="py-2 pr-3 text-right ${r.match === 'AMOUNT_MISMATCH' || r.match === 'BOTH_MISMATCH' ? 'text-warm font-semibold' : 'text-ink'}">${fmt(r.acAmount)}</td>
+              <td class="py-2 pr-3 text-right text-muted">${fmt(r.acOutstanding)}</td>
+              <td class="py-2 pr-3 text-muted">${r.popStatus ?? '—'}</td>
+              <td class="py-2 pr-3 ${r.match === 'STATUS_MISMATCH' || r.match === 'BOTH_MISMATCH' ? 'text-yellow-400 font-semibold' : 'text-muted'}">${r.acStatus ?? '—'}</td>
+              <td class="py-2">${matchBadge(r.match)}</td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
 // ── Payment alert email ───────────────────────────────────────
 async function sendPaymentAlerts() {
   const btn = document.getElementById('fin-alert-btn');

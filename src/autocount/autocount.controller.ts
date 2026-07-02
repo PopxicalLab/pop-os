@@ -68,4 +68,11 @@ export class AutocountController {
   updateStatus(@Param('id') id: string, @Body() dto: UpdateStatusDto) {
     return this.svc.updateStatus(id, dto.status);
   }
+
+  // Compare every Pop OS AccountingDocument against the live Autocount record.
+  // Returns a summary + per-document match result (OK / AMOUNT_MISMATCH / STATUS_MISMATCH / NOT_FOUND).
+  @Get('reconcile')
+  reconcile() {
+    return this.svc.reconcile();
+  }
 }

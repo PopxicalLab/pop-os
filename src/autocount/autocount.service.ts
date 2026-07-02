@@ -356,6 +356,71 @@ export class AutocountService {
     return result;
   }
 
+  // ── reconciliation ───────────────────────────────────────────────
+  // Compare every AccountingDocument in Pop OS against live Autocount record.
+  // Uses single-doc fetch: GET /{bookId}/invoice?docNo=XX (confirmed in Swagger).
+  async reconcile() {
+    const docs = await this.prisma.accountingDocument.findMany({
+      orderBy: { docDate: 'desc' },
+    });
+
+    const results = await Promise.all(docs.map(async (doc) => {
+      try {
+        const endpoint = doc.docType === 'SALES_INVOICE' ? 'invoice' : 'quotation';
+        const res = await fetch(
+          this.url(`${endpoint}?docNo=${encodeURIComponent(doc.docNo)}`),
+          { headers: this.authHeaders() },
+        );
+
+        if (!res.ok) {
+          return { ...this.docSummary(doc), acAmount: null, acStatus: null, acOutstanding: null, match: 'NOT_FOUND' as const };
+        }
+
+        const body        = await res.json() as { master?: any };
+        const master      = body?.master ?? body ?? {};
+        const acAmount      = master.finalTotal ?? master.total ?? null;
+        const acOutstanding = master.outstandingAmount ?? null;
+        const acStatusRaw   = String(master.status ?? '').toLowerCase();
+        const acStatus      = acStatusRaw.includes('paid') ? 'PAID'
+                            : acStatusRaw.includes('void') ? 'VOID'
+                            : 'ACTIVE';
+
+        const amountMatch = doc.amount != null && acAmount != null
+          ? Math.abs(doc.amount - acAmount) <= 0.01
+          : doc.amount == null && acAmount == null;
+        const statusMatch = doc.status === acStatus;
+        const match = amountMatch && statusMatch ? 'OK'
+                    : !amountMatch && !statusMatch ? 'BOTH_MISMATCH'
+                    : !amountMatch ? 'AMOUNT_MISMATCH'
+                    : 'STATUS_MISMATCH';
+
+        return { ...this.docSummary(doc), acAmount, acStatus, acOutstanding, match };
+      } catch {
+        return { ...this.docSummary(doc), acAmount: null, acStatus: null, acOutstanding: null, match: 'ERROR' as const };
+      }
+    }));
+
+    const summary = {
+      total:          results.length,
+      ok:             results.filter(r => r.match === 'OK').length,
+      amountMismatch: results.filter(r => r.match === 'AMOUNT_MISMATCH').length,
+      statusMismatch: results.filter(r => r.match === 'STATUS_MISMATCH').length,
+      bothMismatch:   results.filter(r => r.match === 'BOTH_MISMATCH').length,
+      notFound:       results.filter(r => r.match === 'NOT_FOUND').length,
+      errors:         results.filter(r => r.match === 'ERROR').length,
+    };
+
+    return { summary, items: results };
+  }
+
+  private docSummary(doc: any) {
+    return {
+      id: doc.id, docNo: doc.docNo, docType: doc.docType,
+      docDate: doc.docDate, debtorName: doc.debtorName,
+      popAmount: doc.amount, popStatus: doc.status,
+    };
+  }
+
   // ── read ─────────────────────────────────────────────────────────
 
   // All documents for a project — shown in the project detail view.
