@@ -6,10 +6,14 @@ import { PrismaService } from '../prisma.service';
 import { CreatePersonDto, UpdatePersonDto, CreateOnboardDto } from './person.dto';
 import { CreatePersonEventDto } from './person-profile.dto';
 import { companyWhere } from '../common/company-filter';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class PeopleService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private notifications: NotificationsService,
+  ) {}
 
   // List everyone, newest first, with their rated skills and login status.
   findAll(company?: string | null) {
@@ -99,8 +103,8 @@ export class PeopleService {
 
     const hash = await bcrypt.hash(dto.password, 12);
 
-    return this.prisma.$transaction(async (tx) => {
-      const person = await tx.person.create({
+    const person = await this.prisma.$transaction(async (tx) => {
+      const p = await tx.person.create({
         data: {
           name: dto.name,
           role: dto.role,
@@ -114,7 +118,7 @@ export class PeopleService {
       });
       if (dto.salary) {
         await tx.salaryHistory.create({
-          data: { personId: person.id, amount: dto.salary, reason: 'Starting salary' },
+          data: { personId: p.id, amount: dto.salary, reason: 'Starting salary' },
         });
       }
       await tx.user.create({
@@ -123,11 +127,22 @@ export class PeopleService {
           email: dto.email.toLowerCase(),
           password: hash,
           role: dto.systemRole as any,
-          personId: person.id,
+          personId: p.id,
         },
       });
-      return person;
+      return p;
     });
+
+    // Send welcome email after transaction commits — fire and forget, never blocks the response.
+    this.notifications.sendWelcomeEmail({
+      name:     dto.name,
+      email:    dto.email.toLowerCase(),
+      password: dto.password,
+      role:     dto.systemRole,
+      company:  dto.company ?? null,
+    });
+
+    return person;
   }
 
   // Full lifecycle profile for a person.

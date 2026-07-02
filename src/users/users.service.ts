@@ -2,12 +2,16 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma.service';
 import { CreateUserDto, UpdateUserDto } from './user.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const SAFE_SELECT = { id: true, email: true, name: true, role: true, active: true, personId: true, createdAt: true };
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   findAll() {
     return this.prisma.user.findMany({ select: SAFE_SELECT, orderBy: { name: 'asc' } });
@@ -24,7 +28,7 @@ export class UsersService {
     if (existing) throw new ConflictException('Email already in use');
 
     const hash = await bcrypt.hash(dto.password, 12);
-    return this.prisma.user.create({
+    const user = await this.prisma.user.create({
       data: {
         email:    dto.email.toLowerCase(),
         name:     dto.name,
@@ -34,6 +38,25 @@ export class UsersService {
       },
       select: SAFE_SELECT,
     });
+
+    // Look up linked person's company for branding if personId provided.
+    let company: string | null = null;
+    if (dto.personId) {
+      const person = await this.prisma.person.findUnique({
+        where: { id: dto.personId }, select: { company: true },
+      });
+      company = person?.company ?? null;
+    }
+
+    this.notifications.sendWelcomeEmail({
+      name:     dto.name,
+      email:    dto.email.toLowerCase(),
+      password: dto.password,
+      role:     dto.role,
+      company,
+    });
+
+    return user;
   }
 
   async update(id: string, dto: UpdateUserDto) {

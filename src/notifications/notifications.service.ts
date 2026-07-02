@@ -79,4 +79,118 @@ export class NotificationsService {
 
     return { sent, skipped: 0, details, smtpConfigured: true };
   }
+
+  // Send a welcome email to a new joiner with their login credentials.
+  // company drives branding: LPS = Lorrypop Studio (amber), PXL = Popxical Lab (teal), default = Pop Group (indigo).
+  async sendWelcomeEmail(params: {
+    name:      string;
+    email:     string;
+    password:  string;
+    role:      string;
+    company?:  string | null;
+  }): Promise<void> {
+    const transporter = this.makeTransporter();
+    if (!transporter) {
+      this.logger.warn('Welcome email skipped — SMTP not configured');
+      return;
+    }
+
+    const appUrl = process.env.APP_URL || 'http://192.168.1.40:3000';
+    const from   = process.env.SMTP_FROM || process.env.SMTP_USER;
+
+    const BRANDING: Record<string, { name: string; color: string; bg: string }> = {
+      LPS:   { name: 'Lorrypop Studio',  color: '#f59e0b', bg: '#fffbeb' },
+      PXL:   { name: 'Popxical Lab',     color: '#14b8a6', bg: '#f0fdfa' },
+      GROUP: { name: 'Pop Group',        color: '#6366f1', bg: '#eef2ff' },
+    };
+    const brand = BRANDING[params.company ?? ''] ?? { name: 'Pop Group', color: '#6366f1', bg: '#eef2ff' };
+    const roleLabel = params.role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:system-ui,-apple-system,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+
+        <!-- Header -->
+        <tr><td style="background:${brand.color};padding:32px 40px;">
+          <p style="margin:0;font-size:22px;font-weight:700;color:#ffffff;">${brand.name}</p>
+          <p style="margin:6px 0 0;font-size:14px;color:rgba(255,255,255,0.85);">Welcome to Pop OS</p>
+        </td></tr>
+
+        <!-- Body -->
+        <tr><td style="padding:36px 40px;">
+          <p style="margin:0 0 8px;font-size:20px;font-weight:600;color:#111827;">Hi ${params.name} 👋</p>
+          <p style="margin:0 0 28px;font-size:15px;color:#6b7280;line-height:1.6;">
+            Your Pop OS account has been set up. Use the credentials below to log in and get started.
+          </p>
+
+          <!-- Credentials box -->
+          <table width="100%" cellpadding="0" cellspacing="0" style="background:${brand.bg};border:1px solid #e5e7eb;border-radius:8px;margin-bottom:28px;">
+            <tr><td style="padding:20px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td style="font-size:12px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;padding-bottom:4px;">Email</td>
+                </tr>
+                <tr>
+                  <td style="font-size:15px;color:#111827;font-family:monospace;padding-bottom:16px;">${params.email}</td>
+                </tr>
+                <tr>
+                  <td style="font-size:12px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;padding-bottom:4px;">Temporary Password</td>
+                </tr>
+                <tr>
+                  <td style="font-size:15px;color:#111827;font-family:monospace;padding-bottom:16px;">${params.password}</td>
+                </tr>
+                <tr>
+                  <td style="font-size:12px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:0.05em;padding-bottom:4px;">Role</td>
+                </tr>
+                <tr>
+                  <td style="font-size:15px;color:#111827;">${roleLabel}</td>
+                </tr>
+              </table>
+            </td></tr>
+          </table>
+
+          <!-- CTA -->
+          <table cellpadding="0" cellspacing="0"><tr><td>
+            <a href="${appUrl}/login.html"
+               style="display:inline-block;background:${brand.color};color:#ffffff;text-decoration:none;
+                      font-size:14px;font-weight:600;padding:12px 28px;border-radius:8px;">
+              Log in to Pop OS →
+            </a>
+          </td></tr></table>
+
+          <p style="margin:24px 0 0;font-size:13px;color:#9ca3af;line-height:1.6;">
+            Please change your password after your first login.<br>
+            If you have any issues, contact your admin.
+          </p>
+        </td></tr>
+
+        <!-- Footer -->
+        <tr><td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 40px;">
+          <p style="margin:0;font-size:12px;color:#9ca3af;">
+            ${brand.name} · Pop OS · <a href="${appUrl}" style="color:${brand.color};text-decoration:none;">${appUrl}</a>
+          </p>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+    try {
+      await transporter.sendMail({
+        from,
+        to:      params.email,
+        subject: `Welcome to Pop OS — ${brand.name}`,
+        html,
+      });
+      this.logger.log(`Welcome email sent to ${params.email}`);
+    } catch (err) {
+      this.logger.error(`Welcome email failed for ${params.email}: ${err.message}`);
+    }
+  }
 }
