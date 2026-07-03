@@ -118,6 +118,16 @@ function renderSalesPipeline() {
     };
   });
 
+  $('sales-board').querySelectorAll('[data-lead-closed-by]').forEach(sel => {
+    sel.onchange = async () => {
+      await fetch(`/api/leads/${sel.dataset.leadClosedBy}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ closedById: sel.value || null }),
+      });
+      loadSales();
+    };
+  });
+
   $('sales-board').querySelectorAll('[data-lead-convert]').forEach(b => {
     b.onclick = () => convertLead(b.dataset.leadConvert);
   });
@@ -172,6 +182,10 @@ function renderLeadCard(l) {
     `<option value="${s}"${l.status === s ? ' selected' : ''}>${LEAD_STATUS_LABEL[s]}</option>`
   ).join('');
 
+  const closedBySel = '<option value="">— unassigned —</option>' +
+    _salesPeople.filter(p => p.status === 'ACTIVE')
+      .map(p => `<option value="${p.id}"${l.closedById === p.id ? ' selected' : ''}>${esc(p.name)}</option>`).join('');
+
   return `<div class="bg-panel2 border border-line rounded-xl p-3 space-y-1.5">
     <div class="flex items-start justify-between gap-1">
       <p class="text-xs font-semibold text-ink leading-snug flex-1">${esc(l.name)}</p>
@@ -183,12 +197,16 @@ function renderLeadCard(l) {
       <span class="text-line">·</span>
       <span class="text-xs text-ink font-semibold">${val}</span>
     </div>
-    ${l.closedBy ? `<p class="text-[11px] text-muted">by ${esc(l.closedBy.name)}</p>` : ''}
     ${payBadge}
     <select data-lead-status="${l.id}"
       class="w-full mt-1 bg-panel border border-line text-ink px-2 py-1 rounded-md text-xs
              focus:outline-none focus:border-accent/70 cursor-pointer">
       ${statusSel}
+    </select>
+    <select data-lead-closed-by="${l.id}"
+      class="w-full bg-panel border border-line text-muted px-2 py-1 rounded-md text-xs
+             focus:outline-none focus:border-accent/70 cursor-pointer">
+      ${closedBySel}
     </select>
     ${convertBtn}
     ${quotationBtn}
