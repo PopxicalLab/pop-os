@@ -5,6 +5,7 @@ import {
 import { PeopleService } from './people.service';
 import { CreatePersonDto, UpdatePersonDto, CreateOnboardDto } from './person.dto';
 import { CreatePersonEventDto } from './person-profile.dto';
+import { AuditService } from '../audit/audit.service';
 
 function requireAdmin(req: any) {
   if (req.user?.role !== 'ADMIN') throw new ForbiddenException('Admin only');
@@ -12,48 +13,54 @@ function requireAdmin(req: any) {
 
 @Controller('api/people')
 export class PeopleController {
-  constructor(private readonly people: PeopleService) {}
+  constructor(
+    private readonly people: PeopleService,
+    private readonly audit: AuditService,
+  ) {}
 
   @Get()
-  findAll(@Req() req: any) {
-    return this.people.findAll(req.user?.company);
-  }
+  findAll(@Req() req: any) { return this.people.findAll(req.user?.company); }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.people.findOne(id);
-  }
+  findOne(@Param('id') id: string) { return this.people.findOne(id); }
 
-  // Full lifecycle profile — admin sees all; own personId sees own.
   @Get(':id/profile')
   getProfile(@Param('id') id: string, @Req() req: any) {
     return this.people.getProfile(id, req.user?.role, req.user?.personId ?? null);
   }
 
   @Post()
-  create(@Body() dto: CreatePersonDto, @Req() req: any) {
+  async create(@Body() dto: CreatePersonDto, @Req() req: any) {
     requireAdmin(req);
-    return this.people.create(dto);
+    const result = await this.people.create(dto);
+    this.audit.log(req.user, 'CREATE', 'Person', result.id, result.name, result);
+    return result;
   }
 
   @Post('onboard')
-  onboard(@Body() dto: CreateOnboardDto, @Req() req: any) {
+  async onboard(@Body() dto: CreateOnboardDto, @Req() req: any) {
     requireAdmin(req);
-    return this.people.onboard(dto);
+    const result = await this.people.onboard(dto);
+    this.audit.log(req.user, 'CREATE', 'Person', result.id, result.name, { onboarded: true, email: dto.email });
+    return result;
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdatePersonDto) {
-    return this.people.update(id, dto);
+  async update(@Param('id') id: string, @Body() dto: UpdatePersonDto, @Req() req: any) {
+    const result = await this.people.update(id, dto);
+    this.audit.log(req.user, 'UPDATE', 'Person', result.id, result.name, result);
+    return result;
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string, @Req() req: any) {
+  async remove(@Param('id') id: string, @Req() req: any) {
     requireAdmin(req);
-    return this.people.remove(id);
+    const existing = await this.people.findOne(id);
+    const result   = await this.people.remove(id);
+    this.audit.log(req.user, 'DELETE', 'Person', id, existing.name);
+    return result;
   }
 
-  // Timeline events — admin only
   @Post(':id/events')
   addEvent(@Param('id') id: string, @Body() dto: CreatePersonEventDto, @Req() req: any) {
     requireAdmin(req);

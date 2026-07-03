@@ -489,6 +489,7 @@ model User {
   // Enables the future personal dashboard (My week, My projects, My skills).
   personId  String?  @unique
   person    Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
+  auditLogs AuditLog[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -705,4 +706,29 @@ model ProjectCost {
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+// ── AUDIT LOG ──────────────────────────────────────────────────────
+// Immutable record of every create/update/delete across key models.
+// actorName is denormalized so the log survives user deletion.
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+}
+
+model AuditLog {
+  id            String      @id @default(cuid())
+  actorId       String?     // null = system action (e.g. scheduled sync)
+  actorName     String      // denormalized copy — survives user deletion
+  actorRole     String
+  action        AuditAction
+  resource      String      // "Lead" | "Project" | "User" | "Person" | "ChangeRequest" | "AccountingDocument"
+  resourceId    String
+  resourceLabel String?     // human-readable name of the record (project name, lead name, etc.)
+  after         Json?       // resulting record state — what it looks like now
+
+  actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt DateTime @default(now())
 }

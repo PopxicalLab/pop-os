@@ -5,9 +5,10 @@ import { PeopleController } from './people.controller';
 import { PeopleService } from './people.service';
 import { PrismaService } from '../prisma.service';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
-  imports:     [NotificationsModule],
+  imports:     [NotificationsModule, AuditModule],
   controllers: [PeopleController],
   providers:   [PeopleService, PrismaService],
 })

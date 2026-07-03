@@ -244,6 +244,11 @@
           class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
           onclick="switchTab('financial')">Financial</button>
 
+        <!-- Admin (direct — ADMIN only, hidden for all other roles) -->
+        <button id="tab-btn-admin"
+          class="px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink"
+          onclick="switchTab('admin')">Admin</button>
+
         <!-- HR group -->
         <div class="relative" id="grp-hr">
           <button id="grp-btn-hr" onclick="toggleNavGroup('hr')"
@@ -1644,7 +1649,7 @@
     }
 
     // ── tab switching ────────────────────────────────────────────
-    const ALL_TABS = ['dashboard','mywork','sales','clients','sp','projects','assets','production','capacity','cr','financial','people','staffing','committees'];
+    const ALL_TABS = ['dashboard','mywork','sales','clients','sp','projects','assets','production','capacity','cr','financial','people','staffing','committees','admin'];
 
     // Which group each tab belongs to (for highlighting the group button)
     const TAB_GROUP = {
@@ -1653,6 +1658,7 @@
       projects: 'production', assets: 'production', production: 'production', capacity: 'production', cr: 'production',
       financial: null,
       people: 'hr', staffing: 'hr', committees: 'hr',
+      admin: null,
     };
 
     function switchTab(name) {
@@ -1673,8 +1679,8 @@
           ? ' bg-panel text-ink'
           : ' text-muted hover:text-ink';
       });
-      // Direct tabs (dashboard, mywork, financial)
-      ['dashboard','mywork','financial'].forEach(t => {
+      // Direct tabs (dashboard, mywork, financial, admin)
+      ['dashboard','mywork','financial','admin'].forEach(t => {
         const btn = $('tab-btn-' + t);
         if (!btn) return;
         btn.className = (name === t)
@@ -1694,6 +1700,7 @@
       if (name === 'financial')  { loadFinancial(); }
       if (name === 'staffing')    { initStaffingTab(); loadStaffingCandidates(); }
       if (name === 'committees')  { loadCommittees(); }
+      if (name === 'admin')       { initAdminTab().then(() => loadAuditLog(1)); }
     }
 
     // ── group dropdown nav ────────────────────────────────────────
@@ -1846,6 +1853,7 @@
       people:      ['ADMIN','PRODUCER','PM','TEAM_LEAD'],
       staffing:    ['ADMIN','PRODUCER','PM','TEAM_LEAD'],
       committees:  ['ADMIN','PRODUCER','PM','TEAM_LEAD','FINANCE','STAFF'],
+      admin:       ['ADMIN'],
     };
 
     const ROLE_LABEL = {
@@ -2117,6 +2125,80 @@
     </div>
   </div>
 
+  <!-- ── Admin tab — Audit Log viewer (ADMIN only) ──────────────── -->
+  <div class="panel hidden" id="tab-admin">
+    <div class="max-w-7xl mx-auto px-5 py-6">
+
+      <div class="flex items-center justify-between mb-5">
+        <div>
+          <h2 class="text-lg font-bold text-ink">Audit Log</h2>
+          <p class="text-xs text-muted mt-0.5">Every create, update, and delete across key modules — immutable record.</p>
+        </div>
+        <span id="audit-total" class="text-xs text-muted"></span>
+      </div>
+
+      <!-- Filters -->
+      <div class="bg-panel border border-line rounded-xl p-4 mb-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <select id="audit-resource-filter" onchange="loadAuditLog(1)"
+          class="bg-panel2 border border-line text-ink text-xs px-3 py-2 rounded-lg focus:outline-none focus:border-accent/70 cursor-pointer">
+          <option value="">All resources</option>
+          <option value="Lead">Lead</option>
+          <option value="Project">Project</option>
+          <option value="Person">Person</option>
+          <option value="User">User</option>
+          <option value="ChangeRequest">Change Request</option>
+          <option value="AccountingDocument">Accounting Doc</option>
+        </select>
+        <select id="audit-action-filter" onchange="loadAuditLog(1)"
+          class="bg-panel2 border border-line text-ink text-xs px-3 py-2 rounded-lg focus:outline-none focus:border-accent/70 cursor-pointer">
+          <option value="">All actions</option>
+          <option value="CREATE">CREATE</option>
+          <option value="UPDATE">UPDATE</option>
+          <option value="DELETE">DELETE</option>
+        </select>
+        <select id="audit-actor-filter" onchange="loadAuditLog(1)"
+          class="bg-panel2 border border-line text-ink text-xs px-3 py-2 rounded-lg focus:outline-none focus:border-accent/70 cursor-pointer">
+          <option value="">All users</option>
+        </select>
+        <input id="audit-start-date" type="date" onchange="loadAuditLog(1)" placeholder="From date"
+          class="bg-panel2 border border-line text-ink text-xs px-3 py-2 rounded-lg focus:outline-none focus:border-accent/70">
+        <input id="audit-end-date" type="date" onchange="loadAuditLog(1)" placeholder="To date"
+          class="bg-panel2 border border-line text-ink text-xs px-3 py-2 rounded-lg focus:outline-none focus:border-accent/70">
+        <div class="flex gap-2">
+          <input id="audit-search" type="text" placeholder="Search name…" onkeydown="if(event.key==='Enter')loadAuditLog(1)"
+            class="flex-1 bg-panel2 border border-line text-ink text-xs px-3 py-2 rounded-lg focus:outline-none focus:border-accent/70 min-w-0">
+          <button onclick="resetAuditFilters()"
+            class="text-xs text-muted hover:text-ink px-2 py-2 rounded-lg border border-line hover:border-accent/30 transition-colors cursor-pointer whitespace-nowrap">
+            Reset
+          </button>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="bg-panel border border-line rounded-xl overflow-hidden">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-line text-[11px] text-muted uppercase tracking-wide">
+              <th class="px-3 py-2.5 text-left font-semibold">Time</th>
+              <th class="px-3 py-2.5 text-left font-semibold">Actor</th>
+              <th class="px-3 py-2.5 text-left font-semibold">Action</th>
+              <th class="px-3 py-2.5 text-left font-semibold">Resource</th>
+              <th class="px-3 py-2.5 text-left font-semibold">Record ID</th>
+              <th class="px-3 py-2.5 text-left font-semibold">Detail</th>
+            </tr>
+          </thead>
+          <tbody id="audit-table-body">
+            <tr><td colspan="6" class="text-center text-muted py-8 text-xs">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div id="audit-pagination" class="flex gap-1.5 flex-wrap mt-4"></div>
+
+    </div>
+  </div>
+
   <!-- ── Module scripts: one file per tab ─────────────────────── -->
   <script src="/js/people.js"></script>
   <script src="/js/projects.js"></script>
@@ -2133,6 +2215,7 @@
   <script src="/js/staffing.js"></script>
   <script src="/js/committees.js"></script>
   <script src="/js/person-profile.js"></script>
+  <script src="/js/admin.js"></script>
 
   <!-- Boot: initialise user UI, then load default tab data -->
   <script>

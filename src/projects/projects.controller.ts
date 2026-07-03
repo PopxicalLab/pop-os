@@ -11,10 +11,14 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, Req, ForbiddenException } from '@nestjs/common';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto, UpdateProjectDto } from './project.dto';
+import { AuditService } from '../audit/audit.service';
 
 @Controller('api/projects')
 export class ProjectsController {
-  constructor(private readonly projects: ProjectsService) {}
+  constructor(
+    private readonly projects: ProjectsService,
+    private readonly audit: AuditService,
+  ) {}
 
   // Literal routes first — NestJS resolves /:id params last.
   @Get()
@@ -30,21 +34,28 @@ export class ProjectsController {
   findOne(@Param('id') id: string) { return this.projects.findOne(id); }
 
   @Post()
-  create(@Body() dto: CreateProjectDto, @Req() req: any) {
+  async create(@Body() dto: CreateProjectDto, @Req() req: any) {
     if (req.user?.role === 'STAFF') throw new ForbiddenException('Staff cannot create projects');
-    return this.projects.create(dto);
+    const result = await this.projects.create(dto);
+    this.audit.log(req.user, 'CREATE', 'Project', result.id, result.name, result);
+    return result;
   }
 
   @Patch(':id')
-  update(@Param('id') id: string, @Body() dto: UpdateProjectDto, @Req() req: any) {
+  async update(@Param('id') id: string, @Body() dto: UpdateProjectDto, @Req() req: any) {
     if (req.user?.role === 'STAFF') throw new ForbiddenException('Staff cannot edit projects');
-    return this.projects.update(id, dto);
+    const result = await this.projects.update(id, dto);
+    this.audit.log(req.user, 'UPDATE', 'Project', result.id, result.name, result);
+    return result;
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string, @Req() req: any) {
+  async remove(@Param('id') id: string, @Req() req: any) {
     if (req.user?.role === 'STAFF') throw new ForbiddenException('Staff cannot delete projects');
-    return this.projects.remove(id);
+    const existing = await this.projects.findOne(id);
+    const result   = await this.projects.remove(id);
+    this.audit.log(req.user, 'DELETE', 'Project', id, existing.name);
+    return result;
   }
 
   // ── Required skills ────────────────────────────────────────────

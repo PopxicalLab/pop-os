@@ -1,7 +1,7 @@
-import { Controller, Get, Post, Patch, Param, Body, Query } from '@nestjs/common';
-import { IsString, IsOptional, IsIn, IsInt, Min } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Controller, Get, Post, Patch, Param, Body, Query, Req } from '@nestjs/common';
+import { IsString, IsOptional, IsIn } from 'class-validator';
 import { AutocountService } from './autocount.service';
+import { AuditService } from '../audit/audit.service';
 
 class PushQuotationDto {
   @IsString() debtorCode: string;
@@ -19,60 +19,50 @@ class UpdateStatusDto {
 
 @Controller('api/autocount')
 export class AutocountController {
-  constructor(private readonly svc: AutocountService) {}
+  constructor(
+    private readonly svc: AutocountService,
+    private readonly audit: AuditService,
+  ) {}
 
-  // List active Autocount debtors — used to populate the debtor picker dropdown.
   @Get('debtors')
-  listDebtors() {
-    return this.svc.listDebtors();
-  }
+  listDebtors() { return this.svc.listDebtors(); }
 
-  // Pull all Autocount debtors and upsert them as Account records in Pop OS.
   @Post('sync-debtors')
-  syncDebtors() {
-    return this.svc.syncDebtors();
-  }
+  syncDebtors() { return this.svc.syncDebtors(); }
 
-  // Pull all Autocount quotations and invoices and upsert as AccountingDocument rows.
   @Post('sync-documents')
-  syncDocuments() {
-    return this.svc.syncDocuments();
-  }
+  syncDocuments() { return this.svc.syncDocuments(); }
 
-  // Documents due within N days — used by the Dashboard payment alert strip.
   @Get('due-soon')
   getDueSoon(@Query('days') days?: string) {
     return this.svc.getDueSoon(days ? parseInt(days) : 10);
   }
 
-  // All accounting documents for a project — shown in the project detail view.
   @Get('projects/:id/documents')
-  getProjectDocuments(@Param('id') id: string) {
-    return this.svc.getProjectDocuments(id);
-  }
+  getProjectDocuments(@Param('id') id: string) { return this.svc.getProjectDocuments(id); }
 
-  // Create a quotation in Autocount from a WON lead.
   @Post('leads/:id/quotation')
-  createQuotation(@Param('id') id: string, @Body() dto: PushQuotationDto) {
-    return this.svc.createQuotationFromLead(id, dto.debtorCode, dto.creditTerm);
+  async createQuotation(@Param('id') id: string, @Body() dto: PushQuotationDto, @Req() req: any) {
+    const result = await this.svc.createQuotationFromLead(id, dto.debtorCode, dto.creditTerm);
+    this.audit.log(req.user, 'CREATE', 'AccountingDocument', result.id, result.docNo, result);
+    return result;
   }
 
-  // Create a sales invoice in Autocount from a project.
   @Post('projects/:id/invoice')
-  createInvoice(@Param('id') id: string, @Body() dto: PushInvoiceDto) {
-    return this.svc.createInvoiceFromProject(id, dto.debtorCode, dto.creditTerm);
+  async createInvoice(@Param('id') id: string, @Body() dto: PushInvoiceDto, @Req() req: any) {
+    const result = await this.svc.createInvoiceFromProject(id, dto.debtorCode, dto.creditTerm);
+    this.audit.log(req.user, 'CREATE', 'AccountingDocument', result.id, result.docNo, result);
+    return result;
   }
 
-  // Mark a document as PAID or VOID.
+  // Mark a document PAID or VOID — high-value audit event.
   @Patch('documents/:id/status')
-  updateStatus(@Param('id') id: string, @Body() dto: UpdateStatusDto) {
-    return this.svc.updateStatus(id, dto.status);
+  async updateStatus(@Param('id') id: string, @Body() dto: UpdateStatusDto, @Req() req: any) {
+    const result = await this.svc.updateStatus(id, dto.status);
+    this.audit.log(req.user, 'UPDATE', 'AccountingDocument', id, result.docNo, { status: result.status, docNo: result.docNo });
+    return result;
   }
 
-  // Compare every Pop OS AccountingDocument against the live Autocount record.
-  // Returns a summary + per-document match result (OK / AMOUNT_MISMATCH / STATUS_MISMATCH / NOT_FOUND).
   @Get('reconcile')
-  reconcile() {
-    return this.svc.reconcile();
-  }
+  reconcile() { return this.svc.reconcile(); }
 }

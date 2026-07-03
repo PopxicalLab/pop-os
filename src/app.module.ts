@@ -29,6 +29,7 @@ import { CommissionTiersModule } from './commission-tiers/commission-tiers.modul
 import { SalesTargetsModule } from './sales-targets/sales-targets.module';
 import { SalesPerformanceModule } from './sales-performance/sales-performance.module';
 import { CommitteesModule } from './committees/committees.module';
+import { AuditModule } from './audit/audit.module';
 import { JwtAuthGuard } from './auth/jwt.guard';
 
 @Module({
@@ -64,6 +65,7 @@ import { JwtAuthGuard } from './auth/jwt.guard';
     SalesTargetsModule,
     SalesPerformanceModule,
     CommitteesModule,
+    AuditModule,
   ],
   providers: [
     // Register JwtAuthGuard globally — every API route requires a valid JWT
