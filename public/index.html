@@ -2138,7 +2138,11 @@
       </div>
 
       <!-- Filters -->
-      <div class="bg-panel border border-line rounded-xl p-4 mb-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div class="bg-panel border border-line rounded-xl p-4 mb-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
+        <select id="audit-year-filter" onchange="onAuditYearChange()"
+          class="bg-panel2 border border-line text-ink text-xs px-3 py-2 rounded-lg focus:outline-none focus:border-accent/70 cursor-pointer">
+          <option value="">All years</option>
+        </select>
         <select id="audit-resource-filter" onchange="loadAuditLog(1)"
           class="bg-panel2 border border-line text-ink text-xs px-3 py-2 rounded-lg focus:outline-none focus:border-accent/70 cursor-pointer">
           <option value="">All resources</option>

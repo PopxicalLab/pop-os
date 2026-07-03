@@ -19,6 +19,36 @@ async function initAdminTab() {
     sel.innerHTML = '<option value="">All users</option>' +
       _auditUsers.map(u => `<option value="${u.id}">${esc(u.name)}</option>`).join('');
   }
+
+  // Populate year picker from 2026 to current year.
+  const currentYear = new Date().getFullYear();
+  const yearSel = $('audit-year-filter');
+  if (yearSel) {
+    yearSel.innerHTML = '<option value="">All years</option>' +
+      Array.from({ length: currentYear - 2025 }, (_, i) => currentYear - i)
+        .map(y => `<option value="${y}"${y === currentYear ? ' selected' : ''}>${y}</option>`).join('');
+    // Default: apply current year to date inputs.
+    applyYearFilter(currentYear);
+  }
+}
+
+function applyYearFilter(year) {
+  const start = $('audit-start-date');
+  const end   = $('audit-end-date');
+  if (!start || !end) return;
+  if (year) {
+    start.value = `${year}-01-01`;
+    end.value   = `${year}-12-31`;
+  } else {
+    start.value = '';
+    end.value   = '';
+  }
+}
+
+function onAuditYearChange() {
+  const year = $('audit-year-filter')?.value;
+  applyYearFilter(year ? Number(year) : null);
+  loadAuditLog(1);
 }
 
 async function loadAuditLog(page = 1) {
@@ -114,8 +144,10 @@ function resetAuditFilters() {
   ['audit-resource-filter','audit-action-filter','audit-actor-filter','audit-search'].forEach(id => {
     const el = $(id); if (el) el.value = '';
   });
-  ['audit-start-date','audit-end-date'].forEach(id => {
-    const el = $(id); if (el) el.value = '';
-  });
+  // Reset to current year (not blank — blank = all time, which can be huge).
+  const currentYear = new Date().getFullYear();
+  const yearSel = $('audit-year-filter');
+  if (yearSel) yearSel.value = String(currentYear);
+  applyYearFilter(currentYear);
   loadAuditLog(1);
 }
