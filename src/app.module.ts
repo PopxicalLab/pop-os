@@ -29,6 +29,7 @@ import { CommissionTiersModule } from './commission-tiers/commission-tiers.modul
 import { SalesTargetsModule } from './sales-targets/sales-targets.module';
 import { SalesPerformanceModule } from './sales-performance/sales-performance.module';
 import { CommitteesModule } from './committees/committees.module';
+import { SoftwareModule } from './software/software.module';
 import { AuditModule } from './audit/audit.module';
 import { JwtAuthGuard } from './auth/jwt.guard';
 
@@ -65,6 +66,7 @@ import { JwtAuthGuard } from './auth/jwt.guard';
     SalesTargetsModule,
     SalesPerformanceModule,
     CommitteesModule,
+    SoftwareModule,
     AuditModule,
   ],
   providers: [

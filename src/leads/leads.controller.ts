@@ -28,8 +28,9 @@ export class LeadsController {
 
   @Patch(':id')
   async update(@Param('id') id: string, @Body() dto: UpdateLeadDto, @Req() req: any) {
-    const result = await this.leads.update(id, dto);
-    this.audit.log(req.user, 'UPDATE', 'Lead', result.id, result.name, result);
+    const before  = await this.leads.findOne(id);
+    const result  = await this.leads.update(id, dto);
+    this.audit.log(req.user, 'UPDATE', 'Lead', result.id, result.name, result, before);
     return result;
   }
 

@@ -88,6 +88,10 @@ function renderAuditLog({ total, page, pages, logs }) {
     const time  = ts.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     const actCls = ACTION_CLS[log.action] || 'bg-line/30 text-muted border-line';
     const after  = log.after ? JSON.stringify(log.after, null, 2) : null;
+    const fieldsChanged = log.changes ? Object.keys(log.changes) : [];
+    const changedHint = fieldsChanged.length
+      ? `<p class="text-[11px] text-accent">${fieldsChanged.length} field${fieldsChanged.length === 1 ? '' : 's'} changed</p>`
+      : '';
 
     return `<tr class="border-b border-line hover:bg-panel2/50 transition-colors">
       <td class="px-3 py-2.5 text-[11px] text-muted whitespace-nowrap">
@@ -103,15 +107,17 @@ function renderAuditLog({ total, page, pages, logs }) {
       <td class="px-3 py-2.5">
         <p class="text-xs text-ink">${esc(log.resource)}</p>
         ${log.resourceLabel ? `<p class="text-[11px] text-muted">${esc(log.resourceLabel)}</p>` : ''}
+        ${changedHint}
       </td>
       <td class="px-3 py-2.5 text-[11px] text-muted font-mono max-w-[120px] truncate" title="${esc(log.resourceId)}">${esc(log.resourceId)}</td>
       <td class="px-3 py-2.5">
-        ${after ? `<button onclick="toggleAuditDetail(this)" data-detail='${esc(after)}'
+        ${after ? `<button onclick="toggleAuditDetail(this)" data-detail='${esc(after)}' data-changes='${esc(log.changes ? JSON.stringify(log.changes) : '')}'
             class="text-[11px] text-accent hover:underline cursor-pointer">View</button>` : '<span class="text-[11px] text-muted">—</span>'}
       </td>
     </tr>
     <tr class="audit-detail-row hidden border-b border-line">
       <td colspan="6" class="px-3 pb-3">
+        ${fieldsChanged.length ? '<div class="audit-diff text-[11px] mb-2 space-y-0.5"></div>' : ''}
         <pre class="text-[11px] text-muted bg-bg rounded-lg p-3 overflow-x-auto max-h-48 overflow-y-auto"></pre>
       </td>
     </tr>`;
@@ -132,12 +138,32 @@ function renderAuditLog({ total, page, pages, logs }) {
 function toggleAuditDetail(btn) {
   const row = btn.closest('tr').nextElementSibling;
   const pre = row.querySelector('pre');
+  const diffEl = row.querySelector('.audit-diff');
   const isHidden = row.classList.contains('hidden');
   row.classList.toggle('hidden', !isHidden);
   if (!isHidden) return;
+
   try { pre.textContent = JSON.stringify(JSON.parse(btn.dataset.detail), null, 2); }
   catch { pre.textContent = btn.dataset.detail; }
+
+  if (diffEl && btn.dataset.changes) {
+    try {
+      const changes = JSON.parse(btn.dataset.changes);
+      diffEl.innerHTML = Object.entries(changes).map(([field, { old: o, new: n }]) =>
+        `<p><span class="text-ink font-medium">${esc(field)}</span>: ` +
+        `<span class="text-warm">${esc(auditValueStr(o))}</span> → ` +
+        `<span class="text-emerald-400">${esc(auditValueStr(n))}</span></p>`
+      ).join('');
+    } catch { /* malformed changes payload — fall back to the raw JSON below */ }
+  }
+
   btn.textContent = 'Hide';
+}
+
+function auditValueStr(v) {
+  if (v === null || v === undefined) return '—';
+  if (typeof v === 'object') return JSON.stringify(v);
+  return String(v);
 }
 
 function resetAuditFilters() {

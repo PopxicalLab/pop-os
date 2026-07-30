@@ -44,8 +44,9 @@ export class ProjectsController {
   @Patch(':id')
   async update(@Param('id') id: string, @Body() dto: UpdateProjectDto, @Req() req: any) {
     if (req.user?.role === 'STAFF') throw new ForbiddenException('Staff cannot edit projects');
+    const before = await this.projects.findOne(id);
     const result = await this.projects.update(id, dto);
-    this.audit.log(req.user, 'UPDATE', 'Project', result.id, result.name, result);
+    this.audit.log(req.user, 'UPDATE', 'Project', result.id, result.name, result, before);
     return result;
   }
 

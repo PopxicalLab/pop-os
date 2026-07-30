@@ -32,8 +32,9 @@ export class UsersController {
   @Patch(':id')
   async update(@Param('id') id: string, @Body() dto: UpdateUserDto, @Req() req: any) {
     requireAdmin(req);
+    const before = await this.users.findOne(id);
     const result = await this.users.update(id, dto);
-    this.audit.log(req.user, 'UPDATE', 'User', result.id, result.email, result);
+    this.audit.log(req.user, 'UPDATE', 'User', result.id, result.email, result, before);
     return result;
   }
 

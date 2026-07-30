@@ -19,6 +19,7 @@ const SOURCES = {
 let SKILLS = [];
 let JOB_TITLES = [];
 let DEPARTMENTS = [];
+let SOFTWARE = [];
 let PEOPLE = [];
 
 const EMP_LABEL = {
@@ -59,7 +60,8 @@ const PEOPLE_COLS = [
   { id: 'type',   label: 'Employment type', def: false },
   { id: 'start',  label: 'Start date',      def: false },
   { id: 'salary', label: 'Salary',          def: false, restricted: true },
-  { id: 'skills', label: 'Skills',          def: true  },
+  { id: 'skills',   label: 'Skills',    def: true  },
+  { id: 'software', label: 'Software',  def: true  },
 ];
 
 function getPeopleColVis() {
@@ -239,6 +241,49 @@ $('addDept').addEventListener('click', async () => {
   }
 });
 
+async function loadSoftware() {
+  SOFTWARE = await (await fetch('/api/software')).json();
+  const listEl = $('softwareList');
+  if (listEl) {
+    listEl.innerHTML = SOFTWARE.length
+      ? SOFTWARE.map(s =>
+          isAdmin()
+            ? `<span class="inline-flex items-center gap-1 bg-panel2 border border-line px-2.5 py-0.5 rounded-full text-xs text-ink">
+                 ${s.category ? `<span class="text-muted text-[10px]">${esc(s.category)} ·</span> ` : ''}${esc(s.name)}
+                 <button onclick="removeSoftware('${s.id}')" title="Remove"
+                   class="text-muted hover:text-warm ml-0.5 leading-none cursor-pointer">×</button>
+               </span>`
+            : `<span class="inline-flex items-center bg-panel2 border border-line px-2.5 py-0.5 rounded-full text-xs text-ink">${esc(s.name)}</span>`
+        ).join('')
+      : '<span class="text-xs text-muted">No software yet.</span>';
+  }
+}
+
+async function removeSoftware(id) {
+  const res = await fetch(`/api/software/${id}`, { method: 'DELETE' });
+  if (res.ok) { msg($('softwareMsg'), 'Removed.', 'ok'); await loadSoftware(); }
+  else msg($('softwareMsg'), 'Could not remove.', 'err');
+}
+
+$('addSoftware').addEventListener('click', async () => {
+  const name = $('newSoftwareName').value.trim();
+  const category = $('newSoftwareCat').value.trim();
+  if (!name) { msg($('softwareMsg'), 'Enter a software name.', 'err'); return; }
+  const res = await fetch('/api/software', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, category: category || undefined }),
+  });
+  if (res.ok) {
+    $('newSoftwareName').value = '';
+    $('newSoftwareCat').value = '';
+    msg($('softwareMsg'), 'Added.', 'ok');
+    await loadSoftware();
+  } else {
+    const e = await res.json().catch(() => ({}));
+    msg($('softwareMsg'), [].concat(e.message || 'Failed').join(', '), 'err');
+  }
+});
+
 async function load() {
   // Hide salary column header and add-form field for non-privileged roles
   document.querySelectorAll('[data-pcol="salary"]').forEach(el => {
@@ -260,12 +305,15 @@ async function load() {
   if (jobTitleMasterPanel) jobTitleMasterPanel.classList.toggle('hidden', !isAdmin());
   const deptMasterPanel = $('dept-master-panel');
   if (deptMasterPanel) deptMasterPanel.classList.toggle('hidden', !isAdmin());
+  const softwareMasterPanel = $('software-master-panel');
+  if (softwareMasterPanel) softwareMasterPanel.classList.toggle('hidden', !isAdmin());
 
   // Load master lists and people data in parallel
   await Promise.all([
     loadSkills(),
     loadJobTitles(),
     loadDepartments(),
+    loadSoftware(),
     (async () => { PEOPLE = await (await fetch('/api/people')).json(); })(),
   ]);
 
@@ -343,6 +391,21 @@ function renderPeople() {
         </div>
         <div id="area-${p.id}"></div>
       </td>
+      <td data-pcol="software" class="py-3 px-2">
+        <div class="flex flex-wrap gap-1">
+          ${(p.software || []).map(ps =>
+            isAdmin()
+              ? `<span class="inline-flex items-center gap-1 bg-sky-500/10 border border-sky-500/30 px-2 py-0.5 rounded-full text-xs text-sky-400">
+                   ${esc(ps.software.name)}
+                   <button onclick="untagSoftware('${p.id}','${ps.softwareId}')" title="Remove"
+                     class="text-sky-400/60 hover:text-warm leading-none cursor-pointer">×</button>
+                 </span>`
+              : `<span class="inline-flex items-center bg-sky-500/10 border border-sky-500/30 px-2 py-0.5 rounded-full text-xs text-sky-400">${esc(ps.software.name)}</span>`
+          ).join('') || '<span class="text-xs text-muted">—</span>'}
+        </div>
+        ${isAdmin() ? `<div class="mt-1"><button class="btn-del" data-sw-assign="${p.id}">+ tag software</button></div>` : ''}
+        <div id="sw-area-${p.id}"></div>
+      </td>
       <td class="py-3 px-2 whitespace-nowrap">${statusBadge}</td>
       <td class="py-3 px-2 whitespace-nowrap text-center">
         <div class="flex items-center justify-center gap-1">
@@ -377,6 +440,7 @@ function renderPeople() {
   });
   rows.querySelectorAll('[data-del]').forEach(b => b.onclick = () => openExitModal(b.dataset.del));
   rows.querySelectorAll('[data-assign]').forEach(b => b.onclick = () => showAssign(b.dataset.assign));
+  rows.querySelectorAll('[data-sw-assign]').forEach(b => b.onclick = () => showSoftwareAssign(b.dataset.swAssign));
   rows.querySelectorAll('[data-ps]').forEach(b => b.onclick = () => showChange(b.dataset.ps, b));
   rows.querySelectorAll('[data-login]').forEach(b => {
     const person = PEOPLE.find(p => p.id === b.dataset.login);
@@ -573,6 +637,41 @@ function showAssign(personId) {
     if (res.ok) { area.innerHTML = ''; area.dataset.open = '0'; load(); }
     else { const e = await res.json().catch(() => ({})); msg(area.querySelector('.a-msg'), [].concat(e.message || 'Failed').join(', '), 'err'); }
   };
+}
+
+function showSoftwareAssign(personId) {
+  const area = $('sw-area-' + personId);
+  if (area.dataset.open === '1') { area.innerHTML = ''; area.dataset.open = '0'; return; }
+  area.dataset.open = '1';
+
+  const person   = PEOPLE.find(p => p.id === personId);
+  const tagged   = (person?.software || []).map(ps => ps.softwareId);
+  const available = SOFTWARE.filter(s => !tagged.includes(s.id));
+
+  area.innerHTML = `
+    <div class="bg-panel2 border border-line rounded-xl p-3 mt-2">
+      <select class="sw-pick w-full bg-bg border border-line text-ink px-2 py-1.5 rounded-lg text-xs focus:outline-none focus:border-accent/70 cursor-pointer mb-2">
+        <option value="">— select software —</option>
+        ${available.map(s => `<option value="${s.id}">${esc(s.category ? s.category + ' · ' : '')}${esc(s.name)}</option>`).join('')}
+      </select>
+      <div class="flex items-center gap-2">
+        <button class="sw-save bg-accent text-bg text-xs font-semibold px-3 py-1.5 rounded-lg hover:brightness-110 transition-all cursor-pointer">Tag</button>
+        <span class="sw-msg text-xs"></span>
+      </div>
+    </div>`;
+
+  area.querySelector('.sw-save').onclick = async () => {
+    const softwareId = area.querySelector('.sw-pick').value;
+    if (!softwareId) return;
+    const res = await fetch(`/api/software/people/${personId}/${softwareId}`, { method: 'POST' });
+    if (res.ok) { area.innerHTML = ''; area.dataset.open = '0'; load(); }
+    else { const e = await res.json().catch(() => ({})); msg(area.querySelector('.sw-msg'), [].concat(e.message || 'Failed').join(', '), 'err'); }
+  };
+}
+
+async function untagSoftware(personId, softwareId) {
+  await fetch(`/api/software/people/${personId}/${softwareId}`, { method: 'DELETE' });
+  load();
 }
 
 async function showChange(psId, chip) {

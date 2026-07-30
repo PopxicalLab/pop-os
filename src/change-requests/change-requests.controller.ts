@@ -35,8 +35,9 @@ export class ChangeRequestsController {
 
   @Patch(':id')
   async update(@Param('id') id: string, @Body() dto: UpdateChangeRequestDto, @Req() req: any) {
+    const before = await this.cr.findOne(id);
     const result = await this.cr.update(id, dto);
-    this.audit.log(req.user, 'UPDATE', 'ChangeRequest', result.id, result.title, result);
+    this.audit.log(req.user, 'UPDATE', 'ChangeRequest', result.id, result.title, result, before);
     return result;
   }
 

@@ -128,6 +128,27 @@ function renderSalesPipeline() {
     };
   });
 
+  // Inline-editable estimated amount — PATCH on blur/enter, every change lands
+  // in AuditLog (resource: Lead, action: UPDATE) via the controller.
+  $('sales-board').querySelectorAll('[data-lead-value]').forEach(inp => {
+    inp.onchange = async () => {
+      const id  = inp.dataset.leadValue;
+      const raw = inp.value.trim();
+
+      if (raw !== '' && isNaN(Number(raw))) {
+        inp.value = _allLeads.find(l => l.id === id)?.estimatedValue ?? '';
+        msg($('sales-msg'), 'Estimated amount must be a number.', 'err');
+        return;
+      }
+
+      await fetch(`/api/leads/${id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ estimatedValue: raw === '' ? null : Number(raw) }),
+      });
+      loadSales();
+    };
+  });
+
   $('sales-board').querySelectorAll('[data-lead-convert]').forEach(b => {
     b.onclick = () => convertLead(b.dataset.leadConvert);
   });
@@ -143,7 +164,6 @@ function renderSalesPipeline() {
 
 function renderLeadCard(l) {
   const priCls  = LEAD_PRI_CLS[l.priority]  || 'text-muted';
-  const val     = l.estimatedValue ? `RM ${Number(l.estimatedValue).toLocaleString('en-MY')}` : '—';
   const accName = l.account?.name ? esc(l.account.name) : '<span class="text-muted">No account</span>';
 
   const payBadge = (l.invoicedPct || l.paidPct)
@@ -195,7 +215,11 @@ function renderLeadCard(l) {
     <div class="flex items-center gap-1.5">
       <span class="text-xs ${priCls}">${l.priority.replace('_', ' ')}</span>
       <span class="text-line">·</span>
-      <span class="text-xs text-ink font-semibold">${val}</span>
+      <span class="text-xs text-muted">RM</span>
+      <input type="text" inputmode="decimal" data-lead-value="${l.id}" value="${l.estimatedValue ?? ''}"
+        placeholder="—" title="Estimated amount"
+        class="w-20 bg-transparent border-b border-transparent hover:border-line focus:border-accent/70
+               text-xs text-ink font-semibold focus:outline-none px-0.5" />
     </div>
     ${payBadge}
     <select data-lead-status="${l.id}"

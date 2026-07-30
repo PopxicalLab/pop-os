@@ -12,7 +12,10 @@ export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
 
   // Fire-and-forget — never blocks the calling request.
-  log(actor: AuditActor, action: 'CREATE' | 'UPDATE' | 'DELETE', resource: string, resourceId: string, resourceLabel?: string, after?: any): void {
+  // `before` is optional and only meaningful for UPDATE: when given, this
+  // computes a field-level diff (old -> new) so the Audit Log can show what
+  // actually changed instead of forcing a manual comparison between rows.
+  log(actor: AuditActor, action: 'CREATE' | 'UPDATE' | 'DELETE', resource: string, resourceId: string, resourceLabel?: string, after?: any, before?: any): void {
     this.prisma.auditLog.create({
       data: {
         actorId:       actor.id,
@@ -23,6 +26,7 @@ export class AuditService {
         resourceId,
         resourceLabel: resourceLabel ?? null,
         after:         after ? JSON.parse(JSON.stringify(after, bigintReplacer)) : undefined,
+        changes:       before && after ? diff(before, after) : undefined,
       },
     }).catch(e => console.error('AuditLog write failed:', e));
   }
@@ -68,4 +72,20 @@ export class AuditService {
 // Prisma returns BigInt for some fields; JSON.stringify chokes on them.
 function bigintReplacer(_: string, v: any) {
   return typeof v === 'bigint' ? v.toString() : v;
+}
+
+// Top-level field diff between two record snapshots. Skips timestamps
+// (always different, never interesting) and returns undefined if nothing changed.
+function diff(before: any, after: any): Record<string, { old: any; new: any }> | undefined {
+  const changes: Record<string, { old: any; new: any }> = {};
+  const skip = new Set(['updatedAt', 'createdAt']);
+  for (const key of Object.keys(after)) {
+    if (skip.has(key)) continue;
+    const oldVal = before[key];
+    const newVal = after[key];
+    if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+      changes[key] = { old: oldVal ?? null, new: newVal ?? null };
+    }
+  }
+  return Object.keys(changes).length ? JSON.parse(JSON.stringify(changes, bigintReplacer)) : undefined;
 }

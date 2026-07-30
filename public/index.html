@@ -494,6 +494,22 @@
           </button>
           <div id="deptMsg" class="text-xs mt-2 min-h-[18px]"></div>
         </div>
+
+        <div id="software-master-panel" class="bg-panel border border-line rounded-xl p-5">
+          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-1">Software master list</h2>
+          <p class="text-xs text-muted mb-3">Tools used in the studio. Tag people with the software they use.</p>
+          <div id="softwareList" class="flex flex-wrap gap-1.5 mb-3 min-h-[24px]"></div>
+          <label class="form-label" style="margin-top:0">Name</label>
+          <input id="newSoftwareName" class="form-input" placeholder="e.g. Houdini" />
+          <label class="form-label">Category (optional)</label>
+          <input id="newSoftwareCat" class="form-input" placeholder="e.g. 3D, Motion, Compositing" />
+          <button id="addSoftware"
+            class="mt-3 w-full bg-panel2 border border-line text-ink font-semibold py-2 rounded-lg
+                   text-sm hover:border-accent/50 transition-all duration-150 cursor-pointer">
+            Add software
+          </button>
+          <div id="softwareMsg" class="text-xs mt-2 min-h-[18px]"></div>
+        </div>
       </div>
 
       <div class="bg-panel border border-line rounded-xl p-5">
@@ -544,7 +560,8 @@
                 <th data-pcol="type"   class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Type</th>
                 <th data-pcol="start"  class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Start</th>
                 <th data-pcol="salary" class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Salary</th>
-                <th data-pcol="skills" class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Skills</th>
+                <th data-pcol="skills"   class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Skills</th>
+                <th data-pcol="software" class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Software</th>
                 <th class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Status</th>
                 <th class="pb-3 px-2"></th>
               </tr>

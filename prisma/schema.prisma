@@ -149,8 +149,9 @@ model Person {
   user               User?       // login account, if this person has one
   salaryHistory      SalaryHistory[]
   events             PersonEvent[]
-  committeeMembers   CommitteeMember[]
+  committeeMembers    CommitteeMember[]
   activityAttendances CommitteeActivityAttendee[]
+  software            PersonSoftware[]
 
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -197,6 +198,27 @@ model Department {
   id        String   @id @default(cuid())
   name      String   @unique // e.g. "Production", "3D", "Motion", "Creative"
   createdAt DateTime @default(now())
+}
+
+// ── SOFTWARE ────────────────────────────────────────────────────
+// Master list of tools the studio uses (Houdini, Nuke, C4D, etc.).
+// No rating — just a tag. Skills carry the competency score.
+model Software {
+  id        String           @id @default(cuid())
+  name      String           @unique
+  category  String?          // e.g. "3D", "Motion", "Compositing", "Management"
+  persons   PersonSoftware[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+}
+
+model PersonSoftware {
+  id         String   @id @default(cuid())
+  personId   String
+  softwareId String
+  person     Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  software   Software @relation(fields: [softwareId], references: [id], onDelete: Cascade)
+  @@unique([personId, softwareId])
 }
 
 // ── SKILL ───────────────────────────────────────────────────────
@@ -728,6 +750,7 @@ model AuditLog {
   resourceId    String
   resourceLabel String?     // human-readable name of the record (project name, lead name, etc.)
   after         Json?       // resulting record state — what it looks like now
+  changes       Json?       // UPDATE only: { field: { old, new } } for fields that actually changed
 
   actor     User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())

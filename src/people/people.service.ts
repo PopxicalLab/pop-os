@@ -22,8 +22,9 @@ export class PeopleService {
       where:   co ?? undefined,
       orderBy: { createdAt: 'desc' },
       include: {
-        skills: { include: { skill: true } },
-        user:   { select: { id: true, email: true, role: true, active: true } },
+        skills:   { include: { skill: true } },
+        software: { include: { software: true }, orderBy: { software: { name: 'asc' } } },
+        user:     { select: { id: true, email: true, role: true, active: true } },
       },
     });
   }
@@ -33,8 +34,9 @@ export class PeopleService {
     const person = await this.prisma.person.findUnique({
       where: { id },
       include: {
-        skills: { include: { skill: true } },
-        user: { select: { id: true, email: true, role: true, active: true } },
+        skills:   { include: { skill: true } },
+        software: { include: { software: true }, orderBy: { software: { name: 'asc' } } },
+        user:     { select: { id: true, email: true, role: true, active: true } },
       },
     });
     if (!person) throw new NotFoundException(`Person ${id} not found`);

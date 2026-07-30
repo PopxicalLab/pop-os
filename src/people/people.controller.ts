@@ -47,8 +47,9 @@ export class PeopleController {
 
   @Patch(':id')
   async update(@Param('id') id: string, @Body() dto: UpdatePersonDto, @Req() req: any) {
+    const before = await this.people.findOne(id);
     const result = await this.people.update(id, dto);
-    this.audit.log(req.user, 'UPDATE', 'Person', result.id, result.name, result);
+    this.audit.log(req.user, 'UPDATE', 'Person', result.id, result.name, result, before);
     return result;
   }
 
