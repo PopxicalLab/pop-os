@@ -82,28 +82,32 @@
             <span class="w-5 h-5 rounded-full bg-panel2 border border-line text-[10px] font-bold text-accent flex items-center justify-center shrink-0 group-hover:border-accent/50">3</span>
             Financial Dashboard
           </a>
-          <a href="#navigation" class="flex items-center gap-2 text-sm text-muted hover:text-ink transition-colors group">
+          <a href="#sales" class="flex items-center gap-2 text-sm text-muted hover:text-ink transition-colors group">
             <span class="w-5 h-5 rounded-full bg-panel2 border border-line text-[10px] font-bold text-accent flex items-center justify-center shrink-0 group-hover:border-accent/50">4</span>
+            Sales Pipeline &amp; Leads
+          </a>
+          <a href="#navigation" class="flex items-center gap-2 text-sm text-muted hover:text-ink transition-colors group">
+            <span class="w-5 h-5 rounded-full bg-panel2 border border-line text-[10px] font-bold text-accent flex items-center justify-center shrink-0 group-hover:border-accent/50">5</span>
             Navigation Overview
           </a>
           <a href="#company-filter" class="flex items-center gap-2 text-sm text-muted hover:text-ink transition-colors group">
-            <span class="w-5 h-5 rounded-full bg-panel2 border border-line text-[10px] font-bold text-accent flex items-center justify-center shrink-0 group-hover:border-accent/50">5</span>
+            <span class="w-5 h-5 rounded-full bg-panel2 border border-line text-[10px] font-bold text-accent flex items-center justify-center shrink-0 group-hover:border-accent/50">6</span>
             Filtering by Company
           </a>
           <a href="#autocount" class="flex items-center gap-2 text-sm text-muted hover:text-ink transition-colors group">
-            <span class="w-5 h-5 rounded-full bg-panel2 border border-line text-[10px] font-bold text-accent flex items-center justify-center shrink-0 group-hover:border-accent/50">6</span>
+            <span class="w-5 h-5 rounded-full bg-panel2 border border-line text-[10px] font-bold text-accent flex items-center justify-center shrink-0 group-hover:border-accent/50">7</span>
             Autocount Integration
           </a>
           <a href="#ppm" class="flex items-center gap-2 text-sm text-muted hover:text-ink transition-colors group">
-            <span class="w-5 h-5 rounded-full bg-panel2 border border-line text-[10px] font-bold text-accent flex items-center justify-center shrink-0 group-hover:border-accent/50">7</span>
+            <span class="w-5 h-5 rounded-full bg-panel2 border border-line text-[10px] font-bold text-accent flex items-center justify-center shrink-0 group-hover:border-accent/50">8</span>
             PPM — Project Priority Matrix
           </a>
           <a href="#staffing" class="flex items-center gap-2 text-sm text-muted hover:text-ink transition-colors group">
-            <span class="w-5 h-5 rounded-full bg-panel2 border border-line text-[10px] font-bold text-accent flex items-center justify-center shrink-0 group-hover:border-accent/50">8</span>
+            <span class="w-5 h-5 rounded-full bg-panel2 border border-line text-[10px] font-bold text-accent flex items-center justify-center shrink-0 group-hover:border-accent/50">9</span>
             Staffing Suggestions
           </a>
           <a href="#tips" class="flex items-center gap-2 text-sm text-muted hover:text-ink transition-colors group">
-            <span class="w-5 h-5 rounded-full bg-panel2 border border-line text-[10px] font-bold text-accent flex items-center justify-center shrink-0 group-hover:border-accent/50">9</span>
+            <span class="w-5 h-5 rounded-full bg-panel2 border border-line text-[10px] font-bold text-accent flex items-center justify-center shrink-0 group-hover:border-accent/50">10</span>
             Quick Tips
           </a>
         </div>
@@ -342,10 +346,110 @@
       <a href="#toc" class="block mt-3 text-[11px] text-muted/50 hover:text-muted no-print text-right">↑ Back to contents</a>
     </section>
 
-    <!-- Step 4: Navigation -->
-    <section id="navigation">
+    <!-- Step 4: Sales Pipeline & Leads -->
+    <section id="sales">
       <div class="flex items-center gap-3 mb-4">
         <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">4</span>
+        <h2 class="text-lg font-semibold text-ink">Sales Pipeline &amp; Leads</h2>
+      </div>
+      <div class="bg-panel border border-line rounded-xl p-6 space-y-5">
+
+        <p class="text-muted text-sm leading-relaxed">
+          Click <strong class="text-ink">Sales ▾ → Sales pipeline</strong> to open the lead board. This is where every
+          opportunity is tracked from first contact through to a won deal — visible to
+          <strong class="text-ink">Sales</strong> and <strong class="text-ink">Admin</strong>.
+        </p>
+
+        <!-- Stats strip -->
+        <div class="bg-panel2 border border-line rounded-lg p-4">
+          <p class="text-xs font-semibold text-ink mb-1">Stats strip</p>
+          <p class="text-xs text-muted">Above the board: active lead count, total pipeline value (all leads not yet Won/Lost), won count, and closed value. Updates live as leads move stage or amounts change.</p>
+        </div>
+
+        <!-- Adding a lead -->
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-muted mb-3">Adding a lead</p>
+          <p class="text-xs text-muted mb-2">Use the add-lead form above the board. Fill in:</p>
+          <div class="bg-panel2 border border-line rounded-lg overflow-hidden">
+            <table class="w-full text-xs">
+              <tbody class="divide-y divide-line/40">
+                <tr><td class="px-4 py-2.5 font-semibold text-ink w-32">Name</td><td class="px-4 py-2.5 text-muted">Required — the opportunity or project name.</td></tr>
+                <tr><td class="px-4 py-2.5 font-semibold text-ink">Account</td><td class="px-4 py-2.5 text-muted">The client company, picked from Clients. Optional at creation — a lead can start with no account and be linked later.</td></tr>
+                <tr><td class="px-4 py-2.5 font-semibold text-ink">Status</td><td class="px-4 py-2.5 text-muted">Starting pipeline stage — usually Qualification.</td></tr>
+                <tr><td class="px-4 py-2.5 font-semibold text-ink">Priority</td><td class="px-4 py-2.5 text-muted">Low / Medium / High / Very High — shown as a coloured label on the card.</td></tr>
+                <tr><td class="px-4 py-2.5 font-semibold text-ink">Estimated amount</td><td class="px-4 py-2.5 text-muted">Expected deal value (RM). Optional — can be left blank and filled in later.</td></tr>
+                <tr><td class="px-4 py-2.5 font-semibold text-ink">Closed by</td><td class="px-4 py-2.5 text-muted">The salesperson responsible for this lead.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Pipeline board -->
+        <div>
+          <p class="text-xs font-semibold uppercase tracking-wider text-muted mb-3">The pipeline board</p>
+          <p class="text-xs text-muted mb-3">Leads are shown as cards in five columns — drag isn't needed, each card has its own controls:</p>
+          <div class="flex flex-wrap gap-2 mb-3">
+            <span class="text-[11px] px-2.5 py-1 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-400">Qualification</span>
+            <span class="text-[11px] px-2.5 py-1 rounded-full bg-yellow-500/15 border border-yellow-500/30 text-yellow-400">Proposal</span>
+            <span class="text-[11px] px-2.5 py-1 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-400">Negotiation</span>
+            <span class="text-[11px] px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">Won</span>
+            <span class="text-[11px] px-2.5 py-1 rounded-full bg-warm/15 border border-warm/30 text-warm">Lost</span>
+          </div>
+          <div class="space-y-3">
+            <div class="flex gap-3">
+              <div class="w-2 h-2 rounded-full bg-accent mt-1.5 shrink-0"></div>
+              <p class="text-xs text-muted"><strong class="text-ink">Move stage</strong> — use the status dropdown on the card. Moving a lead to Won stamps the date it was won, used later for quarterly commission reporting.</p>
+            </div>
+            <div class="flex gap-3">
+              <div class="w-2 h-2 rounded-full bg-accent mt-1.5 shrink-0"></div>
+              <p class="text-xs text-muted"><strong class="text-ink">Edit the estimated amount anytime</strong> — click the RM field on the card, type the new figure, then click away. It saves immediately, no separate save button. Leaving it blank clears the amount.</p>
+            </div>
+            <div class="flex gap-3">
+              <div class="w-2 h-2 rounded-full bg-accent mt-1.5 shrink-0"></div>
+              <p class="text-xs text-muted"><strong class="text-ink">Reassign Closed By</strong> — change the salesperson dropdown on the card at any time.</p>
+            </div>
+            <div class="flex gap-3">
+              <div class="w-2 h-2 rounded-full bg-accent mt-1.5 shrink-0"></div>
+              <p class="text-xs text-muted"><strong class="text-ink">Search</strong> — the search box above the board filters by lead name or account name across all columns as you type.</p>
+            </div>
+            <div class="flex gap-3">
+              <div class="w-2 h-2 rounded-full bg-warm mt-1.5 shrink-0"></div>
+              <p class="text-xs text-muted"><strong class="text-ink">Delete</strong> — the × on a card removes the lead permanently. Use with care.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Converting to a project -->
+        <div class="bg-panel2 border border-emerald-500/20 rounded-lg p-4">
+          <p class="text-xs font-semibold text-emerald-400 mb-1">Converting a Won lead into a project</p>
+          <p class="text-xs text-muted leading-relaxed">
+            Once a lead is set to <strong class="text-ink">Won</strong>, a <em>"→ Create project"</em> button appears on its card.
+            Click it to create a new project in <strong class="text-ink">BRIEF</strong> status, carrying over the name, client account,
+            estimated value, and company. Any quotations already pushed to Autocount for this lead are automatically linked to the
+            new project. A lead can only be converted once — after that the card shows <em>"✓ Project created"</em> instead.
+          </p>
+        </div>
+
+        <!-- Quotations -->
+        <div class="bg-panel2 border border-line rounded-lg p-4">
+          <p class="text-xs font-semibold text-ink mb-1">Pushing a quotation</p>
+          <p class="text-xs text-muted">On a Won lead, use <em>"↑ Push quotation"</em> to create the quotation directly in Autocount — see <a href="#autocount" class="text-accent hover:underline">Autocount Integration</a> for the full walkthrough.</p>
+        </div>
+
+        <!-- Audit trail -->
+        <div class="bg-panel2 border border-line rounded-lg p-4">
+          <p class="text-xs font-semibold text-ink mb-1">Every change is logged</p>
+          <p class="text-xs text-muted">Editing a lead — including the estimated amount — writes an entry to the Audit Log (Admin tab, Admin only), showing exactly which field changed, the old and new value, who made the change, and when.</p>
+        </div>
+
+      </div>
+      <a href="#toc" class="block mt-3 text-[11px] text-muted/50 hover:text-muted no-print text-right">↑ Back to contents</a>
+    </section>
+
+    <!-- Step 5: Navigation -->
+    <section id="navigation">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">5</span>
         <h2 class="text-lg font-semibold text-ink">Navigation Overview</h2>
       </div>
       <div class="bg-panel border border-line rounded-xl p-6">
@@ -394,10 +498,10 @@
       <a href="#toc" class="block mt-3 text-[11px] text-muted/50 hover:text-muted no-print text-right">↑ Back to contents</a>
     </section>
 
-    <!-- Step 5: Company Filter -->
+    <!-- Step 6: Company Filter -->
     <section id="company-filter">
       <div class="flex items-center gap-3 mb-4">
-        <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">5</span>
+        <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">6</span>
         <h2 class="text-lg font-semibold text-ink">Filtering by Company</h2>
       </div>
       <div class="bg-panel border border-line rounded-xl p-6 space-y-5">
@@ -466,10 +570,10 @@
       <a href="#toc" class="block mt-3 text-[11px] text-muted/50 hover:text-muted no-print text-right">↑ Back to contents</a>
     </section>
 
-    <!-- Step 6: Autocount -->
+    <!-- Step 7: Autocount -->
     <section id="autocount">
       <div class="flex items-center gap-3 mb-4">
-        <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">6</span>
+        <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">7</span>
         <h2 class="text-lg font-semibold text-ink">Autocount Integration</h2>
       </div>
       <div class="bg-panel border border-line rounded-xl p-6 space-y-4">
@@ -508,10 +612,10 @@
       <a href="#toc" class="block mt-3 text-[11px] text-muted/50 hover:text-muted no-print text-right">↑ Back to contents</a>
     </section>
 
-    <!-- Step 7: PPM -->
+    <!-- Step 8: PPM -->
     <section id="ppm">
       <div class="flex items-center gap-3 mb-4">
-        <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">7</span>
+        <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">8</span>
         <h2 class="text-lg font-semibold text-ink">PPM — Project Priority Matrix</h2>
       </div>
       <div class="bg-panel border border-line rounded-xl p-6 space-y-6">
@@ -728,10 +832,10 @@
       <a href="#toc" class="block mt-3 text-[11px] text-muted/50 hover:text-muted no-print text-right">↑ Back to contents</a>
     </section>
 
-    <!-- Step 8: Staffing Suggestions -->
+    <!-- Step 9: Staffing Suggestions -->
     <section id="staffing">
       <div class="flex items-center gap-3 mb-4">
-        <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">8</span>
+        <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">9</span>
         <h2 class="text-lg font-semibold text-ink">Staffing Suggestions</h2>
       </div>
       <div class="bg-panel border border-line rounded-xl p-6 space-y-5">
@@ -823,17 +927,17 @@
       <a href="#toc" class="block mt-3 text-[11px] text-muted/50 hover:text-muted no-print text-right">↑ Back to contents</a>
     </section>
 
-    <!-- Tips -->
+    <!-- Step 10: Tips -->
     <section id="tips">
       <div class="flex items-center gap-3 mb-4">
-        <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">9</span>
+        <span class="w-8 h-8 rounded-full bg-accent/20 border border-accent/40 text-accent text-sm font-bold flex items-center justify-center shrink-0">10</span>
         <h2 class="text-lg font-semibold text-ink">Quick Tips</h2>
       </div>
       <div class="bg-panel border border-line rounded-xl p-6">
         <div class="space-y-3 text-sm">
           <div class="flex gap-2">
             <span class="text-accent shrink-0">→</span>
-            <p class="text-muted">Use the <strong class="text-lp">LPS</strong> or <strong class="text-pxl">PXL</strong> logo buttons at the top-left to filter all tabs by studio. Click the active logo again to clear. See Step 5 for full details.</p>
+            <p class="text-muted">Use the <strong class="text-lp">LPS</strong> or <strong class="text-pxl">PXL</strong> logo buttons at the top-left to filter all tabs by studio. Click the active logo again to clear. See Step 6 for full details.</p>
           </div>
           <div class="flex gap-2">
             <span class="text-accent shrink-0">→</span>
