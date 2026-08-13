@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma.service';
 import { CreateLeadDto, UpdateLeadDto } from './lead.dto';
 import { companyWhere } from '../common/company-filter';
+import { WhatsappService } from '../whatsapp/whatsapp.service';
 
 const WITH_RELATIONS = {
   account:  { select: { id: true, name: true, industry: true, autocountDebtorCode: true } },
@@ -17,7 +18,10 @@ const WITH_RELATIONS = {
 
 @Injectable()
 export class LeadsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private whatsapp: WhatsappService,
+  ) {}
 
   findAll(company?: string | null) {
     const co = companyWhere(company);
@@ -59,7 +63,7 @@ export class LeadsService {
     const current = await this.findOne(id);
     // Record the exact moment a lead becomes WON — used for quarterly commission bucketing.
     const wonAt = dto.status === 'WON' && current.status !== 'WON' ? new Date() : undefined;
-    return this.prisma.lead.update({
+    const updated = await this.prisma.lead.update({
       where: { id },
       data: {
         ...dto,
@@ -68,6 +72,16 @@ export class LeadsService {
       },
       include: WITH_RELATIONS,
     });
+
+    // Fire-and-forget WhatsApp notification on pipeline stage change — never
+    // block or fail the request if the WhatsApp bot is down/unconfigured.
+    if (dto.status && dto.status !== current.status) {
+      this.whatsapp
+        .notifyLeadStatusChange(updated, current.status, dto.status)
+        .catch((e) => console.error('WhatsApp notify failed', e));
+    }
+
+    return updated;
   }
 
   async remove(id: string) {

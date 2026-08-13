@@ -9,3 +9,5 @@ dist/
 .claude/settings.json
 .agents/
 skills-lock.json
+whatsapp-session/
+.wwebjs_cache/
