@@ -158,4 +158,16 @@ export class WhatsappService implements OnModuleInit, OnModuleDestroy {
     const text = `📊 *Lead status changed*\n${lead.name}${account}\n${from} → ${to}${value}${closedBy}`;
     await this.send(text);
   }
+
+  async notifyNewLead(lead: {
+    name: string;
+    status: string;
+    account?: { name: string } | null;
+    estimatedValue?: number | null;
+  }): Promise<void> {
+    const account = lead.account?.name ? ` (${lead.account.name})` : '';
+    const value = lead.estimatedValue ? `\nEst. value: RM ${lead.estimatedValue.toLocaleString()}` : '';
+    const text = `🆕 *New lead created*\n${lead.name}${account}\nStatus: ${lead.status}${value}`;
+    await this.send(text);
+  }
 }

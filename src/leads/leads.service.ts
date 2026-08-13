@@ -38,8 +38,8 @@ export class LeadsService {
     return lead;
   }
 
-  create(dto: CreateLeadDto) {
-    return this.prisma.lead.create({
+  async create(dto: CreateLeadDto) {
+    const created = await this.prisma.lead.create({
       data: {
         name:           dto.name,
         accountId:      dto.accountId      ?? null,
@@ -57,6 +57,10 @@ export class LeadsService {
       },
       include: WITH_RELATIONS,
     });
+
+    this.whatsapp.notifyNewLead(created).catch((e) => console.error('WhatsApp notify failed', e));
+
+    return created;
   }
 
   async update(id: string, dto: UpdateLeadDto) {
