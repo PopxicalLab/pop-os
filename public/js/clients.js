@@ -7,6 +7,13 @@
 
 let _clientsAll = [];
 
+// A website saved as "example.com" (no protocol) is a relative URL to a
+// browser, so it resolves against the current page instead of the client's
+// own site. Force an absolute URL so the link always leaves Pop OS.
+function absoluteUrl(url) {
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
+}
+
 async function loadClients() {
   _clientsAll = await fetch('/api/accounts').then(r => r.json()).catch(() => []);
   renderClientList(_clientsAll);
@@ -157,7 +164,7 @@ async function showAccountDetail(id) {
       <div>
         <h2 class="text-xl font-bold text-ink">${esc(a.name)}</h2>
         <p class="text-sm text-muted mt-0.5">${[a.industry, a.size].filter(Boolean).join(' · ') || '—'}</p>
-        ${a.website ? `<a href="${esc(a.website)}" target="_blank" class="text-xs text-accent hover:underline">${esc(a.website)}</a>` : ''}
+        ${a.website ? `<a href="${esc(absoluteUrl(a.website))}" target="_blank" rel="noopener" class="text-xs text-accent hover:underline">${esc(a.website)}</a>` : ''}
       </div>
     </div>
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
