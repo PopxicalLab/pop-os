@@ -514,6 +514,21 @@
           </button>
           <div id="softwareMsg" class="text-xs mt-2 min-h-[18px]"></div>
         </div>
+
+        <!-- Self-assessment review panel — admin only -->
+        <div id="self-assess-panel" class="bg-panel border border-line rounded-xl p-5 hidden">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">Skill Self-Assessments</h2>
+              <p class="text-xs text-muted mt-0.5">Staff submissions awaiting review. Approve to apply ratings; reject to discard.</p>
+            </div>
+            <a href="/self-assess.html" target="_blank"
+              class="text-[11px] text-accent hover:text-ink border border-accent/30 hover:border-accent/60 px-2.5 py-1 rounded-lg transition-colors cursor-pointer no-underline">
+              Open form ↗
+            </a>
+          </div>
+          <div id="assess-list"><p class="text-xs text-muted">Loading…</p></div>
+        </div>
       </div>
 
       <div class="bg-panel border border-line rounded-xl p-5">
@@ -564,7 +579,11 @@
                 <th data-pcol="type"   class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Type</th>
                 <th data-pcol="start"  class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Start</th>
                 <th data-pcol="salary" class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Salary</th>
-                <th data-pcol="skills"   class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Skills</th>
+                <th data-pcol="skills"   class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">
+                  Skills
+                  <button type="button" id="skill-tip-btn" onclick="showSkillTip(event)"
+                    class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted/20 hover:bg-accent/20 text-muted hover:text-accent text-[9px] font-bold ml-0.5 align-middle cursor-pointer" style="border:none;background:rgba(100,100,100,0.15);padding:0;">?</button>
+                </th>
                 <th data-pcol="software" class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Software</th>
                 <th class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Status</th>
                 <th class="pb-3 px-2"></th>
@@ -2249,6 +2268,34 @@
     loadSkills();
     load();
     loadProjects();
+  </script>
+
+  <!-- Skill rating tip — fixed-position so table overflow can't clip it -->
+  <div id="skill-rating-tip" class="hidden fixed z-[9999] w-64 bg-panel border border-line rounded-xl shadow-xl p-3 pointer-events-none">
+    <p class="text-[11px] font-semibold text-ink mb-2">Skill Rating Scale</p>
+    <div class="space-y-1.5 text-[10px] text-muted">
+      <div class="flex gap-2"><span class="w-3 font-bold text-ink shrink-0">1</span><span><span class="font-semibold text-ink">Awareness</span> — knows the concept, hasn't produced independently</span></div>
+      <div class="flex gap-2"><span class="w-3 font-bold text-ink shrink-0">2</span><span><span class="font-semibold text-yellow-400">Beginner</span> — can attempt with guidance; output needs review</span></div>
+      <div class="flex gap-2"><span class="w-3 font-bold text-ink shrink-0">3</span><span><span class="font-semibold text-accent">Practitioner</span> — delivers solid work independently</span></div>
+      <div class="flex gap-2"><span class="w-3 font-bold text-ink shrink-0">4</span><span><span class="font-semibold text-blue-400">Advanced</span> — handles complex work, mentors others</span></div>
+      <div class="flex gap-2"><span class="w-3 font-bold text-ink shrink-0">5</span><span><span class="font-semibold text-purple-400">Expert</span> — studio authority, sets the standard</span></div>
+    </div>
+  </div>
+  <script>
+    function showSkillTip(e) {
+      e.stopPropagation();
+      const tip = document.getElementById('skill-rating-tip');
+      if (!tip.classList.contains('hidden')) { tip.classList.add('hidden'); return; }
+      const rect = e.currentTarget.getBoundingClientRect();
+      tip.style.top  = (rect.bottom + 6) + 'px';
+      tip.style.left = Math.min(rect.left - 80, window.innerWidth - 270) + 'px';
+      tip.classList.remove('hidden');
+    }
+    document.addEventListener('click', e => {
+      if (!e.target.closest('#skill-tip-btn')) {
+        document.getElementById('skill-rating-tip')?.classList.add('hidden');
+      }
+    });
   </script>
 </body>
 </html>

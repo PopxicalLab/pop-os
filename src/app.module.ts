@@ -32,6 +32,7 @@ import { SalesPerformanceModule } from './sales-performance/sales-performance.mo
 import { CommitteesModule } from './committees/committees.module';
 import { SoftwareModule } from './software/software.module';
 import { AuditModule } from './audit/audit.module';
+import { SelfAssessModule } from './self-assess/self-assess.module';
 import { JwtAuthGuard } from './auth/jwt.guard';
 
 @Module({
@@ -70,6 +71,7 @@ import { JwtAuthGuard } from './auth/jwt.guard';
     CommitteesModule,
     SoftwareModule,
     AuditModule,
+    SelfAssessModule,
   ],
   providers: [
     // Register JwtAuthGuard globally — every API route requires a valid JWT

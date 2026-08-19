@@ -809,10 +809,20 @@ async function loadProjectSkills(projectId) {
         </span>`).join('')
     : `<span class="text-[11px] text-muted/60 italic">No skills tagged yet.</span>`;
 
-  // Add skill picker (only shows skills not already tagged)
-  const pickerOpts = available.length
-    ? available.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')
-    : '';
+  // Add skill picker grouped by category (only shows skills not already tagged)
+  let pickerOpts = '';
+  if (available.length) {
+    const byCat = {};
+    for (const s of available) {
+      const cat = s.category || 'Other';
+      if (!byCat[cat]) byCat[cat] = [];
+      byCat[cat].push(s);
+    }
+    pickerOpts = Object.entries(byCat)
+      .map(([cat, list]) =>
+        `<optgroup label="${esc(cat)}">${list.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</optgroup>`)
+      .join('');
+  }
 
   el.innerHTML = `
     <div class="flex flex-wrap gap-1.5 mb-2">${chips}</div>

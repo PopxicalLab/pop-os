@@ -307,6 +307,8 @@ async function load() {
   if (deptMasterPanel) deptMasterPanel.classList.toggle('hidden', !isAdmin());
   const softwareMasterPanel = $('software-master-panel');
   if (softwareMasterPanel) softwareMasterPanel.classList.toggle('hidden', !isAdmin());
+  const selfAssessPanel = $('self-assess-panel');
+  if (selfAssessPanel) selfAssessPanel.classList.toggle('hidden', !isAdmin());
 
   // Load master lists and people data in parallel
   await Promise.all([
@@ -314,6 +316,7 @@ async function load() {
     loadJobTitles(),
     loadDepartments(),
     loadSoftware(),
+    loadSelfAssessments(),
     (async () => { PEOPLE = await (await fetch('/api/people')).json(); })(),
   ]);
 
@@ -589,7 +592,17 @@ function showAssign(personId) {
   const area = $('area-' + personId);
   if (area.dataset.open === '1') { area.innerHTML = ''; area.dataset.open = '0'; return; }
   area.dataset.open = '1';
-  const opts = SKILLS.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('');
+  // Group skills by category using <optgroup> so the dropdown is easier to scan
+  const byCategory = {};
+  for (const s of SKILLS) {
+    const cat = s.category || 'Other';
+    if (!byCategory[cat]) byCategory[cat] = [];
+    byCategory[cat].push(s);
+  }
+  const opts = Object.entries(byCategory)
+    .map(([cat, list]) =>
+      `<optgroup label="${esc(cat)}">${list.map(s => `<option value="${s.id}">${esc(s.name)}</option>`).join('')}</optgroup>`)
+    .join('');
   area.innerHTML = `
     <div class="bg-panel2 border border-line rounded-xl p-4 mt-3 space-y-3">
       <div class="grid grid-cols-3 gap-2">
@@ -1044,5 +1057,80 @@ async function submitEdit(personId) {
   } else {
     const e = await res.json().catch(() => ({}));
     msg($('ep-msg'), [].concat(e.message || 'Failed').join(', '), 'err');
+  }
+}
+
+// ── Self-assessment review (admin only) ───────────────────────────────────────
+
+async function loadSelfAssessments() {
+  if (!isAdmin()) return;
+  const list = $('assess-list');
+  if (!list) return;
+
+  const data = await fetch('/api/self-assess').then(r => r.json()).catch(() => []);
+  const pending = data.filter(a => a.status === 'PENDING');
+
+  if (!data.length) {
+    list.innerHTML = '<p class="text-xs text-muted">No submissions yet. Share the form link with your team.</p>';
+    return;
+  }
+
+  const STATUS_CLS = {
+    PENDING:  'text-yellow-400 bg-yellow-400/10 border-yellow-400/30',
+    APPROVED: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30',
+    REJECTED: 'text-warm bg-warm/10 border-warm/30',
+  };
+
+  list.innerHTML = data.map(a => {
+    const ratingsByCategory = {};
+    for (const r of a.ratings) {
+      const cat = r.skill.category || 'Other';
+      if (!ratingsByCategory[cat]) ratingsByCategory[cat] = [];
+      ratingsByCategory[cat].push(r);
+    }
+    const LEVEL = ['', 'Awareness', 'Beginner', 'Practitioner', 'Advanced', 'Expert'];
+    const detailHtml = Object.entries(ratingsByCategory).map(([cat, ratings]) =>
+      `<div class="mb-1.5"><span class="text-[10px] font-semibold text-muted uppercase tracking-wider">${esc(cat)}</span>
+       <div class="flex flex-wrap gap-1 mt-0.5">${ratings.map(r =>
+         `<span class="inline-flex items-center gap-1 bg-panel border border-line px-2 py-0.5 rounded-full text-[10px]">
+            ${esc(r.skill.name)} <span class="font-bold text-accent">${r.rating}</span>
+            <span class="text-muted">${LEVEL[r.rating] || ''}</span>
+          </span>`).join('')}</div></div>`
+    ).join('');
+
+    return `
+      <div class="border border-line rounded-xl p-4 mb-3 bg-panel2">
+        <div class="flex items-start justify-between gap-3 mb-2">
+          <div>
+            <span class="font-semibold text-ink text-sm">${esc(a.person.name)}</span>
+            <span class="text-xs text-muted ml-2">${esc(a.person.department || '')}</span>
+            ${a.note ? `<p class="text-xs text-muted mt-0.5 italic">"${esc(a.note)}"</p>` : ''}
+          </div>
+          <div class="flex items-center gap-2 shrink-0">
+            <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full border ${STATUS_CLS[a.status]}">${a.status}</span>
+            <span class="text-[10px] text-muted">${new Date(a.createdAt).toLocaleDateString()}</span>
+          </div>
+        </div>
+        <div class="mb-3">${detailHtml}</div>
+        ${a.status === 'PENDING' ? `
+        <div class="flex gap-2">
+          <button onclick="reviewAssessment('${a.id}','approve')"
+            class="text-xs font-semibold bg-emerald-400/10 border border-emerald-400/30 text-emerald-400 hover:bg-emerald-400/20 px-3 py-1.5 rounded-lg transition-colors cursor-pointer">
+            Approve &amp; apply ratings
+          </button>
+          <button onclick="reviewAssessment('${a.id}','reject')"
+            class="text-xs font-semibold bg-warm/10 border border-warm/30 text-warm hover:bg-warm/20 px-3 py-1.5 rounded-lg transition-colors cursor-pointer">
+            Reject
+          </button>
+        </div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+async function reviewAssessment(id, action) {
+  const res = await fetch(`/api/self-assess/${id}/${action}`, { method: 'PATCH' });
+  if (res.ok) {
+    await loadSelfAssessments();
+    if (action === 'approve') load(); // refresh people table to show new ratings
   }
 }

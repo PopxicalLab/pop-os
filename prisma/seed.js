@@ -56,15 +56,45 @@ async function main() {
   console.log(`✓ ${jobTitleNames.length} job titles`);
 
   // ── 1. SKILLS ────────────────────────────────────────────────────────────────
-  const skillNames = [
-    '3D Modeling', 'Rigging', 'Animation', 'VFX', 'Motion Design',
-    'Concept Art', 'Compositing', 'Lighting', 'Texturing', 'Rendering',
+  const skillDefs = [
+    { name: '3D Modeling',         category: '3D Production' },
+    { name: 'Rigging',             category: '3D Production' },
+    { name: 'Animation',           category: '3D Production' },
+    { name: 'Lighting',            category: '3D Production' },
+    { name: 'Texturing',           category: '3D Production' },
+    { name: 'Rendering',           category: '3D Production' },
+    { name: 'Character Design',    category: '3D Production' },
+    { name: 'Environment Design',  category: '3D Production' },
+    { name: 'VFX',                 category: 'VFX & Post' },
+    { name: 'Compositing',         category: 'VFX & Post' },
+    { name: 'Video Editing',       category: 'VFX & Post' },
+    { name: 'Color Grading',       category: 'VFX & Post' },
+    { name: 'Motion Design',       category: 'Motion & Design' },
+    { name: 'Concept Art',         category: 'Motion & Design' },
+    { name: 'Storyboarding',       category: 'Motion & Design' },
+    { name: 'Illustration',        category: 'Motion & Design' },
+    { name: 'Art Direction',       category: 'Motion & Design' },
+    { name: 'Graphic Design',      category: 'Motion & Design' },
+    { name: 'Creative Coding',     category: 'Creative Tech' },
+    { name: 'Real-time / Unreal',  category: 'Creative Tech' },
+    { name: 'AR / VR',             category: 'Creative Tech' },
+    { name: 'Generative Art',      category: 'Creative Tech' },
+    { name: 'Projection Mapping',  category: 'Creative Tech' },
+    { name: 'Technical Direction', category: 'Creative Tech' },
+    { name: 'Web Frontend',        category: 'Development' },
+    { name: 'Web Backend',         category: 'Development' },
+    { name: 'UI/UX Design',        category: 'Development' },
+    { name: 'Mobile Development',  category: 'Development' },
+    { name: 'Data Visualisation',  category: 'Development' },
+    { name: 'Production Management',       category: 'Production' },
+    { name: 'Client Servicing',            category: 'Production' },
+    { name: 'Copywriting / Scriptwriting', category: 'Production' },
   ];
   const skills = {};
-  for (const name of skillNames) {
-    skills[name] = await prisma.skill.create({ data: { name } });
+  for (const def of skillDefs) {
+    skills[def.name] = await prisma.skill.create({ data: { name: def.name, category: def.category } });
   }
-  console.log(`✓ ${skillNames.length} skills`);
+  console.log(`✓ ${skillDefs.length} skills`);
 
   // ── 2. PEOPLE ────────────────────────────────────────────────────────────────
   const ppl = [

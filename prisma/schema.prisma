@@ -114,6 +114,13 @@ enum RatingSource {
   MANUAL_ADJUSTMENT
 }
 
+// Self-assessment lifecycle — submitted by staff, reviewed by admin.
+enum AssessmentStatus {
+  PENDING   // submitted, awaiting admin review
+  APPROVED  // admin approved and ratings were applied to People records
+  REJECTED  // admin rejected (ratings were not applied)
+}
+
 // ── PEOPLE / ELC ────────────────────────────────────────────────
 // One record per person. This is the foundation of the whole system:
 // Projects, Capacity, and Assets will all link back to a Person.
@@ -152,6 +159,7 @@ model Person {
   committeeMembers    CommitteeMember[]
   activityAttendances CommitteeActivityAttendee[]
   software            PersonSoftware[]
+  selfAssessments     SkillSelfAssessment[]
 
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
@@ -228,10 +236,12 @@ model PersonSoftware {
 model Skill {
   id        String        @id @default(cuid())
   name      String        @unique // e.g. "Modeling", "Rigging", "Animation"
+  category  String?       // e.g. "3D Production", "Motion & Design" — used to group dropdowns
   createdAt DateTime      @default(now())
 
   people              PersonSkill[]
   projectRequirements ProjectSkill[]  // projects that need this skill
+  selfRatings         SelfAssessmentRating[]
 }
 
 // ── PERSON SKILL ────────────────────────────────────────────────
@@ -285,6 +295,36 @@ model SkillRatingChange {
   createdAt     DateTime     @default(now())
 
   personSkill   PersonSkill  @relation(fields: [personSkillId], references: [id], onDelete: Cascade)
+}
+
+// ── SKILL SELF-ASSESSMENT ───────────────────────────────────────
+// Staff submit their own skill ratings via the public self-assess page.
+// Admin reviews and approves or rejects. On approve, ratings are written
+// to PersonSkill (with source = MANUAL_ADJUSTMENT and a note).
+model SkillSelfAssessment {
+  id        String           @id @default(cuid())
+  personId  String
+  status    AssessmentStatus @default(PENDING)
+  note      String?          // optional message from the submitter
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  person    Person               @relation(fields: [personId], references: [id], onDelete: Cascade)
+  ratings   SelfAssessmentRating[]
+}
+
+// One row per skill rated in a self-assessment submission.
+model SelfAssessmentRating {
+  id           String              @id @default(cuid())
+  assessmentId String
+  skillId      String
+  rating       Int                 // 1–5 (staff's self-reported level)
+  createdAt    DateTime            @default(now())
+
+  assessment   SkillSelfAssessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  skill        Skill               @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([assessmentId, skillId])
 }
 
 // ── PROJECT ──────────────────────────────────────────────────────
