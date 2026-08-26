@@ -29,6 +29,19 @@ let _salesAccounts = [];
 let _salesPeople   = [];
 let _autocountDebtors = [];
 let _allLeads = []; // full cache — search filters client-side
+let _dragGhost = null; // placeholder bar shown at the drop position while dragging a lead card
+
+// Finds which card the dragged one should land before, based on cursor Y vs.
+// each card's vertical midpoint. Returns null when it belongs at the end.
+function dragAfterElement(column, y) {
+  const cards = [...column.querySelectorAll('[data-lead-card]:not(.dragging)')];
+  return cards.reduce((closest, card) => {
+    const box = card.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closest.offset) return { offset, element: card };
+    return closest;
+  }, { offset: -Infinity, element: null }).element;
+}
 
 async function initSalesTab() {
   [_salesAccounts, _salesPeople, _autocountDebtors] = await Promise.all([
@@ -94,7 +107,7 @@ function renderSalesPipeline() {
       const items = byStage[stage];
       const total = items.reduce((s, l) => s + (l.estimatedValue || 0), 0);
 
-      return `<div class="flex flex-col gap-2">
+      return `<div class="flex flex-col gap-2 rounded-xl transition-colors" data-stage-drop="${stage}">
         <div class="flex items-center justify-between mb-1">
           <span class="badge border ${cls} text-[11px]">${LEAD_STATUS_LABEL[stage]}</span>
           <span class="text-[11px] text-muted">${items.length}</span>
@@ -125,6 +138,69 @@ function renderSalesPipeline() {
         body: JSON.stringify({ closedById: sel.value || null }),
       });
       loadSales();
+    };
+  });
+
+  // Drag-and-drop: dragging a card into a different column changes its status
+  // (same PATCH the status dropdown uses). Dragging within a column just
+  // repositions the card visually — there's no persisted order field, so
+  // that position resets next time the board reloads.
+  $('sales-board').querySelectorAll('[data-lead-card]').forEach(card => {
+    card.ondragstart = (e) => {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', card.dataset.leadCard);
+      card.classList.add('dragging', 'opacity-40');
+      _dragGhost = document.createElement('div');
+      _dragGhost.className = 'h-1.5 rounded-full bg-accent/60 mx-1';
+    };
+    card.ondragend = () => {
+      card.classList.remove('dragging', 'opacity-40');
+      _dragGhost?.remove();
+      _dragGhost = null;
+    };
+  });
+
+  $('sales-board').querySelectorAll('[data-stage-drop]').forEach(col => {
+    col.ondragover = (e) => {
+      e.preventDefault();
+      col.classList.add('bg-accent/5', 'ring-1', 'ring-accent/40');
+      if (!_dragGhost) return;
+      const after = dragAfterElement(col, e.clientY);
+      after ? col.insertBefore(_dragGhost, after) : col.appendChild(_dragGhost);
+    };
+    col.ondragleave = (e) => {
+      if (!col.contains(e.relatedTarget)) col.classList.remove('bg-accent/5', 'ring-1', 'ring-accent/40');
+    };
+    col.ondrop = async (e) => {
+      e.preventDefault();
+      col.classList.remove('bg-accent/5', 'ring-1', 'ring-accent/40');
+      _dragGhost?.remove();
+
+      const id     = e.dataTransfer.getData('text/plain');
+      const status = col.dataset.stageDrop;
+      const lead   = _allLeads.find(l => l.id === id);
+      if (!lead) return;
+
+      // Read the drop position from the DOM *before* re-rendering wipes it,
+      // then reorder the in-memory list to match and re-render locally —
+      // this is what makes the card land exactly where the ghost showed,
+      // instead of wherever a server refetch would re-sort it to.
+      const after     = dragAfterElement(col, e.clientY);
+      const afterId   = after?.dataset.leadCard || null;
+      const wasStatus = lead.status;
+
+      _allLeads.splice(_allLeads.indexOf(lead), 1);
+      lead.status = status;
+      const insertAt = afterId ? _allLeads.findIndex(l => l.id === afterId) : -1;
+      insertAt === -1 ? _allLeads.push(lead) : _allLeads.splice(insertAt, 0, lead);
+      renderSalesPipeline();
+
+      if (wasStatus !== status) {
+        await fetch(`/api/leads/${id}`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status }),
+        });
+      }
     };
   });
 
@@ -187,7 +263,7 @@ function renderLeadCard(l) {
     return `<span class="${statusCls} text-[11px]">📄 ${esc(d.docNo)}${due}</span>`;
   }).join('<br>');
 
-  const quotationBtn = l.status === 'WON'
+  const quotationBtn = ['PROPOSAL', 'NEGOTIATION', 'WON'].includes(l.status)
     ? `<div class="mt-1 space-y-0.5">
          ${quotationBadges}
          <button class="w-full text-[11px] bg-sky-500/15 border border-sky-500/30 text-sky-400
@@ -206,7 +282,8 @@ function renderLeadCard(l) {
     _salesPeople.filter(p => p.status === 'ACTIVE')
       .map(p => `<option value="${p.id}"${l.closedById === p.id ? ' selected' : ''}>${esc(p.name)}</option>`).join('');
 
-  return `<div class="bg-panel2 border border-line rounded-xl p-3 space-y-1.5">
+  return `<div class="bg-panel2 border border-line rounded-xl p-3 space-y-1.5 cursor-grab active:cursor-grabbing"
+    draggable="true" data-lead-card="${l.id}">
     <div class="flex items-start justify-between gap-1">
       <p class="text-xs font-semibold text-ink leading-snug flex-1">${esc(l.name)}</p>
       <button class="btn-del shrink-0 text-[11px]" data-lead-del="${l.id}">×</button>
