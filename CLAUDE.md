@@ -26,7 +26,7 @@ not just describe.
   own file under `public/js/`:
   `mywork.js`, `dashboard.js`, `sales.js`, `clients.js`, `sales-performance.js`,
   `projects.js`, `change-requests.js`, `assets.js`, `production.js`,
-  `capacity.js`, `financial.js`, `people.js`, `staffing.js`.
+  `capacity.js`, `financial.js`, `people.js`, `staffing.js`, `admin.js`.
   Adding a new tab = new file + one `<script src>` line in `index.html`.
   Keep it framework-free.
 - **Auth:** JWT (`@nestjs/jwt`). Global `JwtAuthGuard` via `APP_GUARD`. Routes
@@ -58,7 +58,7 @@ These work identically on Windows (PowerShell) and macOS (Terminal).
 1. Install Node.js (v18+) and Docker Desktop
 2. `git clone https://github.com/popxicalLab/pop-os.git`
 3. Copy env file: `cp .env.example .env` (Mac) or `copy .env.example .env` (Windows)
-4. Fill in `.env` — at minimum `DATABASE_URL`, `JWT_SECRET`, and Autocount vars
+4. Fill in `.env` — at minimum `DATABASE_URL`, `JWT_SECRET`, Autocount vars, and `APP_URL` (used in welcome emails)
 5. `docker compose up -d`
 6. `npm install`
 7. `npx prisma migrate deploy`  ← use `deploy` (not `dev`) on a fresh clone
@@ -202,6 +202,8 @@ login. Click (admin only) to create a login or view the linked account.
 - **Lead** — sales opportunity. Status: QUALIFICATION → PROPOSAL → NEGOTIATION →
   WON → LOST. `convertToProject` endpoint creates a Project from a WON lead.
   Has many AccountingDocument (quotations pushed to Autocount).
+  `closedById` FK → Person (who won/lost the deal). Set manually via inline
+  dropdown on each kanban card. `wonAt` auto-stamped when status changes to WON.
 
 - **AccountingDocument** — one Autocount document per row (QUOTATION,
   SALES_INVOICE, PURCHASE_INVOICE). Linked to Project and/or Lead. Fields:
@@ -224,7 +226,16 @@ login. Click (admin only) to create a login or view the linked account.
 
 - **User** — login credential. Fields: email, name, password (bcrypt), role
   (7 values), active, personId (optional FK to Person). Seeded via
-  `prisma/seed-users.js`.
+  `prisma/seed-users.js`. Has many AuditLog (back-relation).
+
+- **AuditLog** — immutable event record. Captures every CREATE/UPDATE/DELETE
+  across Leads, Projects, People, Users, ChangeRequests, and AccountingDocuments.
+  Fields: actorId (nullable FK to User), actorName (denormalized), actorRole,
+  action (enum), resource (model name), resourceId, resourceLabel (human name),
+  after (JSON result state), changes (JSON field-level diff for UPDATEs).
+  Written fire-and-forget from controllers — never blocks a request.
+  `GET /api/audit` (ADMIN only) accepts filters: resource, action, actorId,
+  startDate, endDate, search, page. Paginated 50/page.
 
 ### Skills design decisions (do not undo these without asking)
 
@@ -265,6 +276,8 @@ the hyphens are required, as defined in the Swagger security scheme).
 3. `GET /api/autocount/debtors` → lists Autocount debtors for the picker modal.
 4. `PATCH /api/autocount/documents/:id/status` → mark PAID or VOID.
 5. `GET /api/autocount/due-soon` → docs due within N days (also in dashboard).
+6. `POST /api/autocount/sync-documents` → pulls current calendar year docs only.
+7. `GET /api/autocount/reconcile` → compares Pop OS records vs live Autocount.
 
 **Document response pattern:** Autocount returns `201 Created` with no body.
 The document number is in the `Location` response header as a query param:
@@ -286,6 +299,7 @@ is its own mini-dashboard in context.
 - Production ▾ → Projects, Change Requests, Assets, Production engine, Capacity
 - Financial (direct — FINANCE + ADMIN only)
 - HR ▾ → People, Staffing
+- Admin (direct — ADMIN only) → Audit Log viewer
 
 ---
 
@@ -365,9 +379,33 @@ is its own mini-dashboard in context.
 - **STAFF role + onboarding flow** — DONE. STAFF has My Work access; onboarding
   flow guides new staff without a linked Person record.
 
+### Go-live & data ops (done)
+- **Production reset script** — `prisma/reset-for-production.js`. Deletes all
+  transactional data in FK order, keeps Skills/Departments/JobTitles/CommissionTiers,
+  creates admin account. Run once before go-live.
+- **Airtable import** — `prisma/import-airtable.js`. Imports Accounts, Contacts,
+  Leads from two Airtable bases (2024-2025 and 2026). Requires `AIRTABLE_PAT` env var.
+- **Welcome email** — sent automatically on new joiner onboard (`POST /api/people/onboard`)
+  and when admin creates a login (`POST /api/users`). HTML email with per-company
+  branding: LPS=amber "Lorrypop Studio", PXL=teal "Popxical Lab". Uses `APP_URL`
+  env var for the login link. Fire-and-forget — never blocks the API response.
+- **Autocount reconciliation** — `GET /api/autocount/reconcile`. Compares every
+  Pop OS AccountingDocument against live Autocount. Returns OK / AMOUNT_MISMATCH /
+  STATUS_MISMATCH / BOTH_MISMATCH / NOT_FOUND per document. Triggered from Financial
+  tab (⚖ Reconcile button).
+- **Autocount sync year filter** — `syncDocuments()` only pulls current calendar
+  year documents. Prevents historical data bloat.
+
+### Enterprise readiness (done)
+- **Audit Log** — DONE. `src/audit/`. Immutable event log for all key mutations.
+  Admin tab (`public/js/admin.js`) with filters: year, resource, action, actor,
+  date range, search. Expandable detail viewer shows full record state + field diff.
+  Year picker defaults to current year; "All years" available for history.
+
 ### Deferred
 - Kakitangan.com sync (payroll + leave).
 - `changedBy` on SkillRatingChange linking to a real Person.
+- Global year filter across all tabs (revisit Jan 2027 when two years of data exist).
 
 ---
 
