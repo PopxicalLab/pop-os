@@ -459,10 +459,19 @@
 
         <div id="skill-master-panel" class="bg-panel border border-line rounded-xl p-5">
           <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-1">Skill master list</h2>
-          <p class="text-xs text-muted mb-3">Studio-wide skills you can rate people on.</p>
-          <div id="skillList" class="flex flex-wrap gap-1.5 mb-3 min-h-[24px]"></div>
-          <label class="form-label" style="margin-top:0">New skill</label>
+          <p class="text-xs text-muted mb-3">Skills grouped by category. Click a category to expand. Admin can add or remove skills.</p>
+          <div id="skillList" class="mb-3 space-y-0"></div>
+          <label class="form-label" style="margin-top:0">New skill name</label>
           <input id="newSkill" class="form-input" placeholder="e.g. Rigging" />
+          <label class="form-label">Category</label>
+          <select id="newSkillCat" class="form-input">
+            <option value="">— select category —</option>
+            <option>General Management</option>
+            <option>Studio Project Management</option>
+            <option>Creative Technology</option>
+            <option>Digital Content &amp; Animation</option>
+            <option>Marketing &amp; Growth</option>
+          </select>
           <button id="addSkill"
             class="mt-3 w-full bg-panel2 border border-line text-ink font-semibold py-2 rounded-lg
                    text-sm hover:border-accent/50 transition-all duration-150 cursor-pointer">

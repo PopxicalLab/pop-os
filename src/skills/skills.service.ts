@@ -20,7 +20,13 @@ export class SkillsService {
       where: { name: dto.name },
     });
     if (existing) throw new ConflictException(`Skill "${dto.name}" already exists`);
-    return this.prisma.skill.create({ data: { name: dto.name } });
+    return this.prisma.skill.create({ data: { name: dto.name, category: dto.category ?? null } });
+  }
+
+  async deleteSkill(id: string) {
+    const skill = await this.prisma.skill.findUnique({ where: { id } });
+    if (!skill) throw new NotFoundException(`Skill ${id} not found`);
+    return this.prisma.skill.delete({ where: { id } });
   }
 
   // ── Assign a skill to a person at a starting rating ───────────

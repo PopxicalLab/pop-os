@@ -16,6 +16,8 @@ export class CreateSkillDto {
   @IsString()
   @IsNotEmpty({ message: 'Skill name is required' })
   name: string;
+
+  @IsString() @IsOptional() category?: string;
 }
 
 // Give a person a skill at a starting rating.

@@ -38,6 +38,12 @@ export class SkillsController {
     return this.skills.createSkill(dto);
   }
 
+  @Delete('skills/:id')
+  deleteSkill(@Param('id') id: string, @Req() req: any) {
+    requireAdmin(req);
+    return this.skills.deleteSkill(id);
+  }
+
   @Post('people/:id/skills')
   assign(@Param('id') personId: string, @Body() dto: AssignSkillDto) {
     return this.skills.assignSkill(personId, dto);

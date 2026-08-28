@@ -116,21 +116,67 @@ function togglePeopleColPicker() {
 
 async function loadSkills() {
   SKILLS = await (await fetch('/api/skills')).json();
-  $('skillList').innerHTML = SKILLS.length
-    ? SKILLS.map(s =>
-        `<span class="inline-flex items-center bg-panel2 border border-line px-2.5 py-0.5 rounded-full text-xs text-ink">${esc(s.name)}</span>`
-      ).join('')
-    : '<span class="text-xs text-muted">No skills yet.</span>';
+  const list = $('skillList');
+  if (!SKILLS.length) { list.innerHTML = '<span class="text-xs text-muted">No skills yet.</span>'; return; }
+
+  // Group by category
+  const byCat = {};
+  for (const s of SKILLS) {
+    const cat = s.category || 'Uncategorised';
+    if (!byCat[cat]) byCat[cat] = [];
+    byCat[cat].push(s);
+  }
+
+  list.innerHTML = Object.entries(byCat).map(([cat, skills], i) => `
+    <div class="border border-line rounded-lg overflow-hidden mb-1.5">
+      <button onclick="toggleSkillCat(this)"
+        class="flex items-center justify-between w-full px-3 py-2 bg-panel2 hover:bg-panel text-left transition-colors cursor-pointer">
+        <span class="text-[11px] font-semibold text-ink">${esc(cat)}</span>
+        <span class="flex items-center gap-2">
+          <span class="text-[10px] text-muted bg-panel border border-line px-1.5 py-0.5 rounded-full">${skills.length}</span>
+          <svg class="chevron w-3 h-3 text-muted transition-transform ${i === 0 ? 'rotate-180' : ''}"
+            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </span>
+      </button>
+      <div class="${i === 0 ? '' : 'hidden'} flex flex-wrap gap-1.5 px-3 py-2.5 bg-panel">
+        ${skills.map(s =>
+          isAdmin()
+            ? `<span class="inline-flex items-center gap-1 bg-panel2 border border-line px-2 py-0.5 rounded-full text-xs text-ink">
+                 ${esc(s.name)}
+                 <button onclick="removeSkill('${s.id}')" class="text-muted/60 hover:text-warm ml-0.5 cursor-pointer leading-none" title="Remove">×</button>
+               </span>`
+            : `<span class="inline-flex items-center bg-panel2 border border-line px-2 py-0.5 rounded-full text-xs text-ink">${esc(s.name)}</span>`
+        ).join('')}
+      </div>
+    </div>`).join('');
+}
+
+function toggleSkillCat(btn) {
+  const panel = btn.nextElementSibling;
+  panel.classList.toggle('hidden');
+  btn.querySelector('.chevron').classList.toggle('rotate-180');
+}
+
+async function removeSkill(id) {
+  if (!confirm('Remove this skill from the master list? This will also remove it from all people.')) return;
+  const res = await fetch('/api/skills/' + id, { method: 'DELETE' });
+  if (res.ok) { await loadSkills(); }
+  else msg($('skillMsg'), 'Could not remove skill.', 'err');
 }
 
 $('addSkill').addEventListener('click', async () => {
-  const name = $('newSkill').value.trim();
+  const name     = $('newSkill').value.trim();
+  const category = $('newSkillCat')?.value || undefined;
   if (!name) { msg($('skillMsg'), 'Enter a skill name.', 'err'); return; }
+  if (!category) { msg($('skillMsg'), 'Select a category.', 'err'); return; }
   const res = await fetch('/api/skills', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }),
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, category }),
   });
   if (res.ok) {
     $('newSkill').value = '';
+    if ($('newSkillCat')) $('newSkillCat').value = '';
     msg($('skillMsg'), 'Skill added.', 'ok');
     await loadSkills();
   } else {

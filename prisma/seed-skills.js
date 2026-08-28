@@ -1,74 +1,93 @@
 // ── Pop OS — Skill Seeder ─────────────────────────────────────────────────────
-// Safe to run on an existing database. Uses upsert so existing skills are
-// updated with their category; new skills are created. Run after migration:
+// Categories align with docs/Skillset.md. Safe to run on an existing database —
+// upserts so existing skills get their category updated, new ones created.
 //   node prisma/seed-skills.js
 // ─────────────────────────────────────────────────────────────────────────────
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 const SKILLS = [
-  // 3D Production
-  { name: '3D Modeling',         category: '3D Production' },
-  { name: 'Rigging',             category: '3D Production' },
-  { name: 'Animation',           category: '3D Production' },
-  { name: 'Lighting',            category: '3D Production' },
-  { name: 'Texturing',           category: '3D Production' },
-  { name: 'Rendering',           category: '3D Production' },
-  { name: 'Character Design',    category: '3D Production' },
-  { name: 'Environment Design',  category: '3D Production' },
+  // ── General Management ─────────────────────────────────────────
+  { name: 'Project Management',        category: 'General Management' },
+  { name: 'Conflict Management',       category: 'General Management' },
 
-  // VFX & Post
-  { name: 'VFX',                 category: 'VFX & Post' },
-  { name: 'Compositing',         category: 'VFX & Post' },
-  { name: 'Video Editing',       category: 'VFX & Post' },
-  { name: 'Color Grading',       category: 'VFX & Post' },
+  // ── Studio Project Management ──────────────────────────────────
+  { name: 'Production Management',     category: 'Studio Project Management' },
+  { name: 'Client Servicing',          category: 'Studio Project Management' },
+  { name: 'Creative Translation',      category: 'Studio Project Management' },
+  { name: 'Scope & Budget Management', category: 'Studio Project Management' },
+  { name: 'Project Scheduling',        category: 'Studio Project Management' },
+  { name: 'Risk Mitigation',           category: 'Studio Project Management' },
+  { name: 'Resource Allocation',       category: 'Studio Project Management' },
 
-  // Motion & Design
-  { name: 'Motion Design',       category: 'Motion & Design' },
-  { name: 'Concept Art',         category: 'Motion & Design' },
-  { name: 'Storyboarding',       category: 'Motion & Design' },
-  { name: 'Illustration',        category: 'Motion & Design' },
-  { name: 'Art Direction',       category: 'Motion & Design' },
-  { name: 'Graphic Design',      category: 'Motion & Design' },
+  // ── Creative Technology ────────────────────────────────────────
+  { name: 'Creative Coding',           category: 'Creative Technology' },
+  { name: 'Real-time / Unreal',        category: 'Creative Technology' },
+  { name: 'AR / VR',                   category: 'Creative Technology' },
+  { name: 'Generative Art',            category: 'Creative Technology' },
+  { name: 'Projection Mapping',        category: 'Creative Technology' },
+  { name: 'Technical Direction',       category: 'Creative Technology' },
+  { name: 'AI Fluency',                category: 'Creative Technology' },
+  { name: 'Physical Computing',        category: 'Creative Technology' },
+  { name: 'Web Frontend',              category: 'Creative Technology' },
+  { name: 'Web Backend',               category: 'Creative Technology' },
+  { name: 'UI/UX Design',              category: 'Creative Technology' },
+  { name: 'Mobile Development',        category: 'Creative Technology' },
+  { name: 'Data Visualisation',        category: 'Creative Technology' },
 
-  // Creative Tech
-  { name: 'Creative Coding',     category: 'Creative Tech' },
-  { name: 'Real-time / Unreal',  category: 'Creative Tech' },
-  { name: 'AR / VR',             category: 'Creative Tech' },
-  { name: 'Generative Art',      category: 'Creative Tech' },
-  { name: 'Projection Mapping',  category: 'Creative Tech' },
-  { name: 'Technical Direction', category: 'Creative Tech' },
+  // ── Digital Content & Animation ────────────────────────────────
+  { name: '3D Modeling',               category: 'Digital Content & Animation' },
+  { name: 'Rigging',                   category: 'Digital Content & Animation' },
+  { name: 'Animation',                 category: 'Digital Content & Animation' },
+  { name: 'Lighting',                  category: 'Digital Content & Animation' },
+  { name: 'Texturing',                 category: 'Digital Content & Animation' },
+  { name: 'Rendering',                 category: 'Digital Content & Animation' },
+  { name: 'Character Design',          category: 'Digital Content & Animation' },
+  { name: 'Environment Design',        category: 'Digital Content & Animation' },
+  { name: 'VFX',                       category: 'Digital Content & Animation' },
+  { name: 'Compositing',               category: 'Digital Content & Animation' },
+  { name: 'Video Editing',             category: 'Digital Content & Animation' },
+  { name: 'Color Grading',             category: 'Digital Content & Animation' },
+  { name: 'Motion Design',             category: 'Digital Content & Animation' },
+  { name: 'Concept Art',               category: 'Digital Content & Animation' },
+  { name: 'Storyboarding',             category: 'Digital Content & Animation' },
+  { name: 'Illustration',              category: 'Digital Content & Animation' },
+  { name: 'Art Direction',             category: 'Digital Content & Animation' },
+  { name: 'Graphic Design',            category: 'Digital Content & Animation' },
 
-  // Development
-  { name: 'Web Frontend',        category: 'Development' },
-  { name: 'Web Backend',         category: 'Development' },
-  { name: 'UI/UX Design',        category: 'Development' },
-  { name: 'Mobile Development',  category: 'Development' },
-  { name: 'Data Visualisation',  category: 'Development' },
-
-  // Production
-  { name: 'Production Management',      category: 'Production' },
-  { name: 'Client Servicing',           category: 'Production' },
-  { name: 'Copywriting / Scriptwriting', category: 'Production' },
+  // ── Marketing & Growth ─────────────────────────────────────────
+  { name: 'Brand Strategy',            category: 'Marketing & Growth' },
+  { name: 'Content Marketing',         category: 'Marketing & Growth' },
+  { name: 'Social Media Strategy',     category: 'Marketing & Growth' },
+  { name: 'Campaign Management',       category: 'Marketing & Growth' },
+  { name: 'Performance Marketing',     category: 'Marketing & Growth' },
+  { name: 'Email Marketing',           category: 'Marketing & Growth' },
+  { name: 'Copywriting / Scriptwriting', category: 'Marketing & Growth' },
 ];
 
 async function main() {
-  console.log(`Seeding ${SKILLS.length} skills with categories…\n`);
+  console.log(`Seeding ${SKILLS.length} skills (categories from Skillset.md)…\n`);
   let created = 0;
   let updated = 0;
 
   for (const skill of SKILLS) {
-    const result = await prisma.skill.upsert({
-      where:  { name: skill.name },
-      update: { category: skill.category },
-      create: { name: skill.name, category: skill.category },
-    });
-    // Check if it was created or updated by comparing createdAt vs updatedAt
-    const isNew = Math.abs(result.createdAt - result.updatedAt) < 100;
-    if (isNew) created++; else updated++;
+    const existing = await prisma.skill.findUnique({ where: { name: skill.name } });
+    if (existing) {
+      await prisma.skill.update({ where: { name: skill.name }, data: { category: skill.category } });
+      updated++;
+    } else {
+      await prisma.skill.create({ data: skill });
+      created++;
+    }
   }
 
-  console.log(`✓ ${created} skills created, ${updated} skills updated with category`);
+  console.log(`✓ ${created} skills created, ${updated} skills updated`);
+  console.log('\nCategories:');
+  const cats = [...new Set(SKILLS.map(s => s.category))];
+  for (const cat of cats) {
+    const count = SKILLS.filter(s => s.category === cat).length;
+    console.log(`  ${cat}: ${count} skills`);
+  }
 }
 
 main()
