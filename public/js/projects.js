@@ -547,7 +547,18 @@ async function showProjectDetail(id) {
   const wireSel = (fId, field) => {
     const el = document.getElementById(fId);
     if (!el) return;
-    el.onchange = () => patch({ [field]: el.value || null });
+    let saved = el.value;
+    el.onchange = async () => {
+      const chosen = el.value;
+      const err = await patch({ [field]: chosen || null });
+      if (err) {
+        el.value = saved; // revert on failure
+        msg($('p-detail-msg'), err, 'err');
+      } else {
+        saved = chosen;
+        msg($('p-detail-msg'), '', '');
+      }
+    };
   };
 
   // Status needs error handling — server rejects DELIVERED when assets are incomplete.
@@ -583,7 +594,18 @@ async function showProjectDetail(id) {
   const wireDate = (fId, field) => {
     const el = document.getElementById(fId);
     if (!el) return;
-    el.onchange = () => patch({ [field]: el.value || null });
+    let saved = el.value;
+    el.onchange = async () => {
+      const chosen = el.value;
+      const err = await patch({ [field]: chosen || null });
+      if (err) {
+        el.value = saved; // revert on failure
+        msg($('p-detail-msg'), err, 'err');
+      } else {
+        saved = chosen;
+        msg($('p-detail-msg'), '', '');
+      }
+    };
   };
   wireDate(`detail-start-${id}`,    'startDate');
   wireDate(`detail-deadline-${id}`, 'deadline');
@@ -592,11 +614,18 @@ async function showProjectDetail(id) {
   const wireText = (fId, field, required = false) => {
     const el = document.getElementById(fId);
     if (!el) return;
-    const original = el.value;
-    el.onblur = () => {
+    let saved = el.value;
+    el.onblur = async () => {
       const v = el.value.trim();
-      if (required && !v) { el.value = original; return; } // revert blank name
-      patch({ [field]: v || null });
+      if (required && !v) { el.value = saved; return; } // revert blank name
+      const err = await patch({ [field]: v || null });
+      if (err) {
+        el.value = saved; // revert on failure
+        msg($('p-detail-msg'), err, 'err');
+      } else {
+        saved = el.value;
+        msg($('p-detail-msg'), '', '');
+      }
     };
   };
   wireText(`detail-name-${id}`,   'name',   true);

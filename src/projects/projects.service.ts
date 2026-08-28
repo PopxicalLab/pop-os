@@ -48,6 +48,7 @@ export class ProjectsService {
         quadrant:    dto.quadrant,
         priority:    dto.priority    ?? 'P2',
         status:      dto.status      ?? 'BRIEF',
+        startDate:   dto.startDate   ? new Date(dto.startDate) : undefined,
         deadline:    dto.deadline    ? new Date(dto.deadline) : undefined,
         producerId:  dto.producerId  ?? null,
         pmId:        dto.pmId        ?? null,
@@ -83,7 +84,12 @@ export class ProjectsService {
       where: { id },
       data: {
         ...dto,
-        deadline: dto.deadline ? new Date(dto.deadline) : undefined,
+        startDate: dto.startDate !== undefined
+          ? (dto.startDate ? new Date(dto.startDate) : null)
+          : undefined,
+        deadline: dto.deadline !== undefined
+          ? (dto.deadline ? new Date(dto.deadline) : null)
+          : undefined,
       },
       include: WITH_PEOPLE,
     });
