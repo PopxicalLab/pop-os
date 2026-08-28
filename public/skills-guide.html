@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pop OS — Skills Guide</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      background: #0c0b0f;
+      color: #e2e0e8;
+      min-height: 100vh;
+      padding: 0;
+    }
+
+    /* ── Header ────────────────────────────────────────────────── */
+    .page-header {
+      background: #141218;
+      border-bottom: 1px solid #2a2830;
+      padding: 20px 32px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .page-header h1 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #e2e0e8;
+      letter-spacing: -0.01em;
+    }
+    .page-header p {
+      font-size: 12px;
+      color: #6b6880;
+      margin-top: 2px;
+    }
+    .back-btn {
+      font-size: 12px;
+      color: #6b6880;
+      text-decoration: none;
+      border: 1px solid #2a2830;
+      padding: 5px 12px;
+      border-radius: 8px;
+      transition: color .15s, border-color .15s;
+      white-space: nowrap;
+    }
+    .back-btn:hover { color: #e2e0e8; border-color: #4f4b66; }
+
+    /* ── TOC nav ────────────────────────────────────────────────── */
+    .toc {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 14px 32px;
+      background: #111019;
+      border-bottom: 1px solid #1e1c26;
+    }
+    .toc a {
+      font-size: 11px;
+      color: #6b6880;
+      text-decoration: none;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid #2a2830;
+      transition: all .15s;
+      white-space: nowrap;
+    }
+    .toc a:hover { color: #e2e0e8; border-color: #7c6fe0; background: rgba(124,111,224,.08); }
+
+    /* ── Main content ───────────────────────────────────────────── */
+    .content {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 36px 32px 64px;
+    }
+
+    /* ── Category section ───────────────────────────────────────── */
+    .category {
+      margin-bottom: 48px;
+    }
+    .category-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #2a2830;
+    }
+    .cat-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .category-header h2 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e2e0e8;
+      letter-spacing: -0.01em;
+    }
+    .skill-count {
+      font-size: 11px;
+      color: #6b6880;
+      background: #1e1c26;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid #2a2830;
+    }
+
+    /* ── Skill cards ────────────────────────────────────────────── */
+    .skills-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+      gap: 12px;
+    }
+    @media (max-width: 600px) { .skills-grid { grid-template-columns: 1fr; } }
+
+    .skill-card {
+      background: #141218;
+      border: 1px solid #2a2830;
+      border-radius: 10px;
+      padding: 14px 16px;
+      transition: border-color .15s;
+    }
+    .skill-card:hover { border-color: #3d3856; }
+    .skill-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: #e2e0e8;
+      margin-bottom: 6px;
+    }
+    .skill-desc {
+      font-size: 12px;
+      line-height: 1.6;
+      color: #8e8aa8;
+    }
+
+    /* ── Category accent colours ────────────────────────────────── */
+    /* 1 — General Management: blue */
+    .cat-1 .cat-num  { background: rgba(59,130,246,.15); color: #60a5fa; }
+    .cat-1 .skill-card:hover { border-color: rgba(59,130,246,.35); }
+    .cat-1 .skill-name { color: #c7dcff; }
+
+    /* 2 — Studio PM: purple */
+    .cat-2 .cat-num  { background: rgba(124,111,224,.15); color: #a89bef; }
+    .cat-2 .skill-card:hover { border-color: rgba(124,111,224,.35); }
+    .cat-2 .skill-name { color: #d4cfff; }
+
+    /* 3 — Creative Tech: teal */
+    .cat-3 .cat-num  { background: rgba(20,184,166,.15); color: #2dd4bf; }
+    .cat-3 .skill-card:hover { border-color: rgba(20,184,166,.35); }
+    .cat-3 .skill-name { color: #b2f0e8; }
+
+    /* 4 — Digital Content: amber */
+    .cat-4 .cat-num  { background: rgba(245,158,11,.12); color: #fbbf24; }
+    .cat-4 .skill-card:hover { border-color: rgba(245,158,11,.3); }
+    .cat-4 .skill-name { color: #fde68a; }
+
+    /* 5 — Marketing: rose */
+    .cat-5 .cat-num  { background: rgba(244,63,94,.12); color: #fb7185; }
+    .cat-5 .skill-card:hover { border-color: rgba(244,63,94,.3); }
+    .cat-5 .skill-name { color: #fecdd3; }
+  </style>
+</head>
+<body>
+
+  <div class="page-header">
+    <div>
+      <h1>Skills Guide</h1>
+      <p>Comprehensive breakdown of skills used in Pop OS across all roles and disciplines.</p>
+    </div>
+    <a href="javascript:window.close()" class="back-btn" onclick="if(window.history.length>1&&document.referrer){window.close()}else{history.back()}">✕ Close</a>
+  </div>
+
+  <nav class="toc" aria-label="Jump to category">
+    <a href="#cat-1">1 · General Management</a>
+    <a href="#cat-2">2 · Studio Project Manager</a>
+    <a href="#cat-3">3 · Creative Technologist</a>
+    <a href="#cat-4">4 · Digital Content & Animation</a>
+    <a href="#cat-5">5 · Marketing & Growth</a>
+  </nav>
+
+  <main class="content">
+
+    <!-- ── 1. General Management Core Skills ──────────────────── -->
+    <section class="category cat-1" id="cat-1">
+      <div class="category-header">
+        <div class="cat-num">1</div>
+        <h2>General Management Core Skills</h2>
+        <span class="skill-count">2 skills</span>
+      </div>
+      <div class="skills-grid">
+        <div class="skill-card">
+          <div class="skill-name">Project Management</div>
+          <div class="skill-desc">The meta-skill of getting things done by orchestrating people, time, and resources. It synthesizes hard skills (budgeting, scheduling), soft skills (leadership, empathy), and strategic skills (scope management, critical thinking).</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Conflict Management</div>
+          <div class="skill-desc">The ability to resolve disputes, negotiate competing priorities, and maintain morale. Functions both as a critical tool within project management and as a highly transferable standalone life skill.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 2. Creative Studio Project Manager Skills ───────────── -->
+    <section class="category cat-2" id="cat-2">
+      <div class="category-header">
+        <div class="cat-num">2</div>
+        <h2>Creative Studio Project Manager Skills</h2>
+        <span class="skill-count">10 skills</span>
+      </div>
+      <div class="skills-grid">
+        <div class="skill-card">
+          <div class="skill-name">Creative Translation</div>
+          <div class="skill-desc">Translating vague, business-oriented client briefs into concrete, actionable tasks for creative teams.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Subjective Feedback Management</div>
+          <div class="skill-desc">Parsing emotional or subjective client feedback (e.g., "I don't like the vibe") to uncover the underlying reasons, providing clear direction for revisions.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Workflow Empathy</div>
+          <div class="skill-desc">Understanding the realities of the creative process, including accurate time estimations for subjective work and recognising when creatives need uninterrupted focus.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Resource Allocation for Creatives</div>
+          <div class="skill-desc">Matching specific creative personalities, strengths, and design styles to the appropriate projects and clients.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Scope & Budget Management</div>
+          <div class="skill-desc">Protecting the project's profitability by preventing over-servicing and endless creative refinement loops.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Project Scheduling & Phasing</div>
+          <div class="skill-desc">Building realistic timelines (e.g., Gantt charts) that factor in internal reviews, client feedback loops, and inevitable revision cycles.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Risk Mitigation</div>
+          <div class="skill-desc">Anticipating potential project roadblocks, dependencies, and bottlenecks before they happen and developing strategies to minimise their impact.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Tool Proficiency</div>
+          <div class="skill-desc">Mastery of project management software (Asana, Monday, Jira) and familiarity with creative file ecosystems (Figma, Adobe CC).</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Shielding the Team</div>
+          <div class="skill-desc">Acting as a gatekeeper to intercept chaotic client requests, filtering them into organised, calm updates for the team.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Cheerleading & Morale Building</div>
+          <div class="skill-desc">Celebrating team wins, enforcing breaks to prevent creative burnout, and maintaining positive energy during tedious revision phases.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 3. Creative Technologist Skills ────────────────────── -->
+    <section class="category cat-3" id="cat-3">
+      <div class="category-header">
+        <div class="cat-num">3</div>
+        <h2>Creative Technologist Skills</h2>
+        <span class="skill-count">9 skills</span>
+      </div>
+      <div class="skills-grid">
+        <div class="skill-card">
+          <div class="skill-name">Immersive & Spatial Computing</div>
+          <div class="skill-desc">Familiarity with AR, VR, MR, and XR technologies, often involving game engines like Unreal Engine or Unity.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Creative Coding & Real-Time Graphics</div>
+          <div class="skill-desc">Programming interactive visuals using tools such as TouchDesigner, Max/MSP, Processing, or WebGL/Three.js.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Artificial Intelligence (AI) Fluency</div>
+          <div class="skill-desc">Leveraging generative AI workflows (LLMs, image generation) for brainstorming, asset creation, or building responsive user experiences.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Physical Computing</div>
+          <div class="skill-desc">Building interactive hardware installations using sensors, microcontrollers (Arduino, Raspberry Pi), and projection mapping.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Web & App Development</div>
+          <div class="skill-desc">Foundational knowledge of front-end development (HTML, CSS, JavaScript, React) or mobile app prototyping.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Rapid Prototyping</div>
+          <div class="skill-desc">The mindset of quickly sketching, hacking, and turning abstract ideas into testable experiments rather than seeking immediate perfection.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Design Fluency & Storytelling</div>
+          <div class="skill-desc">Understanding UI/UX principles, utilising tools like Figma or Adobe CC, and using technology to communicate narratives and solve human needs.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Translation & Communication</div>
+          <div class="skill-desc">Bridging the gap between disciplines by explaining technical constraints to creatives and abstract design goals to engineers.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Innovation Management</div>
+          <div class="skill-desc">Balancing wild, ambitious creative visions with actual technical feasibility, budgets, and hardware limitations.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 4. Digital Content Creation & Animation Skills ─────── -->
+    <section class="category cat-4" id="cat-4">
+      <div class="category-header">
+        <div class="cat-num">4</div>
+        <h2>Digital Content Creation & Animation Skills</h2>
+        <span class="skill-count">10 skills</span>
+      </div>
+      <div class="skills-grid">
+        <div class="skill-card">
+          <div class="skill-name">3D Modeling</div>
+          <div class="skill-desc">Creating three-dimensional digital representations of objects, environments, and characters using specialised software like Maya or Blender.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Rigging</div>
+          <div class="skill-desc">Building the digital skeleton and control mechanisms for 3D models to allow for realistic movement and animation.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Animation</div>
+          <div class="skill-desc">Bringing static 2D or 3D objects, characters, and environments to life through movement, sequencing, and timing.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">VFX (Visual Effects)</div>
+          <div class="skill-desc">Creating and integrating artificial imagery or effects (like explosions, magic, or environmental simulations) into live-action footage or digital scenes.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Motion Design</div>
+          <div class="skill-desc">Applying graphic design principles to filmmaking and video production through the use of animation, typography, and visual effects.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Concept Art</div>
+          <div class="skill-desc">Visualising and illustrating initial ideas, characters, environments, or moods to guide the overall aesthetic and visual direction of a project.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Compositing</div>
+          <div class="skill-desc">Combining visual elements from separate sources (like 3D renders, live-action, and matte paintings) into a single, seamless image or final frame.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Lighting</div>
+          <div class="skill-desc">Simulating realistic or stylised illumination in digital environments to enhance mood, depth, storytelling, and composition.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Texturing</div>
+          <div class="skill-desc">Applying digital surface qualities, colours, and material properties to 3D models to make them look realistic or fit a specific style.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Rendering</div>
+          <div class="skill-desc">The automated computational process of generating final 2D images or animation sequences from complex 3D models, textures, and lighting setups.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 5. Marketing & Growth Skills ─────────────────────── -->
+    <section class="category cat-5" id="cat-5">
+      <div class="category-header">
+        <div class="cat-num">5</div>
+        <h2>Marketing & Growth Skills</h2>
+        <span class="skill-count">8 skills</span>
+      </div>
+      <div class="skills-grid">
+        <div class="skill-card">
+          <div class="skill-name">Brand Strategy</div>
+          <div class="skill-desc">Defining the core identity, voice, and positioning of a brand in the market to ensure consistent messaging across all touchpoints.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Content Marketing</div>
+          <div class="skill-desc">Creating and distributing valuable, relevant content (blogs, videos, newsletters) to attract, engage, and retain a clearly defined audience.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">SEO & SEM</div>
+          <div class="skill-desc">Optimising digital content to rank higher in organic search engine results (SEO) and managing paid search advertising campaigns (SEM).</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Social Media Strategy</div>
+          <div class="skill-desc">Developing and executing tailored campaigns across social platforms (Instagram, LinkedIn, TikTok) to build community and drive engagement.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Data Analytics & Reporting</div>
+          <div class="skill-desc">Tracking key performance indicators (KPIs) and using analytics tools to measure campaign success, gather insights, and optimise future strategies.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Campaign Management</div>
+          <div class="skill-desc">Overseeing the end-to-end execution of multi-channel marketing campaigns, ensuring alignment with overall business goals, budgets, and timelines.</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Performance Marketing</div>
+          <div class="skill-desc">Driving measurable, conversion-focused results through targeted paid advertising (such as pay-per-click, programmatic ads, and social ads).</div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-name">Email Marketing</div>
+          <div class="skill-desc">Designing, automating, and managing email campaigns to nurture leads, communicate with audiences, retain customers, and drive sales.</div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+</body>
+</html>

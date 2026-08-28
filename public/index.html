@@ -458,7 +458,14 @@
         </div>
 
         <div id="skill-master-panel" class="bg-panel border border-line rounded-xl p-5">
-          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-1">Skill master list</h2>
+          <div class="flex items-center gap-2 mb-1">
+            <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">Skill master list</h2>
+            <a href="/skills-guide.html" target="_blank" title="View skill descriptions"
+              class="inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold cursor-pointer transition-colors"
+              style="background:rgba(100,100,100,0.15);color:#6b6880;text-decoration:none;"
+              onmouseover="this.style.background='rgba(124,111,224,0.2)';this.style.color='#a89bef'"
+              onmouseout="this.style.background='rgba(100,100,100,0.15)';this.style.color='#6b6880'">?</a>
+          </div>
           <p class="text-xs text-muted mb-3">Skills grouped by category. Click a category to expand. Admin can add or remove skills.</p>
           <div id="skillList" class="mb-3 space-y-0"></div>
           <label class="form-label" style="margin-top:0">New skill name</label>
