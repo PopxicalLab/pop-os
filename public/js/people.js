@@ -378,12 +378,32 @@ async function load() {
   populatePersonDropdowns();
 }
 
+// ── Pagination state ─────────────────────────────────────────────────────────
+let _peoplePage     = 1;
+let _peoplePageSize = 10;
+
+function setPeoplePageSize(n) {
+  _peoplePageSize = Math.max(1, n || 10);
+  _peoplePage = 1;
+  // Highlight active preset button
+  document.querySelectorAll('.page-size-btn').forEach(b => {
+    b.classList.toggle('border-accent/60', +b.textContent === _peoplePageSize);
+    b.classList.toggle('text-accent',      +b.textContent === _peoplePageSize);
+  });
+  renderPeople();
+}
+
+function changePeoplePage(delta) {
+  _peoplePage += delta;
+  renderPeople();
+}
+
 function renderPeople() {
   const search = ($('people-search')?.value || '').toLowerCase();
   const dept   = $('people-filter-dept')?.value  || '';
   const type   = $('people-filter-type')?.value  || '';
 
-  const visible = PEOPLE.filter(p => {
+  const filtered = PEOPLE.filter(p => {
     if (!matchesFilter(p.company)) return false;
     if (dept && p.department    !== dept) return false;
     if (type && p.employmentType !== type) return false;
@@ -394,8 +414,25 @@ function renderPeople() {
     return true;
   });
 
+  // Clamp page to valid range
+  const totalPages = Math.max(1, Math.ceil(filtered.length / _peoplePageSize));
+  _peoplePage = Math.min(Math.max(1, _peoplePage), totalPages);
+
+  const start   = (_peoplePage - 1) * _peoplePageSize;
+  const visible = filtered.slice(start, start + _peoplePageSize);
+
+  // Pagination bar
+  const bar = $('people-pagination');
+  if (bar) {
+    bar.classList.toggle('hidden', filtered.length === 0);
+    const info = $('people-page-info');
+    if (info) info.textContent = `${start + 1}–${Math.min(start + _peoplePageSize, filtered.length)} of ${filtered.length}`;
+    const prev = $('people-prev'); if (prev) prev.disabled = _peoplePage <= 1;
+    const next = $('people-next'); if (next) next.disabled = _peoplePage >= totalPages;
+  }
+
   const rows = $('rows'); rows.innerHTML = '';
-  $('empty').classList.toggle('hidden', visible.length > 0);
+  $('empty').classList.toggle('hidden', filtered.length > 0);
   for (const p of visible) {
     const skills = (p.skills || []).map(ps =>
       `<span class="inline-flex items-center gap-1.5 bg-panel2 border border-line px-2 py-0.5 rounded-full
@@ -508,10 +545,10 @@ function renderPeople() {
   applyPeopleColVisibility();
 }
 
-// Wire up people filter inputs.
+// Wire up people filter inputs — reset to page 1 on any filter change.
 ['people-search', 'people-filter-dept', 'people-filter-type'].forEach(id => {
   const el = $(id);
-  if (el) el.addEventListener('input', renderPeople);
+  if (el) el.addEventListener('input', () => { _peoplePage = 1; renderPeople(); });
 });
 
 async function addPerson() {
