@@ -578,6 +578,24 @@
             <option value="INTERN">Intern</option>
           </select>
         </div>
+        <!-- Pagination bar -->
+        <div id="people-pagination" class="hidden flex items-center justify-between gap-3 pb-3 border-b border-line mb-3 flex-wrap gap-y-2">
+          <div class="flex items-center gap-2 text-xs text-muted">
+            <span>Rows per page:</span>
+            <button onclick="setPeoplePageSize(5)"  class="page-size-btn px-2 py-0.5 rounded border border-line hover:border-accent/50 transition-colors cursor-pointer">5</button>
+            <button onclick="setPeoplePageSize(10)" class="page-size-btn px-2 py-0.5 rounded border border-line hover:border-accent/50 transition-colors cursor-pointer">10</button>
+            <input id="people-page-size-custom" type="number" min="1" max="999" placeholder="custom"
+              class="w-16 bg-bg border border-line text-ink px-2 py-0.5 rounded text-xs focus:outline-none focus:border-accent/60"
+              onchange="setPeoplePageSize(+this.value || 10)" />
+          </div>
+          <div class="flex items-center gap-3 text-xs">
+            <span id="people-page-info" class="text-muted"></span>
+            <button onclick="changePeoplePage(-1)" id="people-prev"
+              class="px-2.5 py-1 rounded-lg border border-line text-muted hover:border-accent/50 hover:text-ink transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">← Prev</button>
+            <button onclick="changePeoplePage(1)"  id="people-next"
+              class="px-2.5 py-1 rounded-lg border border-line text-muted hover:border-accent/50 hover:text-ink transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">Next →</button>
+          </div>
+        </div>
         <div class="overflow-x-auto -mx-5 px-5">
           <table class="w-full min-w-[520px] text-sm">
             <thead>
@@ -603,24 +621,6 @@
         </div>
         <div id="empty" class="hidden text-center text-muted text-sm py-10">
           No people yet — add one on the left.
-        </div>
-        <!-- Pagination bar -->
-        <div id="people-pagination" class="hidden flex items-center justify-between gap-3 pt-3 border-t border-line mt-1 flex-wrap gap-y-2">
-          <div class="flex items-center gap-2 text-xs text-muted">
-            <span>Rows per page:</span>
-            <button onclick="setPeoplePageSize(5)"  class="page-size-btn px-2 py-0.5 rounded border border-line hover:border-accent/50 transition-colors cursor-pointer">5</button>
-            <button onclick="setPeoplePageSize(10)" class="page-size-btn px-2 py-0.5 rounded border border-line hover:border-accent/50 transition-colors cursor-pointer">10</button>
-            <input id="people-page-size-custom" type="number" min="1" max="999" placeholder="custom"
-              class="w-16 bg-bg border border-line text-ink px-2 py-0.5 rounded text-xs focus:outline-none focus:border-accent/60"
-              onchange="setPeoplePageSize(+this.value || 10)" />
-          </div>
-          <div class="flex items-center gap-3 text-xs">
-            <span id="people-page-info" class="text-muted"></span>
-            <button onclick="changePeoplePage(-1)" id="people-prev"
-              class="px-2.5 py-1 rounded-lg border border-line text-muted hover:border-accent/50 hover:text-ink transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">← Prev</button>
-            <button onclick="changePeoplePage(1)"  id="people-next"
-              class="px-2.5 py-1 rounded-lg border border-line text-muted hover:border-accent/50 hover:text-ink transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">Next →</button>
-          </div>
         </div>
       </div>
     </div>
