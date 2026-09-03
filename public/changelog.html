@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pop OS — What's New</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      background: #0c0b0f;
+      color: #e2e0e8;
+      min-height: 100vh;
+      padding: 0;
+    }
+
+    /* ── Header ────────────────────────────────────────────────── */
+    .page-header {
+      background: #141218;
+      border-bottom: 1px solid #2a2830;
+      padding: 20px 32px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .page-header h1 {
+      font-size: 15px;
+      font-weight: 600;
+      color: #e2e0e8;
+      letter-spacing: -0.01em;
+    }
+    .page-header p {
+      font-size: 12px;
+      color: #6b6880;
+      margin-top: 2px;
+    }
+    .back-btn {
+      font-size: 12px;
+      color: #6b6880;
+      text-decoration: none;
+      border: 1px solid #2a2830;
+      padding: 5px 12px;
+      border-radius: 8px;
+      transition: color .15s, border-color .15s;
+      white-space: nowrap;
+    }
+    .back-btn:hover { color: #e2e0e8; border-color: #4f4b66; }
+
+    /* ── TOC nav ────────────────────────────────────────────────── */
+    .toc {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      padding: 14px 32px;
+      background: #111019;
+      border-bottom: 1px solid #1e1c26;
+    }
+    .toc a {
+      font-size: 11px;
+      color: #6b6880;
+      text-decoration: none;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid #2a2830;
+      transition: all .15s;
+      white-space: nowrap;
+    }
+    .toc a:hover { color: #e2e0e8; border-color: #7c6fe0; background: rgba(124,111,224,.08); }
+
+    /* ── Main content ───────────────────────────────────────────── */
+    .content {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 36px 32px 64px;
+    }
+
+    /* ── Month section ─────────────────────────────────────────── */
+    .month {
+      margin-bottom: 44px;
+    }
+    .month-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #2a2830;
+    }
+    .month-header h2 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e2e0e8;
+      letter-spacing: -0.01em;
+    }
+    .entry-count {
+      font-size: 11px;
+      color: #6b6880;
+      background: #1e1c26;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid #2a2830;
+    }
+
+    /* ── Entries ────────────────────────────────────────────────── */
+    .entry {
+      background: #141218;
+      border: 1px solid #2a2830;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      transition: border-color .15s;
+    }
+    .entry:hover { border-color: #3d3856; }
+    .entry-area {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      color: #a89bef;
+      background: rgba(124,111,224,.15);
+      padding: 2px 8px;
+      border-radius: 999px;
+      margin-bottom: 8px;
+    }
+    .entry-desc {
+      font-size: 12.5px;
+      line-height: 1.6;
+      color: #c8c4d8;
+    }
+    .entry-desc b { color: #e2e0e8; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+  <div class="page-header">
+    <div>
+      <h1>What's New</h1>
+      <p>A running record of changes to Pop OS — newest first.</p>
+    </div>
+    <a href="javascript:window.close()" class="back-btn" onclick="if(window.history.length>1&&document.referrer){window.close()}else{history.back()}">✕ Close</a>
+  </div>
+
+  <nav class="toc" aria-label="Jump to month">
+    <a href="#m-2026-09">Sep 2026</a>
+    <a href="#m-2026-08">Aug 2026</a>
+    <a href="#m-2026-07">Jul 2026</a>
+    <a href="#m-2026-06">Jun 2026</a>
+  </nav>
+
+  <main class="content">
+
+    <section class="month" id="m-2026-09">
+      <div class="month-header">
+        <h2>September 2026</h2>
+        <span class="entry-count">2 changes</span>
+      </div>
+      <div class="entry">
+        <span class="entry-area">Sales</span>
+        <div class="entry-desc">Added a <b>Completed</b> kanban stage to the Sales pipeline; fixed commission figures not syncing when a project's cost lines change.</div>
+      </div>
+      <div class="entry">
+        <span class="entry-area">Projects</span>
+        <div class="entry-desc">Fixed <b>start date</b> not saving — it was silently failing when sent to the database. Save errors on the project detail page now show up on screen instead of failing silently.</div>
+      </div>
+    </section>
+
+    <section class="month" id="m-2026-08">
+      <div class="month-header">
+        <h2>August 2026</h2>
+        <span class="entry-count">7 changes</span>
+      </div>
+      <div class="entry">
+        <span class="entry-area">People</span>
+        <div class="entry-desc">Added pagination to the People list (5 / 10 / custom page size) and moved the pagination bar above the table.</div>
+      </div>
+      <div class="entry">
+        <span class="entry-area">Skills</span>
+        <div class="entry-desc">Added the <b>Skills Guide</b> page (open it via the <b>?</b> button on the master skill list) describing every skill in plain language. Master skill list now grouped into collapsible categories matching the studio's skillset document.</div>
+      </div>
+      <div class="entry">
+        <span class="entry-area">Sales</span>
+        <div class="entry-desc">Added drag-and-drop to the Sales pipeline kanban board.</div>
+      </div>
+      <div class="entry">
+        <span class="entry-area">Skills</span>
+        <div class="entry-desc">Added skill categories, a self-assessment form, and a skill rating guide.</div>
+      </div>
+      <div class="entry">
+        <span class="entry-area">Clients</span>
+        <div class="entry-desc">Fixed client website links resolving relative to the app instead of the client's own site.</div>
+      </div>
+      <div class="entry">
+        <span class="entry-area">Leads</span>
+        <div class="entry-desc">A WhatsApp group notification is now sent automatically when a new lead is created or a lead's pipeline status changes.</div>
+      </div>
+      <div class="entry">
+        <span class="entry-area">People</span>
+        <div class="entry-desc">Added software-skills tracking, editable lead amount, and field-level diffs on the audit log.</div>
+      </div>
+    </section>
+
+    <section class="month" id="m-2026-07">
+      <div class="month-header">
+        <h2>July 2026</h2>
+        <span class="entry-count">5 changes</span>
+      </div>
+      <div class="entry">
+        <span class="entry-area">Admin</span>
+        <div class="entry-desc">Added the <b>Audit Log</b> — an immutable record of every create/update/delete across Leads, Projects, People, Users, Change Requests, and Accounting Documents. Defaults to the current year with a year picker for history.</div>
+      </div>
+      <div class="entry">
+        <span class="entry-area">Sales</span>
+        <div class="entry-desc">Added an inline "Closed By" picker on every lead kanban card.</div>
+      </div>
+      <div class="entry">
+        <span class="entry-area">People</span>
+        <div class="entry-desc">A welcome email is now sent automatically when a new joiner is onboarded or a login is created for them.</div>
+      </div>
+      <div class="entry">
+        <span class="entry-area">Finance</span>
+        <div class="entry-desc">Autocount document sync limited to the current calendar year (was pulling all historical records); fixed sync silently skipping every record due to a response-shape mismatch. Added Autocount reconciliation — compares Pop OS records against live Autocount and flags amount/status mismatches.</div>
+      </div>
+      <div class="entry">
+        <span class="entry-area">HR</span>
+        <div class="entry-desc">Added person lifecycle tracking, committees, departments, and job titles.</div>
+      </div>
+    </section>
+
+    <section class="month" id="m-2026-06">
+      <div class="month-header">
+        <h2>June 2026</h2>
+        <span class="entry-count">10 changes</span>
+      </div>
+      <div class="entry">
+        <span class="entry-area">Access</span>
+        <div class="entry-desc">Added the STAFF role with a guided onboarding flow, and PM / Team Lead roles with a My Work personal dashboard (capacity, assigned assets, sign-off queue, payment alerts).</div>
+      </div>
+      <div class="entry">
+        <span class="entry-area">Projects</span>
+        <div class="entry-desc">Added a Kanban view and the PPM (Priority/Phase/Margin) recommendation engine. Added a hard gate preventing projects from being marked DELIVERED with incomplete assets.</div>
+      </div>
+      <div class="entry">
+        <span class="entry-area">Sales Performance</span>
+        <div class="entry-desc">New module — commission tiers, quarterly sales targets per producer, per-person commission-rate overrides, attainment % and net-profit reporting.</div>
+      </div>
+      <div class="entry">
+        <span class="entry-area">Search</span>
+        <div class="entry-desc">Added search and filter bars to Projects, People, Sales, and Capacity tabs.</div>
+      </div>
+      <div class="entry">
+        <span class="entry-area">People</span>
+        <div class="entry-desc">Salary visibility restricted to ADMIN and FINANCE roles everywhere else in the app. Added the "can sign off" flag so sign-off authority can be granted per person instead of by role.</div>
+      </div>
+      <div class="entry">
+        <span class="entry-area">Assets</span>
+        <div class="entry-desc">Added a Creative Director review flow — Approve/Reject directly from the sign-off queue.</div>
+      </div>
+      <div class="entry">
+        <span class="entry-area">Reports</span>
+        <div class="entry-desc">Added CSV exports, payment-alert emails, and a project timeline (Gantt) view.</div>
+      </div>
+      <div class="entry">
+        <span class="entry-area">Change Requests</span>
+        <div class="entry-desc">New module for formal client scope-change tracking with budget impact and approval notes.</div>
+      </div>
+      <div class="entry">
+        <span class="entry-area">Finance</span>
+        <div class="entry-desc">Added JWT authentication, Autocount integration, and a redesigned Finance Dashboard with pipeline bars and an SVG donut health chart.</div>
+      </div>
+      <div class="entry">
+        <span class="entry-area">Foundation</span>
+        <div class="entry-desc">Added the Sales Hub and Clients Hub (Accounts, Contacts, Leads, pipeline board, Lead → Project conversion), Assets, the Production Engine, and the Financial Engine (man-day costing).</div>
+      </div>
+    </section>
+
+  </main>
+</body>
+</html>
