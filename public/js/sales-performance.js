@@ -207,7 +207,7 @@ function renderSPLeaderboard(data) {
     };
   });
   el.querySelectorAll('[data-sp-add-cost]').forEach(btn => {
-    btn.onclick = () => addProjectCost(btn.dataset.spAddCost, btn);
+    btn.onclick = () => addSPProjectCost(btn.dataset.spAddCost, btn);
   });
 }
 
@@ -338,7 +338,7 @@ function producerCard(r, tiers) {
   </div>`;
 }
 
-async function addProjectCost(projectId, btn) {
+async function addSPProjectCost(projectId, btn) {
   const desc = document.getElementById('sp-cost-desc-' + projectId)?.value.trim();
   const amt  = parseFloat(document.getElementById('sp-cost-amt-'  + projectId)?.value);
   const type = document.getElementById('sp-cost-type-' + projectId)?.value;

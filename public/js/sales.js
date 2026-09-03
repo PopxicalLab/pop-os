@@ -8,6 +8,7 @@ const LEAD_STATUS_LABEL = {
   PROPOSAL:      'Proposal',
   NEGOTIATION:   'Negotiation',
   WON:           'Won',
+  COMPLETED:     'Completed',
   LOST:          'Lost',
 };
 const LEAD_STATUS_CLS = {
@@ -15,6 +16,7 @@ const LEAD_STATUS_CLS = {
   PROPOSAL:      'bg-yellow-500/15 border-yellow-500/30 text-yellow-400',
   NEGOTIATION:   'bg-purple-500/15 border-purple-500/30 text-purple-400',
   WON:           'bg-emerald-500/15 border-emerald-500/30 text-emerald-400',
+  COMPLETED:     'bg-slate-500/15 border-slate-500/30 text-slate-400',
   LOST:          'bg-warm/15 border-warm/30 text-warm',
 };
 const LEAD_PRI_CLS = {
@@ -23,7 +25,7 @@ const LEAD_PRI_CLS = {
   MEDIUM:    'text-accent',
   LOW:       'text-muted',
 };
-const PIPELINE_STAGES = ['QUALIFICATION', 'PROPOSAL', 'NEGOTIATION', 'WON', 'LOST'];
+const PIPELINE_STAGES = ['QUALIFICATION', 'PROPOSAL', 'NEGOTIATION', 'WON', 'COMPLETED', 'LOST'];
 
 let _salesAccounts = [];
 let _salesPeople   = [];
@@ -81,8 +83,9 @@ function renderSalesPipeline() {
   const filtered = leads;
 
   // Stats strip
-  const active = filtered.filter(l => !['WON','LOST'].includes(l.status));
+  const active = filtered.filter(l => !['WON','COMPLETED','LOST'].includes(l.status));
   const won    = filtered.filter(l => l.status === 'WON');
+  const completed = filtered.filter(l => l.status === 'COMPLETED');
   const pipeline = active.reduce((s, l) => s + (l.estimatedValue || 0), 0);
   const wonValue  = won.reduce((s, l) => s + (l.estimatedValue || 0), 0);
 
@@ -93,7 +96,9 @@ function renderSalesPipeline() {
     ` <span class="text-line mx-2">·</span> ` +
     `<span class="text-emerald-400 font-semibold">${won.length} won</span>` +
     ` <span class="text-line mx-2">·</span> ` +
-    `<span class="text-emerald-400 font-semibold">RM ${wonValue.toLocaleString('en-MY')}</span><span class="text-muted"> closed</span>`;
+    `<span class="text-emerald-400 font-semibold">RM ${wonValue.toLocaleString('en-MY')}</span><span class="text-muted"> closed</span>` +
+    ` <span class="text-line mx-2">·</span> ` +
+    `<span class="text-slate-400 font-semibold">${completed.length}</span><span class="text-muted"> completed</span>`;
 
   // Pipeline columns
   const byStage = {};
@@ -101,7 +106,7 @@ function renderSalesPipeline() {
   for (const l of filtered) { if (byStage[l.status]) byStage[l.status].push(l); }
 
   $('sales-board').innerHTML =
-    `<div class="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-5 gap-3">` +
+    `<div class="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-6 gap-3">` +
     PIPELINE_STAGES.map(stage => {
       const cls   = LEAD_STATUS_CLS[stage];
       const items = byStage[stage];
@@ -140,6 +145,7 @@ function renderSalesPipeline() {
       loadSales();
     };
   });
+
 
   // Drag-and-drop: dragging a card into a different column changes its status
   // (same PATCH the status dropdown uses). Dragging within a column just
@@ -255,17 +261,19 @@ function renderLeadCard(l) {
               data-lead-convert="${l.id}">→ Create project</button>`
     : (l.projectId ? `<p class="text-[11px] text-emerald-400 mt-1.5">✓ Project created</p>` : '');
 
-  // Show existing quotation badges + always allow pushing another.
-  const quotations = (l.accountingDocuments || []).filter(d => d.docType === 'QUOTATION');
-  const quotationBadges = quotations.map(d => {
+  // Show existing document badges (quotations + invoices — a lead can carry
+  // several of each, e.g. milestone billing) + always allow pushing another quote.
+  const docs = l.accountingDocuments || [];
+  const docBadges = docs.map(d => {
     const statusCls = d.status === 'VOID' ? 'text-muted line-through' : d.status === 'PAID' ? 'text-emerald-400' : 'text-sky-400';
+    const icon = d.docType === 'SALES_INVOICE' ? '🧾' : '📄';
     const due = d.dueDate ? ` · due ${new Date(d.dueDate).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}` : '';
-    return `<span class="${statusCls} text-[11px]">📄 ${esc(d.docNo)}${due}</span>`;
+    return `<span class="${statusCls} text-[11px]">${icon} ${esc(d.docNo)}${due}</span>`;
   }).join('<br>');
 
-  const quotationBtn = ['PROPOSAL', 'NEGOTIATION', 'WON'].includes(l.status)
+  const quotationBtn = ['PROPOSAL', 'NEGOTIATION', 'WON', 'COMPLETED'].includes(l.status)
     ? `<div class="mt-1 space-y-0.5">
-         ${quotationBadges}
+         ${docBadges}
          <button class="w-full text-[11px] bg-sky-500/15 border border-sky-500/30 text-sky-400
                         px-2 py-1 rounded-lg hover:bg-sky-500/25 transition-colors cursor-pointer mt-1"
                  data-lead-quote="${l.id}" data-lead-name="${esc(l.name)}" data-debtor="${esc(l.account?.autocountDebtorCode || '')}">

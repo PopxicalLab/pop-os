@@ -30,10 +30,12 @@ export class SalesPerformanceService {
     // Load tiers once — used to determine applicable commission rate.
     const tiers = await this.prisma.commissionTier.findMany({ orderBy: { threshold: 'asc' } });
 
-    // All WON leads in the period with their closer, estimated value, and project costs.
+    // All closed-won leads in the period (WON or fully wrapped-up COMPLETED —
+    // moving a deal to Completed must not drop it out of commission calcs)
+    // with their closer, estimated value, and project costs.
     const leads = await this.prisma.lead.findMany({
       where: {
-        status:    'WON',
+        status:    { in: ['WON', 'COMPLETED'] },
         wonAt:     { gte: start, lt: end },
         closedById: { not: null },
       },
@@ -173,7 +175,7 @@ export class SalesPerformanceService {
     const [leads, targets] = await Promise.all([
       this.prisma.lead.findMany({
         where: {
-          status:     'WON',
+          status:     { in: ['WON', 'COMPLETED'] },
           wonAt:      { gte: yearStart, lt: yearEnd },
           closedById: { not: null },
         },

@@ -103,7 +103,7 @@ export class MeService {
     // ── active leads (SALES) ──────────────────────────────────────
     const activeLeads = ['SALES', 'ADMIN'].includes(role)
       ? await this.prisma.lead.findMany({
-          where:   { status: { notIn: ['WON', 'LOST'] } },
+          where:   { status: { notIn: ['WON', 'COMPLETED', 'LOST'] } },
           include: { account: { select: { id: true, name: true } } },
           orderBy: [{ priority: 'asc' }, { updatedAt: 'desc' }],
           take: 15,

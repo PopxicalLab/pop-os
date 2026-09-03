@@ -407,6 +407,7 @@ enum LeadStatus {
   PROPOSAL       // quote / brief sent
   NEGOTIATION    // terms being agreed
   WON            // deal confirmed
+  COMPLETED      // deal fully wrapped up (invoiced/paid, project delivered)
   LOST           // deal not taken forward
 }
 
