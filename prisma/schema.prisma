@@ -302,15 +302,17 @@ model SkillRatingChange {
 // Admin reviews and approves or rejects. On approve, ratings are written
 // to PersonSkill (with source = MANUAL_ADJUSTMENT and a note).
 model SkillSelfAssessment {
-  id        String           @id @default(cuid())
-  personId  String
-  status    AssessmentStatus @default(PENDING)
-  note      String?          // optional message from the submitter
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
+  id             String           @id @default(cuid())
+  personId       String?          // null until an admin matches this submission to a Person
+  submittedName  String?          // name as typed on the public form (nullable: older rows predate this field)
+  submittedEmail String?          // email as typed on the public form (nullable: older rows predate this field)
+  status         AssessmentStatus @default(PENDING)
+  note           String?          // optional message from the submitter
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
-  person    Person               @relation(fields: [personId], references: [id], onDelete: Cascade)
-  ratings   SelfAssessmentRating[]
+  person         Person?                @relation(fields: [personId], references: [id], onDelete: SetNull)
+  ratings        SelfAssessmentRating[]
 }
 
 // One row per skill rated in a self-assessment submission.

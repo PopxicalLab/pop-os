@@ -356,14 +356,17 @@ async function load() {
   const selfAssessPanel = $('self-assess-panel');
   if (selfAssessPanel) selfAssessPanel.classList.toggle('hidden', !isAdmin());
 
-  // Load master lists and people data in parallel
+  // PEOPLE must be loaded before loadSelfAssessments() — it uses PEOPLE to
+  // build the "match to person" dropdown on unmatched submissions.
+  PEOPLE = await (await fetch('/api/people')).json();
+
+  // Load remaining master lists in parallel.
   await Promise.all([
     loadSkills(),
     loadJobTitles(),
     loadDepartments(),
     loadSoftware(),
     loadSelfAssessments(),
-    (async () => { PEOPLE = await (await fetch('/api/people')).json(); })(),
   ]);
 
   // Populate department filter from loaded data.
@@ -1181,12 +1184,19 @@ async function loadSelfAssessments() {
           </span>`).join('')}</div></div>`
     ).join('');
 
+    const matched = !!a.person;
+    const nameLine = matched
+      ? `<span class="font-semibold text-ink text-sm">${esc(a.person.name)}</span>
+         <span class="text-xs text-muted ml-2">${esc(a.person.department || '')}</span>`
+      : `<span class="font-semibold text-ink text-sm">${esc(a.submittedName || 'Unknown')}</span>
+         <span class="text-xs text-muted ml-2">${esc(a.submittedEmail || '')}</span>
+         <span class="text-[10px] font-semibold text-yellow-400 ml-2">UNMATCHED</span>`;
+
     return `
       <div class="border border-line rounded-xl p-4 mb-3 bg-panel2">
         <div class="flex items-start justify-between gap-3 mb-2">
           <div>
-            <span class="font-semibold text-ink text-sm">${esc(a.person.name)}</span>
-            <span class="text-xs text-muted ml-2">${esc(a.person.department || '')}</span>
+            ${nameLine}
             ${a.note ? `<p class="text-xs text-muted mt-0.5 italic">"${esc(a.note)}"</p>` : ''}
           </div>
           <div class="flex items-center gap-2 shrink-0">
@@ -1196,10 +1206,15 @@ async function loadSelfAssessments() {
         </div>
         <div class="mb-3">${detailHtml}</div>
         ${a.status === 'PENDING' ? `
-        <div class="flex gap-2">
+        <div class="flex items-center gap-2">
+          ${!matched ? `
+          <select id="match-${a.id}" class="bg-panel border border-line text-ink text-xs px-2 py-1.5 rounded-lg cursor-pointer focus:outline-none focus:border-accent/60">
+            <option value="">— match to person —</option>
+            ${PEOPLE.map(p => `<option value="${p.id}">${esc(p.name)}${p.department ? ' · ' + esc(p.department) : ''}</option>`).join('')}
+          </select>` : ''}
           <button onclick="reviewAssessment('${a.id}','approve')"
             class="text-xs font-semibold bg-emerald-400/10 border border-emerald-400/30 text-emerald-400 hover:bg-emerald-400/20 px-3 py-1.5 rounded-lg transition-colors cursor-pointer">
-            Approve &amp; apply ratings
+            ${matched ? 'Approve &amp; apply ratings' : 'Match &amp; approve'}
           </button>
           <button onclick="reviewAssessment('${a.id}','reject')"
             class="text-xs font-semibold bg-warm/10 border border-warm/30 text-warm hover:bg-warm/20 px-3 py-1.5 rounded-lg transition-colors cursor-pointer">
@@ -1211,9 +1226,20 @@ async function loadSelfAssessments() {
 }
 
 async function reviewAssessment(id, action) {
-  const res = await fetch(`/api/self-assess/${id}/${action}`, { method: 'PATCH' });
+  let opts = { method: 'PATCH' };
+  if (action === 'approve') {
+    const matchSel = document.getElementById('match-' + id);
+    if (matchSel) {
+      if (!matchSel.value) { alert('Select a person to match this submission to first.'); return; }
+      opts = { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ personId: matchSel.value }) };
+    }
+  }
+  const res = await fetch(`/api/self-assess/${id}/${action}`, opts);
   if (res.ok) {
     await loadSelfAssessments();
     if (action === 'approve') load(); // refresh people table to show new ratings
+  } else {
+    const e = await res.json().catch(() => ({}));
+    alert(e.message || 'Action failed.');
   }
 }

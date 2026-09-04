@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Patch, Param, Body, Req, ForbiddenException } from '@nestjs/common';
 import { Public } from '../auth/public.decorator';
 import { SelfAssessService } from './self-assess.service';
-import { SubmitSelfAssessDto } from './self-assess.dto';
+import { SubmitSelfAssessDto, AdminSubmitSelfAssessDto, ApproveSelfAssessDto } from './self-assess.dto';
 
 function requireAdmin(req: any) {
   if (req.user?.role !== 'ADMIN') throw new ForbiddenException('Admin only');
@@ -24,6 +24,14 @@ export class SelfAssessController {
 
   // ── Admin only ────────────────────────────────────────────────
 
+  // Admin has already matched the submitter to an existing Person —
+  // ratings are written straight into the system, no pending review.
+  @Post('admin-submit')
+  adminSubmit(@Body() dto: AdminSubmitSelfAssessDto, @Req() req: any) {
+    requireAdmin(req);
+    return this.service.adminSubmit(dto);
+  }
+
   @Get()
   findAll(@Req() req: any) {
     requireAdmin(req);
@@ -31,9 +39,9 @@ export class SelfAssessController {
   }
 
   @Patch(':id/approve')
-  approve(@Param('id') id: string, @Req() req: any) {
+  approve(@Param('id') id: string, @Body() body: ApproveSelfAssessDto, @Req() req: any) {
     requireAdmin(req);
-    return this.service.approve(id);
+    return this.service.approve(id, body?.personId);
   }
 
   @Patch(':id/reject')

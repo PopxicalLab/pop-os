@@ -79,8 +79,17 @@
       margin-bottom: 14px;
     }
 
-    /* ── Person picker ──────────────────────────────────────────── */
-    select, input[type="text"], textarea {
+    /* ── Form fields ────────────────────────────────────────────── */
+    .field-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #666;
+      margin-bottom: 6px;
+    }
+    select, input[type="text"], input[type="email"], textarea {
       width: 100%;
       background: rgba(255,255,255,0.06);
       border: 1px solid rgba(255,255,255,0.1);
@@ -253,8 +262,22 @@
       <!-- Step 1: Who are you? -->
       <div class="card">
         <p class="card-title">Step 1 — Who are you?</p>
-        <select id="person-select">
-          <option value="">Loading team members…</option>
+        <label class="field-label">Name</label>
+        <input type="text" id="name-input" placeholder="Your full name" autocomplete="name" />
+        <label class="field-label" style="margin-top:12px">Email</label>
+        <input type="email" id="email-input" placeholder="you@popgroup.com" autocomplete="email" />
+      </div>
+
+      <!-- Admin only: match this submission straight to an existing record -->
+      <div class="card" id="admin-match-card" style="display:none">
+        <p class="card-title">Admin — match &amp; apply directly</p>
+        <p style="font-size:12px;color:#555;margin-bottom:10px;">
+          You're logged in as an admin. Pick the matching team member to write these ratings
+          straight into the system — no pending review needed. Leave unselected to submit this
+          like a normal self-assessment for later review.
+        </p>
+        <select id="admin-match-select">
+          <option value="">— no match / submit for review —</option>
         </select>
       </div>
 
@@ -275,10 +298,10 @@
         <div id="skills-list"><div class="loading">Loading skills…</div></div>
       </div>
 
-      <!-- Optional note -->
+      <!-- Additional info -->
       <div class="card">
-        <p class="card-title">Optional note</p>
-        <textarea id="note-input" placeholder="Anything you'd like the admin to know about this submission…"></textarea>
+        <p class="card-title">Additional Info</p>
+        <textarea id="note-input" placeholder="Anything you'd like the admin to know about this submission… (optional)"></textarea>
       </div>
 
       <button class="btn-submit" id="submit-btn" onclick="submitForm()">Submit Self-Assessment</button>
@@ -298,24 +321,35 @@
   <script>
     // Ratings map: skillId → selected rating (0 = skipped)
     const ratings = {};
-    let people = [], skills = [];
+    let skills = [];
+    let adminToken = null; // set once we confirm the browser holds a valid ADMIN login
 
     async function init() {
-      const [peopleRes, skillsRes] = await Promise.all([
-        fetch('/api/self-assess/people').then(r => r.json()).catch(() => []),
+      const [skillsRes] = await Promise.all([
         fetch('/api/self-assess/skills').then(r => r.json()).catch(() => []),
+        checkAdmin(),
       ]);
-      people = peopleRes;
       skills = skillsRes;
-      renderPeople();
       renderSkills();
     }
 
-    function renderPeople() {
-      const sel = document.getElementById('person-select');
-      if (!people.length) { sel.innerHTML = '<option value="">No team members found</option>'; return; }
-      sel.innerHTML = '<option value="">— select your name —</option>'
-        + people.map(p => `<option value="${p.id}">${esc(p.name)}${p.department ? ' · ' + esc(p.department) : ''}</option>`).join('');
+    // Same localStorage key the main app uses — if this browser is already
+    // logged into Pop OS as an admin, reveal the match-and-apply picker.
+    async function checkAdmin() {
+      const token = localStorage.getItem('pop-os-token');
+      if (!token) return;
+      try {
+        const res = await fetch('/api/auth/me', { headers: { Authorization: 'Bearer ' + token } });
+        if (!res.ok) return;
+        const me = await res.json();
+        if (me.role !== 'ADMIN') return;
+        adminToken = token;
+        const people = await fetch('/api/self-assess/people').then(r => r.json()).catch(() => []);
+        const sel = document.getElementById('admin-match-select');
+        sel.innerHTML = '<option value="">— no match / submit for review —</option>'
+          + people.map(p => `<option value="${p.id}">${esc(p.name)}${p.department ? ' · ' + esc(p.department) : ''}</option>`).join('');
+        document.getElementById('admin-match-card').style.display = 'block';
+      } catch { /* not logged in / token expired — stay in public mode */ }
     }
 
     function renderSkills() {
@@ -359,12 +393,14 @@
     }
 
     async function submitForm() {
-      const personId = document.getElementById('person-select').value;
-      const note     = document.getElementById('note-input').value.trim();
-      const msg      = document.getElementById('form-msg');
-      const btn      = document.getElementById('submit-btn');
+      const name  = document.getElementById('name-input').value.trim();
+      const email = document.getElementById('email-input').value.trim();
+      const note  = document.getElementById('note-input').value.trim();
+      const msg   = document.getElementById('form-msg');
+      const btn   = document.getElementById('submit-btn');
 
-      if (!personId) { showMsg(msg, 'Please select your name.', 'err'); return; }
+      if (!name)  { showMsg(msg, 'Please enter your name.', 'err'); return; }
+      if (!email) { showMsg(msg, 'Please enter your email.', 'err'); return; }
 
       const selected = Object.entries(ratings)
         .filter(([, r]) => r > 0)
@@ -372,18 +408,34 @@
 
       if (!selected.length) { showMsg(msg, 'Please rate at least one skill.', 'err'); return; }
 
+      const matchedPersonId = adminToken ? document.getElementById('admin-match-select').value : '';
+
       btn.disabled = true;
       btn.textContent = 'Submitting…';
 
-      const res = await fetch('/api/self-assess', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ personId, ratings: selected, note: note || undefined }),
-      });
+      let res;
+      if (matchedPersonId) {
+        res = await fetch('/api/self-assess/admin-submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + adminToken },
+          body: JSON.stringify({ personId: matchedPersonId, name, email, ratings: selected, note: note || undefined }),
+        });
+      } else {
+        res = await fetch('/api/self-assess', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, ratings: selected, note: note || undefined }),
+        });
+      }
 
       if (res.ok) {
         document.getElementById('form-section').style.display = 'none';
-        document.getElementById('success-screen').style.display = 'block';
+        const success = document.getElementById('success-screen');
+        if (matchedPersonId) {
+          success.querySelector('h2').textContent = 'Applied!';
+          success.querySelector('p').innerHTML = 'These ratings have been written straight into the system.<br>No review needed.';
+        }
+        success.style.display = 'block';
       } else {
         const err = await res.json().catch(() => ({}));
         showMsg(msg, err.message || 'Submit failed. Please try again.', 'err');
