@@ -356,6 +356,15 @@ async function load() {
   const selfAssessPanel = $('self-assess-panel');
   if (selfAssessPanel) selfAssessPanel.classList.toggle('hidden', !isAdmin());
 
+  // Every panel above is admin-only, so for any other role the left
+  // column ends up completely empty — but the grid still reserves its
+  // 300px track, leaving a permanent blank gutter. Collapse to a single
+  // full-width column whenever there's nothing in the left column.
+  const peopleLeftCol = $('people-left-col');
+  if (peopleLeftCol) peopleLeftCol.classList.toggle('hidden', !isAdmin());
+  const peopleGrid = $('people-tab-grid');
+  if (peopleGrid) peopleGrid.style.gridTemplateColumns = isAdmin() ? '' : '1fr';
+
   // PEOPLE must be loaded before loadSelfAssessments() — it uses PEOPLE to
   // build the "match to person" dropdown on unmatched submissions.
   PEOPLE = await (await fetch('/api/people')).json();
