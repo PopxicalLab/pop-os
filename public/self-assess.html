@@ -78,6 +78,32 @@
       color: #666;
       margin-bottom: 14px;
     }
+    .guide-link {
+      font-size: 11px;
+      font-weight: 600;
+      color: #a89bef;
+      text-decoration: none;
+      white-space: nowrap;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(124,111,224,0.3);
+      background: rgba(124,111,224,0.08);
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .guide-link:hover { background: rgba(124,111,224,0.16); border-color: rgba(124,111,224,0.5); }
+
+    /* ── Per-category "what does this mean?" link ─────────────────── */
+    .cat-guide-link {
+      font-size: 10px;
+      font-weight: 600;
+      color: #6b6880;
+      text-decoration: none;
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 1px 8px;
+      border-radius: 999px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .cat-guide-link:hover { color: #a89bef; border-color: rgba(124,111,224,0.4); }
 
     /* ── Form fields ────────────────────────────────────────────── */
     .field-label {
@@ -109,6 +135,10 @@
 
     /* ── Skill categories ───────────────────────────────────────── */
     .cat-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
       font-size: 11px;
       font-weight: 600;
       text-transform: uppercase;
@@ -283,7 +313,12 @@
 
       <!-- Step 2: Rate your skills -->
       <div class="card" id="skills-card">
-        <p class="card-title">Step 2 — Rate your skills</p>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;">
+          <p class="card-title" style="margin-bottom:0">Step 2 — Rate your skills</p>
+          <a href="/skills-guide.html" target="_blank" rel="noopener" class="guide-link">
+            Not sure what a skill means? Open the Skills Guide ↗
+          </a>
+        </div>
 
         <div class="legend">
           <div class="legend-item"><div class="legend-dot" style="color:#ccc;border-color:#888">1</div> Awareness</div>
@@ -352,6 +387,16 @@
       } catch { /* not logged in / token expired — stay in public mode */ }
     }
 
+    // Maps each master-list category to its anchor on /skills-guide.html
+    // (same 5 categories, same order, as docs/Skillset.md).
+    const GUIDE_ANCHOR = {
+      'General Management Core Skills':               'cat-1',
+      'Creative Studio Project Manager Skills':        'cat-2',
+      'Creative Technologist Skills':                  'cat-3',
+      'Digital Content Creation & Animation Skills':   'cat-4',
+      'Marketing & Growth Skills':                     'cat-5',
+    };
+
     function renderSkills() {
       const list = document.getElementById('skills-list');
       if (!skills.length) { list.innerHTML = '<div class="loading">No skills configured yet.</div>'; return; }
@@ -364,8 +409,12 @@
         byCat[cat].push(s);
       }
 
-      list.innerHTML = Object.entries(byCat).map(([cat, list]) =>
-        `<p class="cat-header">${esc(cat)}</p>`
+      list.innerHTML = Object.entries(byCat).map(([cat, list]) => {
+        const anchor = GUIDE_ANCHOR[cat];
+        const catLink = anchor
+          ? `<a href="/skills-guide.html#${anchor}" target="_blank" rel="noopener" class="cat-guide-link">what do these mean?</a>`
+          : '';
+        return `<p class="cat-header"><span>${esc(cat)}</span>${catLink}</p>`
         + list.map(s => `
           <div class="skill-row">
             <span class="skill-name">${esc(s.name)}</span>
@@ -375,8 +424,8 @@
                   onclick="setRating('${s.id}', ${n})">${n}</button>
               `).join('')}
             </div>
-          </div>`).join('')
-      ).join('');
+          </div>`).join('');
+      }).join('');
     }
 
     function setRating(skillId, rating) {
