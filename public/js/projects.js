@@ -572,6 +572,10 @@ async function showProjectDetail(id) {
         msg($('p-detail-msg'), err, 'err');
       } else {
         p.status = chosen; // keep local copy in sync
+        // Also sync the list/kanban/timeline in-memory cache — otherwise
+        // going back shows the pre-edit status until the next full reload.
+        const cached = _allProjects.find(x => x.id === id);
+        if (cached) cached.status = chosen;
         msg($('p-detail-msg'), '', '');
       }
     };
@@ -1329,11 +1333,23 @@ function renderProjects() {
     rows.appendChild(tr);
   }
   rows.querySelectorAll('[data-field="status"]').forEach(sel => {
+    const saved = sel.value;
     sel.onchange = async () => {
-      await fetch(`/api/projects/${sel.dataset.proj}`, {
+      const chosen = sel.value;
+      const res = await fetch(`/api/projects/${sel.dataset.proj}`, {
         method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: sel.value }),
+        body: JSON.stringify({ status: chosen }),
       });
+      if (!res.ok) {
+        sel.value = saved; // revert on failure
+        const e = await res.json().catch(() => ({}));
+        alert([].concat(e.message || 'Save failed').join(', '));
+        return;
+      }
+      // Keep the in-memory cache in sync so Kanban/Timeline reflect this
+      // change without needing a full reload.
+      const proj = _allProjects.find(p => p.id === sel.dataset.proj);
+      if (proj) proj.status = chosen;
     };
   });
   rows.querySelectorAll('[data-proj-del]').forEach(b => b.onclick = () => removeProject(b.dataset.projDel));
@@ -1502,7 +1518,7 @@ function renderKanban() {
     KANBAN_COLS.map(col => {
       const items = byStatus[col.status];
       return `
-        <div class="flex flex-col gap-2">
+        <div class="flex flex-col gap-2 rounded-xl transition-colors" data-stage-drop="${col.status}">
           <div class="flex items-center gap-2 px-1 mb-1">
             <span class="w-2 h-2 rounded-full ${col.dot} shrink-0"></span>
             <span class="text-[11px] font-semibold text-muted uppercase tracking-wide">${col.label}</span>
@@ -1510,7 +1526,7 @@ function renderKanban() {
           </div>
           ${items.length
             ? items.map(p => renderKanbanCard(p, col)).join('')
-            : `<div class="bg-panel border border-dashed border-line rounded-xl px-3 py-5 text-center text-[11px] text-muted/40">—</div>`
+            : '<p class="text-xs text-muted text-center py-4">—</p>'
           }
         </div>`;
     }).join('') +
@@ -1530,17 +1546,7 @@ function renderKanban() {
 
   // Wire status dropdowns on cards — PATCH then update local cache and re-render
   board.querySelectorAll('[data-kb-status]').forEach(sel => {
-    sel.addEventListener('change', async () => {
-      const id = sel.dataset.kbStatus;
-      const newStatus = sel.value;
-      await fetch(`/api/projects/${id}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      const proj = _allProjects.find(p => p.id === id);
-      if (proj) proj.status = newStatus;
-      renderKanban();
-    });
+    sel.addEventListener('change', () => setKanbanStatus(sel.dataset.kbStatus, sel.value));
   });
 
   // Wire card click → detail view (click on card body, not the dropdown)
@@ -1549,6 +1555,87 @@ function renderKanban() {
       if (e.target.closest('select')) return; // don't open detail when using the dropdown
       showProjectDetail(card.dataset.kanbanId);
     });
+  });
+
+  wireKanbanDragDrop(board);
+}
+
+// PATCHes a project's status and keeps the in-memory cache + board in sync.
+// Server can reject (e.g. DELIVERED with incomplete assets) — on failure we
+// re-render so the card snaps back to its real status instead of drifting
+// out of sync with what's actually saved.
+async function setKanbanStatus(id, newStatus) {
+  const res = await fetch(`/api/projects/${id}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ status: newStatus }),
+  });
+  const proj = _allProjects.find(p => p.id === id);
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    alert([].concat(e.message || 'Could not change status.').join(', '));
+    renderKanban();
+    return;
+  }
+  if (proj) proj.status = newStatus;
+  renderKanban();
+}
+
+// Drag-and-drop, same pattern as the Sales pipeline board: dragging a card
+// into a different column changes its status via the same PATCH the status
+// dropdown uses. Named distinctly from sales.js's dragGhost/dragAfterElement
+// since both files share the page's global scope.
+let _kbDragGhost = null;
+
+function kanbanDragAfterElement(column, y) {
+  const cards = [...column.querySelectorAll('[data-kanban-id]:not(.dragging)')];
+  return cards.reduce((closest, card) => {
+    const box = card.getBoundingClientRect();
+    const offset = y - box.top - box.height / 2;
+    if (offset < 0 && offset > closest.offset) return { offset, element: card };
+    return closest;
+  }, { offset: -Infinity, element: null }).element;
+}
+
+function wireKanbanDragDrop(board) {
+  board.querySelectorAll('[data-kanban-id]').forEach(card => {
+    card.draggable = true;
+    card.ondragstart = (e) => {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', card.dataset.kanbanId);
+      card.classList.add('dragging', 'opacity-40');
+      _kbDragGhost = document.createElement('div');
+      _kbDragGhost.className = 'h-1.5 rounded-full bg-accent/60 mx-1';
+    };
+    card.ondragend = () => {
+      card.classList.remove('dragging', 'opacity-40');
+      _kbDragGhost?.remove();
+      _kbDragGhost = null;
+    };
+  });
+
+  board.querySelectorAll('[data-stage-drop]').forEach(col => {
+    col.ondragover = (e) => {
+      e.preventDefault();
+      col.classList.add('bg-accent/5', 'ring-1', 'ring-accent/40');
+      if (!_kbDragGhost) return;
+      const after = kanbanDragAfterElement(col, e.clientY);
+      after ? col.insertBefore(_kbDragGhost, after) : col.appendChild(_kbDragGhost);
+    };
+    col.ondragleave = (e) => {
+      if (!col.contains(e.relatedTarget)) col.classList.remove('bg-accent/5', 'ring-1', 'ring-accent/40');
+    };
+    col.ondrop = (e) => {
+      e.preventDefault();
+      col.classList.remove('bg-accent/5', 'ring-1', 'ring-accent/40');
+      _kbDragGhost?.remove();
+
+      const id     = e.dataTransfer.getData('text/plain');
+      const status = col.dataset.stageDrop;
+      const proj   = _allProjects.find(p => p.id === id);
+      if (!proj || proj.status === status) return;
+
+      setKanbanStatus(id, status);
+    };
   });
 }
 
@@ -1604,6 +1691,18 @@ function renderTimeline() {
   const label  = document.getElementById('tl-label');
   if (!canvas) return;
 
+  try {
+    renderTimelineInner(canvas, label);
+  } catch (err) {
+    // Whatever broke, don't leave the canvas silently blank — the header
+    // and legend around it are static HTML so they'd still look fine,
+    // making a failed render invisible otherwise.
+    console.error('renderTimeline failed:', err);
+    canvas.innerHTML = '<p class="text-center text-warm text-sm py-8">Couldn\'t render the timeline — check the browser console for details.</p>';
+  }
+}
+
+function renderTimelineInner(canvas, label) {
   const startMonday = _tlMonday(_tlOffset);
   const endMonday   = _tlMonday(_tlOffset + TL_WEEKS);
 
