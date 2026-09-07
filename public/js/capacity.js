@@ -169,7 +169,9 @@ function renderCapacityBoard(entries) {
         : '';
       html += `<tr class="border-b border-line/40 hover:bg-panel2/30 transition-colors">
         <td class="py-2.5 px-2"></td>
-        <td class="py-2.5 px-2 text-ink">${esc(e.project.name)}${coBadge(e.project.company)}${weekendBadge}</td>
+        <td class="py-2.5 px-2 text-ink">
+          <span class="cursor-pointer hover:text-accent transition-colors" onclick="switchTab('projects'); showProjectDetail('${e.project.id}')">${esc(e.project.name)}</span>${coBadge(e.project.company)}${weekendBadge}
+        </td>
         <td class="py-2.5 px-2"><span class="text-xs ${roleCls}">${roleLabel}</span></td>
         <td class="py-2.5 px-2 text-right text-muted text-xs">${e.pctWeek}%</td>
         ${isStaff() ? '<td></td>' : `<td class="py-2.5 px-2"><button class="btn-del" data-cap-del="${e.id}">Remove</button></td>`}
