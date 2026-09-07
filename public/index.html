@@ -736,7 +736,8 @@
         <label class="form-label" style="margin-top:0">Project name</label>
         <input id="p-name" class="form-input" placeholder="e.g. Nike AW25 Campaign" />
         <label class="form-label">Client</label>
-        <input id="p-client" class="form-input" placeholder="e.g. Nike (optional)" />
+        <input id="p-client" class="form-input" list="client-datalist" placeholder="Type a name or pick an existing client (optional)" />
+        <datalist id="client-datalist"></datalist>
         <label class="form-label">Company</label>
         <select id="p-company" class="form-input cursor-pointer">
           <option value="">— not set —</option>

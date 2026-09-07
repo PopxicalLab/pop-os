@@ -386,7 +386,7 @@ async function showProjectDetail(id) {
       <input id="detail-name-${p.id}" type="text" value="${esc(p.name)}"
         class="text-xl font-bold text-ink bg-transparent border-b border-transparent
                hover:border-line focus:border-accent/60 focus:outline-none w-full pb-0.5 transition-colors" />
-      <input id="detail-client-${p.id}" type="text" value="${esc(p.client || '')}" placeholder="No client"
+      <input id="detail-client-${p.id}" type="text" value="${esc(p.client || '')}" list="client-datalist" placeholder="No client"
         class="text-sm text-muted bg-transparent border-b border-transparent
                hover:border-line focus:border-accent/60 focus:outline-none w-full mt-1.5 pb-0.5 transition-colors" />
     </div>
@@ -1265,6 +1265,18 @@ async function loadProjects() {
 
   _allProjects = await (await fetch('/api/projects')).json();
   _tlProjects  = _allProjects; // timeline view cache
+
+  // Populate the client datalist — lets the Client field suggest existing
+  // Accounts (from the Sales Hub) while still accepting free-typed names.
+  const clientList = document.getElementById('client-datalist');
+  if (clientList) {
+    const accounts = await fetch('/api/accounts').then(r => r.json()).catch(() => []);
+    clientList.innerHTML = accounts
+      .map(a => a.name)
+      .sort((a, b) => a.localeCompare(b))
+      .map(name => `<option value="${esc(name)}"></option>`)
+      .join('');
+  }
 
   // Populate the producer filter dropdown from the loaded data.
   const prodSel = $('p-filter-producer');
