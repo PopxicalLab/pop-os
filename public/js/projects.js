@@ -586,6 +586,16 @@ async function showProjectDetail(id) {
     let saved = el.value;
     el.onchange = async () => {
       const chosen = el.value;
+      // Chrome fires 'change' on every keystroke while typing into a date
+      // input's year sub-field, well before the year is fully typed (e.g.
+      // "0002" → "0020" → "0202" → "2026") — each partial value is a
+      // technically-valid-looking date the browser is happy to report, but
+      // an obviously bogus year. Skip anything outside a sane range rather
+      // than firing a PATCH (and 500ing) for every keystroke.
+      if (chosen) {
+        const year = Number(chosen.slice(0, 4));
+        if (year < 1900 || year > 2200) return;
+      }
       const err = await patch({ [field]: chosen || null });
       if (err) {
         el.value = saved; // revert on failure
