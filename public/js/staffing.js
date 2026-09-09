@@ -1,7 +1,6 @@
 // ══════════════════════════════════════════════════════════════
 // STAFFING RECOMMENDER
-// Depends on: $, msg, esc, coBadge  (index.html)
-//             QUADRANT_CLS, QUADRANT_LABEL  (projects.js)
+// Depends on: $, msg, esc, coBadge, QUADRANT_CLS, QUADRANT_LABEL  (shared.js)
 // ══════════════════════════════════════════════════════════════
 
 // Week helpers (duplicated from capacity.js to keep files independent).

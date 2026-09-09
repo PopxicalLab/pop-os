@@ -1,7 +1,6 @@
 // ══════════════════════════════════════════════════════════════
 // FINANCIAL ENGINE + FINANCE DASHBOARD
-// Depends on: $, esc, matchesFilter, coBadge  (index.html)
-//             fmtValue, QUADRANT_CLS, QUADRANT_LABEL  (projects.js)
+// Depends on: $, esc, matchesFilter, coBadge, QUADRANT_CLS, QUADRANT_LABEL  (shared.js)
 // ══════════════════════════════════════════════════════════════
 
 function fmtMYR(n) {

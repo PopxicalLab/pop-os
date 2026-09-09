@@ -1,6 +1,6 @@
 // ══════════════════════════════════════════════════════════════
 // PEOPLE / ELC
-// Depends on: $, msg, esc  (defined in index.html shared script)
+// Depends on: $, msg, esc, matchesFilter, coBadge, isAdmin, canSeeSalary  (shared.js)
 // ══════════════════════════════════════════════════════════════
 
 function dots(n) {
@@ -30,14 +30,6 @@ const EMP_LABEL = {
 function fmtMYR(n) {
   if (n == null) return '<span class="text-muted">—</span>';
   return 'RM ' + Number(n).toLocaleString('en-MY', { maximumFractionDigits: 0 });
-}
-
-function isAdmin() {
-  try { return JSON.parse(localStorage.getItem('pop-os-user') || '{}').role === 'ADMIN'; } catch { return false; }
-}
-// Salary is sensitive — only ADMIN and FINANCE can see it.
-function canSeeSalary() {
-  try { return ['ADMIN', 'FINANCE'].includes(JSON.parse(localStorage.getItem('pop-os-user') || '{}').role); } catch { return false; }
 }
 
 // Lock icon SVG — filled green if linked, outline grey if not
@@ -387,7 +379,6 @@ async function load() {
   }
 
   renderPeople();
-  populatePersonDropdowns();
 }
 
 // ── Pagination state ─────────────────────────────────────────────────────────
@@ -851,14 +842,6 @@ async function showChange(psId, chip) {
     if (res.ok) { area.innerHTML = ''; load(); }
     else msg(area.querySelector('.c-msg'), 'Failed', 'err');
   };
-}
-
-// Called after load() so producer/PM dropdowns in the Projects form stay in sync.
-function populatePersonDropdowns() {
-  const opts = '<option value="">— none —</option>' +
-    PEOPLE.map(p => `<option value="${p.id}">${esc(p.name)} (${esc(p.role)})</option>`).join('');
-  $('p-producer').innerHTML = opts;
-  $('p-pm').innerHTML = opts;
 }
 
 $('add').addEventListener('click', addPerson);

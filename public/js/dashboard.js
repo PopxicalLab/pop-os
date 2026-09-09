@@ -101,7 +101,7 @@ function renderDashboard(data) {
             ${coBadge(p.company)}
           </div>
           <p class="text-sm font-medium text-ink mt-0.5 truncate cursor-pointer hover:text-accent transition-colors"
-            onclick="switchTab('projects'); showProjectDetail('${p.id}')">${esc(p.name)}</p>
+            onclick="location.href='/projects.html?open=${p.id}'">${esc(p.name)}</p>
           <div class="flex items-center gap-2 mt-0.5">
             ${statBadge(p.status)}
             ${dl ? `<span class="text-xs ${overdue ? 'text-warm font-semibold' : 'text-muted'}">${dl}${overdue ? ' ⚠' : ''}</span>` : ''}
@@ -170,7 +170,7 @@ function renderDashboard(data) {
             ${priChip(p.priority)} ${quadBadge(p.quadrant)} ${coBadge(p.company)}
           </div>
           <p class="text-sm font-medium text-ink mt-0.5 truncate cursor-pointer hover:text-accent transition-colors"
-            onclick="switchTab('projects'); showProjectDetail('${p.id}')">${esc(p.name)}</p>
+            onclick="location.href='/projects.html?open=${p.id}'">${esc(p.name)}</p>
           <div class="flex items-center gap-2 mt-0.5">
             ${statBadge(p.status)}
             <span class="text-xs text-warm font-semibold">${days}d overdue</span>
@@ -211,7 +211,7 @@ function renderDashboard(data) {
           <span class="text-xs ${urgency}">${dueLabel}${amt}</span>
         </div>
         ${d.project ? `<p class="text-sm font-medium text-ink mt-0.5 truncate cursor-pointer hover:text-accent transition-colors"
-          onclick="switchTab('projects'); showProjectDetail('${d.project.id}')">${esc(d.project.name)}</p>` : ''}
+          onclick="location.href='/projects.html?open=${d.project.id}'">${esc(d.project.name)}</p>` : ''}
         ${d.project?.producer ? `<p class="text-xs text-muted mt-0.5">Producer: ${esc(d.project.producer.name)} — chase payment now</p>` : ''}
       </div>
     </div>`;

@@ -1,7 +1,6 @@
 // ══════════════════════════════════════════════════════════════
 // PRODUCTION ENGINE — lane board
-// Depends on: $, esc, matchesFilter, coBadge  (index.html)
-//             STATUS_LABEL, PRI_CLS  (projects.js)
+// Depends on: $, esc, matchesFilter, coBadge, STATUS_LABEL, PRI_CLS  (shared.js)
 // ══════════════════════════════════════════════════════════════
 
 const LANE_CLS = {

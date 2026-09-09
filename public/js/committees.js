@@ -1,7 +1,7 @@
 // ══════════════════════════════════════════════════════════════
 // COMMITTEES — HR module
 // Manages studio committees, membership, activities, and attendance.
-// Depends on: $, esc, msg, coBadge, isAdmin (index.html / people.js)
+// Depends on: $, esc, msg  (shared.js)
 // ══════════════════════════════════════════════════════════════
 
 let COMMITTEES     = [];   // full list from API
@@ -326,8 +326,8 @@ async function openAddMemberModal(committeeId) {
       </div>
     </div>`;
 
-  // Use the globally-loaded PEOPLE array (populated by people.js at boot).
-  // Falls back to a fresh API call if PEOPLE hasn't loaded yet.
+  // People is its own page now (people.js/PEOPLE isn't loaded here), so this
+  // always takes the fresh-fetch path — kept as a fallback in case that ever changes.
   let people = (typeof PEOPLE !== 'undefined' && Array.isArray(PEOPLE) && PEOPLE.length > 0)
     ? PEOPLE
     : await fetch('/api/people').then(r => r.json()).catch(() => []);

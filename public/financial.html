@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pop OS</title>
+  <title>Pop OS — Financial</title>
   <link rel="icon" type="image/png" href="/lps-logo.png" />
 
   <!-- Paint body background immediately to prevent a flash while Tailwind loads. -->
@@ -72,18 +72,13 @@
   </style>
 
   <!-- Shared shell: utilities, theme, auth (incl. the not-logged-in redirect),
-       nav, user menu. Loaded in <head> — safe because shared.js only
-       touches the DOM from inside functions called after this page's own
-       markup exists (initUserUI(), renderHeader(), etc), never at the
-       top level. See shared.js's file header for the full contract. -->
+       nav, user menu. See shared.js's file header for the full contract. -->
   <script src="/js/shared.js"></script>
 </head>
 <body class="bg-bg min-h-screen text-ink antialiased">
 
-  <!-- Header — same nav on every page, built by shared.js's renderHeader()
-       instead of duplicating ~140 lines of markup per page. 'dashboard' here
-       is this page's own tab — it renders as active in the nav. -->
-  <script>document.write(renderHeader('dashboard'));</script>
+  <!-- Header — same nav on every page, built by shared.js's renderHeader(). -->
+  <script>document.write(renderHeader('financial'));</script>
 
   <!-- ── SETTINGS OVERLAY ────────────────────────────────────── -->
   <div id="settings-overlay"
@@ -187,73 +182,124 @@
   </div>
 
   <!-- ════════════════════════════════════════════════════
-       PANEL: DASHBOARD
+       FINANCIAL ENGINE + FINANCE DASHBOARD
   ════════════════════════════════════════════════════ -->
-  <div class="panel" id="tab-dashboard">
-    <div class="max-w-7xl mx-auto px-5 py-6">
+  <div class="max-w-7xl mx-auto px-5 py-6 space-y-5">
 
-      <!-- Stats strip -->
-      <div id="dash-stats"
-        class="text-sm px-5 py-3 mb-5 bg-panel border border-line rounded-xl text-muted">
+    <!-- Stats strip + action buttons -->
+    <div class="flex items-center gap-3 flex-wrap">
+      <div id="fin-stats" class="flex-1 text-sm px-5 py-3 bg-panel border border-line rounded-xl text-muted">
         Loading…
       </div>
-
-      <!-- Three-column grid -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-
-        <!-- Active projects -->
-        <div class="bg-panel border border-line rounded-xl p-5">
-          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Active Projects</h2>
-          <div id="dash-active">
-            <div class="text-center text-muted text-sm py-8">Loading…</div>
-          </div>
-        </div>
-
-        <!-- This week's capacity -->
-        <div class="bg-panel border border-line rounded-xl p-5">
-          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">This Week</h2>
-          <div id="dash-week">
-            <div class="text-center text-muted text-sm py-8">Loading…</div>
-          </div>
-        </div>
-
-        <!-- Overdue / alerts -->
-        <div class="bg-panel border border-line rounded-xl p-5">
-          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Overdue / Alerts</h2>
-          <div id="dash-overdue">
-            <div class="text-center text-muted text-sm py-8">Loading…</div>
-          </div>
-        </div>
-
+      <div class="flex gap-2 shrink-0">
+        <button onclick="sendPaymentAlerts()" id="fin-alert-btn"
+          class="px-3 py-2 rounded-lg border border-line text-xs text-muted
+                 hover:text-ink hover:border-accent/50 transition cursor-pointer">
+          ✉ Send alert email
+        </button>
+        <a href="/api/reports/ar" download
+          class="px-3 py-2 rounded-lg border border-line text-xs text-muted
+                 hover:text-ink hover:border-accent/50 transition cursor-pointer">
+          ↓ Export AR CSV
+        </a>
+        <button id="fin-sync-btn" onclick="syncDocumentsFromAutocount()"
+          class="px-3 py-2 rounded-lg border border-sky-500/30 bg-sky-500/10 text-xs text-sky-400
+                 hover:bg-sky-500/20 transition cursor-pointer whitespace-nowrap">
+          ↓ Sync from Autocount
+        </button>
+        <button id="fin-reconcile-btn" onclick="runReconciliation()"
+          class="px-3 py-2 rounded-lg border border-violet-500/30 bg-violet-500/10 text-xs text-violet-400
+                 hover:bg-violet-500/20 transition cursor-pointer whitespace-nowrap">
+          ⚖ Reconcile
+        </button>
       </div>
-
-      <!-- Payment alerts row (full width, only visible when there are due payments) -->
-      <div id="dash-payments-wrap" class="mt-5">
-        <div class="bg-panel border border-line rounded-xl p-5">
-          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">
-            Payment Alerts <span class="text-warm">· Due within 10 days</span>
-          </h2>
-          <div id="dash-payments">
-            <div class="text-center text-muted text-sm py-8">Loading…</div>
-          </div>
-        </div>
-      </div>
-
     </div>
+    <div id="fin-alert-msg" class="hidden text-xs px-4 py-2 rounded-lg bg-panel border border-line text-muted"></div>
+    <div id="fin-sync-msg" class="hidden text-xs px-4 py-2 rounded-lg bg-panel border border-line text-muted"></div>
+
+    <!-- ── Reconciliation panel (hidden until run) ──────────────── -->
+    <div id="fin-reconcile-panel" class="hidden bg-panel border border-violet-500/20 rounded-xl p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold text-ink">Autocount Reconciliation</h3>
+        <button onclick="document.getElementById('fin-reconcile-panel').classList.add('hidden')"
+          class="text-muted hover:text-ink text-xs cursor-pointer">✕ Close</button>
+      </div>
+      <div id="fin-reconcile-summary" class="flex flex-wrap gap-3 mb-4"></div>
+      <div id="fin-reconcile-table"></div>
+    </div>
+
+    <!-- ── AR KPI cards ─────────────────────────────────────── -->
+    <div id="fin-kpi" class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <!-- populated by loadFinanceDashboard() -->
+      <div class="bg-panel border border-line rounded-xl p-5 text-center text-muted text-sm">Loading…</div>
+    </div>
+
+    <!-- ── Alerts row: overdue + due soon ──────────────────── -->
+    <div id="fin-alerts-row" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="bg-panel border border-line rounded-xl p-5">
+        <h2 class="text-[11px] font-semibold uppercase tracking-widest text-warm mb-3">Overdue Invoices</h2>
+        <div id="fin-overdue">
+          <div class="text-center text-muted text-sm py-6">Loading…</div>
+        </div>
+      </div>
+      <div class="bg-panel border border-line rounded-xl p-5">
+        <h2 class="text-[11px] font-semibold uppercase tracking-widest text-yellow-400 mb-3">Due Within 10 Days</h2>
+        <div id="fin-due-soon">
+          <div class="text-center text-muted text-sm py-6">Loading…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Pipeline + Health row ───────────────────────────── -->
+    <div id="fin-pipeline-row" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="bg-panel border border-line rounded-xl p-5">
+        <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Sales Pipeline</h2>
+        <div id="fin-pipeline">
+          <div class="text-center text-muted text-sm py-6">Loading…</div>
+        </div>
+      </div>
+      <div class="bg-panel border border-line rounded-xl p-5">
+        <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Project Health</h2>
+        <div id="fin-health">
+          <div class="text-center text-muted text-sm py-6">Loading…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Recent Autocount documents ─────────────────────── -->
+    <div id="fin-recent-row" class="bg-panel border border-line rounded-xl p-5">
+      <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Recent Documents</h2>
+      <div id="fin-recent-docs">
+        <div class="text-center text-muted text-sm py-6">Loading…</div>
+      </div>
+    </div>
+
+    <!-- ── Project cost breakdown (existing) ──────────────── -->
+    <div id="fin-content" class="bg-panel border border-line rounded-xl p-5">
+      <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-4">Project Cost Breakdown</h2>
+      <div class="overflow-x-auto -mx-5 px-5">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-line">
+              <th class="text-left pb-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Project</th>
+              <th class="text-left pb-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Producer</th>
+              <th class="text-right pb-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Est. Value</th>
+              <th class="text-right pb-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Cost to Date</th>
+              <th class="text-right pb-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Remaining</th>
+              <th class="text-right pb-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Margin</th>
+              <th class="text-right pb-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">vs Target</th>
+              <th class="text-center pb-3 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Health</th>
+            </tr>
+          </thead>
+          <tbody id="fin-table-body">
+            <tr><td colspan="8" class="py-10 text-center text-muted text-sm">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="text-[11px] text-muted mt-4">Cost to date = capacity man-days × (annual salary + 20% overhead) / 260 working days. Requires salary set on each person.</p>
+    </div>
+
   </div>
-
-  <!-- My Work moved to its own page — see /mywork.html -->
-  <!-- People moved to its own page — see /people.html -->
-
-  <!-- Sales moved to its own page — see /sales.html -->
-  <!-- Clients moved to its own page — see /clients.html -->
-  <!-- Sales Performance moved to its own page — see /sp.html -->
-  <!-- Change Requests moved to its own page — see /cr.html -->
-  <!-- Financial moved to its own page — see /financial.html -->
-
-  <!-- Staffing moved to its own page — see /staffing.html -->
-
-  <!-- Committees moved to its own page — see /committees.html -->
 
   <!-- ── User Manager modal (admin only) ──────────────────────── -->
   <div id="user-mgr-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center">
@@ -312,19 +358,11 @@
     </div>
   </div>
 
-  <!-- Quote modal (Autocount push-to-quotation) moved to /sales.html — Sales-only. -->
-
-  <!-- Admin moved to its own page — see /admin.html -->
-
-  <!-- ── Module scripts: one file per tab ─────────────────────── -->
-  <!-- Projects, Capacity, Assets, Production, People, My Work, Admin moved to their own pages —
-       see /projects.html, /capacity.html, /assets.html, /production.html, /people.html, /mywork.html, /admin.html -->
-  <script src="/js/dashboard.js"></script>
-
-  <!-- Boot: initialise user UI, then load default tab data -->
+  <script src="/js/financial.js"></script>
   <script>
     initUserUI();
-    loadDashboard();
+    window._reloadCurrentTab = loadFinancial; // so the company filter buttons reload this page's data
+    loadFinancial();
   </script>
 </body>
 </html>

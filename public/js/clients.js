@@ -1,8 +1,7 @@
 // ══════════════════════════════════════════════════════════════
 // CLIENTS HUB — account + contact management
-// Depends on: $, msg, esc, coBadge  (index.html)
-//             LEAD_STATUS_CLS, LEAD_STATUS_LABEL  (sales.js)
-//             QUADRANT_CLS, QUADRANT_LABEL, STATUS_LABEL  (projects.js)
+// Depends on: $, msg, esc, coBadge, LEAD_STATUS_CLS, LEAD_STATUS_LABEL,
+//             QUADRANT_CLS, QUADRANT_LABEL, STATUS_LABEL  (shared.js)
 // ══════════════════════════════════════════════════════════════
 
 let _clientsAll = [];

@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pop OS — Projects</title>
+  <link rel="icon" type="image/png" href="/lps-logo.png" />
+
+  <!-- Paint body background immediately to prevent a flash while Tailwind loads. -->
+  <script>
+    try {
+      const mode = localStorage.getItem('pop-os-mode') || 'dark';
+      const custom = JSON.parse(localStorage.getItem('pop-os-theme-' + mode) || localStorage.getItem('pop-os-theme') || 'null');
+      const fallback = mode === 'light' ? '#f5f2ec' : '#111009';
+      const bg = (custom && custom.bg) ? custom.bg : fallback;
+      document.write('<style>body{background-color:' + bg + '}</style>');
+    } catch (e) {}
+  </script>
+
+  <!-- CDN must load first so it can set up its own global object. -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- After CDN is ready, resolve and apply the active palette. -->
+  <script>
+    (function () {
+      const DARK  = { bg:'#111009', panel:'#191814', panel2:'#201e19', line:'#2c2920', ink:'#e4e0d4', muted:'#857f73', accent:'#d4a23a', warm:'#c05535' };
+      const LIGHT = { bg:'#f5f2ec', panel:'#fdfcf9', panel2:'#ece8e0', line:'#d8d2c8', ink:'#1a1814',  muted:'#7a7468', accent:'#b8871e', warm:'#b04525' };
+      const mode   = localStorage.getItem('pop-os-mode') || 'dark';
+      const base   = mode === 'light' ? LIGHT : DARK;
+      // Fall back to the old single-key format so previously saved themes aren't lost.
+      const custom = JSON.parse(localStorage.getItem('pop-os-theme-' + mode) || localStorage.getItem('pop-os-theme') || 'null');
+      const theme  = custom || base;
+      window._mode  = mode;
+      window._theme = theme;
+      window._DARK  = DARK;
+      window._LIGHT = LIGHT;
+      tailwind.config = { theme: { extend: { colors: theme } } };
+    })();
+  </script>
+
+  <style type="text/tailwindcss">
+    @layer components {
+      .form-input {
+        @apply w-full bg-panel2 border border-line text-ink placeholder-muted/60
+               px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-accent/70
+               transition-colors duration-150;
+      }
+      .form-label {
+        @apply block text-xs text-muted font-medium mb-1.5 mt-3;
+      }
+      .btn-del {
+        @apply bg-transparent border border-line text-muted px-2.5 py-1 rounded-md
+               text-xs font-medium hover:border-warm/60 hover:text-warm
+               transition-colors duration-150 cursor-pointer;
+      }
+      .btn-edit {
+        @apply bg-transparent border border-line text-muted px-2.5 py-1 rounded-md
+               text-xs font-medium hover:border-accent/60 hover:text-accent
+               transition-colors duration-150 cursor-pointer;
+      }
+      .badge {
+        @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold;
+      }
+      .nav-sub-item {
+        @apply block w-full text-left px-4 py-2 text-xs text-muted hover:text-ink hover:bg-panel2
+               transition-colors duration-150 cursor-pointer;
+      }
+      .nav-sub-item.active {
+        @apply text-ink font-semibold;
+      }
+    }
+  </style>
+
+  <!-- Shared shell: utilities, theme, auth (incl. the not-logged-in redirect),
+       nav, user menu. Loaded in <head> — safe because shared.js only
+       touches the DOM from inside functions called after this page's own
+       markup exists (initUserUI(), renderHeader(), etc), never at the
+       top level. See shared.js's file header for the full contract. -->
+  <script src="/js/shared.js"></script>
+</head>
+<body class="bg-bg min-h-screen text-ink antialiased">
+
+  <!-- Header — same nav on every page, built by shared.js's renderHeader()
+       instead of duplicating ~140 lines of markup per page. 'projects' here
+       is this page's own tab — it renders as active in the nav. -->
+  <script>document.write(renderHeader('projects'));</script>
+
+  <!-- ── SETTINGS OVERLAY ────────────────────────────────────── -->
+  <div id="settings-overlay"
+    class="hidden fixed inset-0 bg-bg/60 backdrop-blur-sm z-[100]"
+    onclick="closeSettings()"></div>
+
+  <!-- ── SETTINGS DRAWER ────────────────────────────────────── -->
+  <div id="settings-panel"
+    class="hidden fixed right-0 top-0 h-full w-80 bg-panel border-l border-line z-[101] overflow-y-auto flex flex-col">
+
+    <div class="flex items-center justify-between px-5 py-4 border-b border-line shrink-0">
+      <h2 class="text-sm font-semibold text-ink">Theme</h2>
+      <button onclick="closeSettings()"
+        class="w-7 h-7 flex items-center justify-center rounded-lg text-muted hover:text-ink hover:bg-panel2 transition-colors cursor-pointer text-lg leading-none">
+        ×
+      </button>
+    </div>
+
+    <div class="p-5 space-y-6 flex-1">
+
+      <!-- Day / Night mode -->
+      <div>
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Mode</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="switchMode('light')" id="mode-day-btn"
+            class="flex items-center justify-center gap-2 border rounded-lg px-3 py-2.5
+                   hover:border-accent/50 transition-colors cursor-pointer text-xs font-semibold">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+            </svg>
+            Day
+          </button>
+          <button onclick="switchMode('dark')" id="mode-night-btn"
+            class="flex items-center justify-center gap-2 border rounded-lg px-3 py-2.5
+                   hover:border-accent/50 transition-colors cursor-pointer text-xs font-semibold">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+            </svg>
+            Night
+          </button>
+        </div>
+      </div>
+
+      <!-- Presets -->
+      <div>
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Presets</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="applyPreset('Warm Dark')" data-preset="Warm Dark"
+            class="preset-btn flex items-center gap-2 bg-panel2 border border-line rounded-lg px-3 py-2.5
+                   hover:border-accent/50 transition-colors cursor-pointer text-left">
+            <span class="w-4 h-4 rounded-full bg-[#d4a23a] shrink-0"></span>
+            <span class="text-xs font-medium text-ink">Warm Dark</span>
+          </button>
+          <button onclick="applyPreset('Cool Dark')" data-preset="Cool Dark"
+            class="preset-btn flex items-center gap-2 bg-panel2 border border-line rounded-lg px-3 py-2.5
+                   hover:border-accent/50 transition-colors cursor-pointer text-left">
+            <span class="w-4 h-4 rounded-full bg-[#5b9cf6] shrink-0"></span>
+            <span class="text-xs font-medium text-ink">Cool Dark</span>
+          </button>
+          <button onclick="applyPreset('Midnight')" data-preset="Midnight"
+            class="preset-btn flex items-center gap-2 bg-panel2 border border-line rounded-lg px-3 py-2.5
+                   hover:border-accent/50 transition-colors cursor-pointer text-left">
+            <span class="w-4 h-4 rounded-full bg-[#7c6fcd] shrink-0"></span>
+            <span class="text-xs font-medium text-ink">Midnight</span>
+          </button>
+          <button onclick="applyPreset('Forest')" data-preset="Forest"
+            class="preset-btn flex items-center gap-2 bg-panel2 border border-line rounded-lg px-3 py-2.5
+                   hover:border-accent/50 transition-colors cursor-pointer text-left">
+            <span class="w-4 h-4 rounded-full bg-[#5aab66] shrink-0"></span>
+            <span class="text-xs font-medium text-ink">Forest</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Color pickers -->
+      <div>
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Custom colors</p>
+        <div class="space-y-1">
+          <!-- Each row: label + hex text + color swatch -->
+          <div id="rows-colors"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer actions -->
+    <div class="px-5 py-4 border-t border-line shrink-0 space-y-2">
+      <button onclick="saveAndApply()"
+        class="w-full bg-accent text-bg font-semibold py-2.5 rounded-lg text-sm
+               hover:brightness-110 transition-all duration-150 cursor-pointer">
+        Save &amp; apply
+      </button>
+      <button onclick="resetTheme()"
+        class="w-full bg-transparent border border-line text-muted font-medium py-2 rounded-lg text-sm
+               hover:border-warm/60 hover:text-warm transition-colors duration-150 cursor-pointer">
+        Reset to defaults
+      </button>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════
+       PROJECTS
+  ════════════════════════════════════════════════════ -->
+  <div class="max-w-7xl mx-auto px-5 py-6 grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5 items-start">
+
+    <div id="add-project-panel" class="bg-panel border border-line rounded-xl p-5">
+      <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-4">Add a project</h2>
+      <label class="form-label" style="margin-top:0">Project name</label>
+      <input id="p-name" class="form-input" placeholder="e.g. Nike AW25 Campaign" />
+      <label class="form-label">Client</label>
+      <input id="p-client" class="form-input" list="client-datalist" placeholder="Type a name or pick an existing client (optional)" />
+      <datalist id="client-datalist"></datalist>
+      <label class="form-label">Company</label>
+      <select id="p-company" class="form-input cursor-pointer">
+        <option value="">— not set —</option>
+        <option value="LPS">Lorrypop Studio (LPS)</option>
+        <option value="PXL">Popxical Lab (PXL)</option>
+      </select>
+      <label class="form-label">Quadrant</label>
+      <select id="p-quadrant" class="form-input cursor-pointer">
+        <option value="GOLD">Gold</option>
+        <option value="STRATEGIC_BET">Strategic Bet</option>
+        <option value="OPERATIONAL_FILLER">Operational Filler</option>
+        <option value="DRAIN">Drain</option>
+      </select>
+      <label class="form-label">Priority</label>
+      <select id="p-priority" class="form-input cursor-pointer">
+        <option value="P1">P1 — urgent</option>
+        <option value="P2" selected>P2 — normal</option>
+        <option value="P3">P3 — low</option>
+      </select>
+      <label class="form-label">Status</label>
+      <select id="p-status" class="form-input cursor-pointer">
+        <option value="BRIEF">Brief</option>
+        <option value="IN_PROGRESS">In progress</option>
+        <option value="INTERNAL_REVIEW">Internal review</option>
+        <option value="DELIVERED">Delivered</option>
+        <option value="ON_HOLD">On hold</option>
+        <option value="CANCELLED">Cancelled</option>
+      </select>
+      <label class="form-label">Start date</label>
+      <input id="p-start-date" type="date" class="form-input" />
+      <label class="form-label">Deadline</label>
+      <input id="p-deadline" type="date" class="form-input" />
+      <label class="form-label">Producer</label>
+      <select id="p-producer" class="form-input cursor-pointer"><option value="">— none —</option></select>
+      <label class="form-label">PM</label>
+      <select id="p-pm" class="form-input cursor-pointer"><option value="">— none —</option></select>
+
+      <!-- PPM inputs — collapsed by default, optional but valuable for future AI recommendations -->
+      <div class="mt-4 border border-line rounded-xl overflow-hidden">
+        <button type="button" onclick="this.nextElementSibling.classList.toggle('hidden');this.querySelector('.ppm-chevron').classList.toggle('rotate-180')"
+          class="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-panel2/50 transition-colors cursor-pointer">
+          <span class="text-[11px] font-semibold uppercase tracking-widest text-muted">PPM inputs <span class="normal-case font-normal text-muted/60">(optional · used for future recommendations)</span></span>
+          <svg class="ppm-chevron w-3.5 h-3.5 text-muted transition-transform duration-150" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+          </svg>
+        </button>
+        <div class="hidden px-4 pb-4 space-y-0">
+          <label class="form-label" style="margin-top:12px">Estimated value (RM)</label>
+          <input id="p-est-value" type="number" min="0" step="100" class="form-input" placeholder="e.g. 25000" />
+          <label class="form-label">Estimated duration (weeks)</label>
+          <input id="p-est-duration" type="number" min="1" step="1" class="form-input" placeholder="e.g. 6" />
+          <label class="form-label">Complexity <span class="text-muted/60 font-normal">(1 = simple · 5 = very complex)</span></label>
+          <select id="p-complexity" class="form-input cursor-pointer">
+            <option value="">— not set —</option>
+            <option value="1">1 — Simple</option>
+            <option value="2">2 — Low</option>
+            <option value="3">3 — Medium</option>
+            <option value="4">4 — High</option>
+            <option value="5">5 — Very complex</option>
+          </select>
+          <label class="form-label">Client tier</label>
+          <select id="p-client-tier" class="form-input cursor-pointer">
+            <option value="">— not set —</option>
+            <option value="NEW">New</option>
+            <option value="RETURNING">Returning</option>
+            <option value="KEY_ACCOUNT">Key account</option>
+          </select>
+          <label class="form-label">Margin target (%)</label>
+          <input id="p-margin" type="number" min="0" max="100" step="1" class="form-input" placeholder="e.g. 40" />
+        </div>
+      </div>
+
+      <div id="p-drain-gate" class="hidden mt-4 bg-warm/10 border border-warm/25 rounded-xl p-4">
+        <p class="text-[11px] font-semibold uppercase tracking-wider text-warm mb-1">Drain approval gate</p>
+        <p class="text-xs text-muted mb-3">Both signatures required before this project is accepted.</p>
+        <label class="flex items-center gap-2.5 text-sm text-ink cursor-pointer mb-2.5">
+          <input type="checkbox" id="p-exec" class="accent-accent w-3.5 h-3.5 cursor-pointer" />
+          Exec / CEO approved
+        </label>
+        <label class="flex items-center gap-2.5 text-sm text-ink cursor-pointer">
+          <input type="checkbox" id="p-prod-approval" class="accent-accent w-3.5 h-3.5 cursor-pointer" />
+          Producer approved
+        </label>
+      </div>
+
+      <button id="p-add"
+        class="mt-4 w-full bg-accent text-bg font-semibold py-2.5 rounded-lg text-sm
+               hover:brightness-110 transition-all duration-150 cursor-pointer">
+        Add project
+      </button>
+      <div id="pmsg" class="text-xs mt-2 min-h-[18px]"></div>
+    </div>
+
+    <!-- LIST / TIMELINE VIEW -->
+    <div class="space-y-4">
+
+    <!-- View toggle + export -->
+    <div class="flex items-center gap-2">
+      <div class="flex rounded-lg border border-line overflow-hidden text-xs font-semibold">
+        <button id="proj-view-list" onclick="switchProjView('list')"
+          class="px-3 py-1.5 bg-panel text-ink transition cursor-pointer">List</button>
+        <button id="proj-view-kanban" onclick="switchProjView('kanban')"
+          class="px-3 py-1.5 text-muted hover:text-ink transition cursor-pointer border-x border-line">Kanban</button>
+        <button id="proj-view-timeline" onclick="switchProjView('timeline')"
+          class="px-3 py-1.5 text-muted hover:text-ink transition cursor-pointer">Timeline</button>
+      </div>
+      <a href="/api/reports/projects" download
+        class="ml-auto px-3 py-1.5 rounded-lg border border-line text-xs text-muted
+               hover:text-ink hover:border-accent/50 transition cursor-pointer">
+        ↓ Export CSV
+      </a>
+    </div>
+
+    <div id="p-list-view" class="bg-panel border border-line rounded-xl p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">Projects</h2>
+        <!-- Column picker -->
+        <div class="relative">
+          <button onclick="toggleColPicker()"
+            class="flex items-center gap-1.5 text-xs text-muted border border-line px-3 py-1.5 rounded-lg
+                   hover:border-accent/50 hover:text-ink transition-colors cursor-pointer">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"/>
+            </svg>
+            Columns
+          </button>
+          <div id="col-picker"
+            class="hidden absolute right-0 top-9 z-20 bg-panel border border-line rounded-xl shadow-lg py-1 w-44">
+            <!-- populated by buildColPicker() -->
+          </div>
+        </div>
+      </div>
+      <!-- Projects filter bar -->
+      <div class="flex flex-wrap gap-2 mb-4">
+        <input id="p-search" type="text" placeholder="Search name or client…" autocomplete="off"
+          class="bg-panel2 border border-line text-ink text-xs px-3 py-1.5 rounded-lg w-48
+                 focus:outline-none focus:border-accent/60" />
+        <select id="p-filter-status"
+          class="bg-panel2 border border-line text-ink text-xs px-2 py-1.5 rounded-lg cursor-pointer
+                 focus:outline-none focus:border-accent/60">
+          <option value="">All statuses</option>
+          <option value="BRIEF">Brief</option>
+          <option value="IN_PROGRESS">In progress</option>
+          <option value="INTERNAL_REVIEW">Internal review</option>
+          <option value="DELIVERED">Delivered</option>
+          <option value="ON_HOLD">On hold</option>
+          <option value="CANCELLED">Cancelled</option>
+        </select>
+        <select id="p-filter-producer"
+          class="bg-panel2 border border-line text-ink text-xs px-2 py-1.5 rounded-lg cursor-pointer
+                 focus:outline-none focus:border-accent/60">
+          <option value="">All producers</option>
+        </select>
+      </div>
+      <div class="overflow-x-auto -mx-5 px-5">
+        <table class="w-full min-w-[600px] text-sm">
+          <thead>
+            <tr class="border-b border-line">
+              <th class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Name</th>
+              <th data-col="client"     class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Client</th>
+              <th data-col="quadrant"   class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Quadrant</th>
+              <th data-col="priority"   class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Pri</th>
+              <th class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Status</th>
+              <th data-col="deadline"   class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Deadline</th>
+              <th data-col="producer"   class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Producer</th>
+              <th data-col="pm"         class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">PM</th>
+              <th data-col="value"      class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Est. Value</th>
+              <th data-col="duration"   class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Duration</th>
+              <th data-col="complexity" class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Complexity</th>
+              <th data-col="tier"       class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Client tier</th>
+              <th data-col="margin"     class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Margin</th>
+              <th class="pb-3 px-2"></th>
+            </tr>
+          </thead>
+          <tbody id="p-rows"></tbody>
+        </table>
+      </div>
+      <div id="p-empty" class="hidden text-center text-muted text-sm py-10">
+        No projects yet — add one on the left.
+      </div>
+    </div>
+
+    <!-- DETAIL VIEW (hidden until a project row is clicked) -->
+    <div id="p-detail-view" class="hidden bg-panel border border-line rounded-xl p-5">
+      <button onclick="showProjectList()"
+        class="flex items-center gap-1.5 text-xs text-muted hover:text-ink transition-colors cursor-pointer mb-5">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+        <span id="p-back-label">All projects</span>
+      </button>
+      <div id="p-detail-msg" class="mb-3"></div>
+      <div id="p-detail-content"></div>
+    </div>
+
+    <!-- KANBAN VIEW (hidden by default) -->
+    <div id="p-kanban-view" class="hidden">
+      <div id="kanban-board"></div>
+    </div>
+
+    <!-- TIMELINE VIEW (hidden by default) -->
+    <div id="p-timeline-view" class="hidden bg-panel border border-line rounded-xl p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">Project Timeline</h2>
+        <div class="flex gap-2 items-center">
+          <button onclick="shiftTimeline(-1)" class="text-muted hover:text-ink text-lg cursor-pointer leading-none">‹</button>
+          <span id="tl-label" class="text-xs text-muted w-28 text-center"></span>
+          <button onclick="shiftTimeline(1)"  class="text-muted hover:text-ink text-lg cursor-pointer leading-none">›</button>
+        </div>
+      </div>
+      <div id="tl-canvas" class="overflow-x-auto"></div>
+      <!-- Legend -->
+      <div class="flex flex-wrap gap-x-5 gap-y-1.5 mt-4 pt-3 border-t border-line">
+        <span class="flex items-center gap-1.5 text-[11px] text-muted"><span class="w-3 h-3 rounded-sm shrink-0" style="background:#4b5563"></span>Brief</span>
+        <span class="flex items-center gap-1.5 text-[11px] text-muted"><span class="w-3 h-3 rounded-sm shrink-0" style="background:#63b3a2"></span>In Progress</span>
+        <span class="flex items-center gap-1.5 text-[11px] text-muted"><span class="w-3 h-3 rounded-sm shrink-0" style="background:#ecc94b"></span>Internal Review</span>
+        <span class="flex items-center gap-1.5 text-[11px] text-muted"><span class="w-3 h-3 rounded-sm shrink-0" style="background:#48bb78"></span>Delivered</span>
+        <span class="flex items-center gap-1.5 text-[11px] text-muted"><span class="w-3 h-3 rounded-sm shrink-0" style="background:#f6ad55"></span>On Hold</span>
+        <span class="flex items-center gap-1.5 text-[11px] text-muted"><span class="w-3 h-3 rounded-sm shrink-0" style="background:#fc8181"></span>Cancelled</span>
+        <span class="flex items-center gap-1.5 text-[11px] text-muted/50 ml-auto italic">Dashed bar = no deadline set</span>
+      </div>
+    </div>
+
+    </div><!-- end LIST/TIMELINE wrapper -->
+  </div>
+
+  <!-- ── User Manager modal (admin only) ──────────────────────── -->
+  <div id="user-mgr-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+    <div class="absolute inset-0 bg-bg/80 backdrop-blur-sm" onclick="closeUserManager()"></div>
+    <div class="relative bg-panel border border-line rounded-2xl p-6 w-full max-w-lg mx-4 z-10">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-sm font-semibold text-ink">Manage Users</h2>
+        <button onclick="closeUserManager()" class="text-muted hover:text-ink transition-colors cursor-pointer text-lg leading-none">×</button>
+      </div>
+
+      <div class="overflow-x-auto mb-5">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-line">
+              <th class="text-left pb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Name</th>
+              <th class="text-left pb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Email</th>
+              <th class="text-left pb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Role</th>
+              <th class="pb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted text-center">Active</th>
+              <th class="pb-2 px-3"></th>
+            </tr>
+          </thead>
+          <tbody id="user-list"></tbody>
+        </table>
+      </div>
+
+      <div class="border-t border-line pt-4">
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Add user</p>
+        <!-- Real <form> + autocomplete="new-password" scope this email+password
+             pair away from the rest of the page — without it, browsers detect
+             a login-shaped field pair here and offer to autofill unrelated
+             text inputs elsewhere on the page (e.g. a search box) with a
+             saved email. -->
+        <form autocomplete="off" onsubmit="return false">
+        <div class="grid grid-cols-2 gap-2 mb-2">
+          <input id="new-user-name"  class="form-input text-xs" placeholder="Full name" autocomplete="off" style="margin-top:0" />
+          <input id="new-user-email" class="form-input text-xs" placeholder="Email" autocomplete="off" style="margin-top:0" />
+          <input id="new-user-pw"    class="form-input text-xs" type="password" placeholder="Password (min 6)" autocomplete="new-password" style="margin-top:0" />
+          <select id="new-user-role" class="form-input text-xs cursor-pointer" style="margin-top:0">
+            <option value="STAFF">Staff</option>
+            <option value="PRODUCER">Producer</option>
+            <option value="PM">Project Manager</option>
+            <option value="TEAM_LEAD">Team Lead</option>
+            <option value="SALES">Sales</option>
+            <option value="FINANCE">Finance</option>
+            <option value="ADMIN">Admin</option>
+          </select>
+        </div>
+        <button type="button" onclick="addUser()"
+          class="w-full bg-accent text-bg text-xs font-semibold py-2 rounded-lg
+                 hover:brightness-110 transition-all cursor-pointer mt-1">
+          Add user
+        </button>
+        </form>
+        <div id="user-mgr-msg" class="text-xs mt-2 min-h-[16px]"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Autocount: push-to-invoice modal ──────────────────────── -->
+  <div id="invoice-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
+    <div class="bg-panel border border-line rounded-2xl w-full max-w-sm mx-4 p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-ink">Push Invoice to Autocount</h2>
+        <button onclick="closeInvoiceModal()" class="text-muted hover:text-ink text-lg leading-none">×</button>
+      </div>
+      <p class="text-xs text-muted">
+        Creating an invoice for: <span id="invoice-modal-title" class="text-ink font-medium"></span>
+      </p>
+      <div>
+        <label class="form-label">Autocount Debtor</label>
+        <select id="invoice-debtor-sel" class="form-input text-sm">
+          <option value="">— select debtor —</option>
+        </select>
+      </div>
+      <div id="invoice-modal-msg" class="text-xs min-h-[16px]"></div>
+      <div class="flex gap-2 pt-1">
+        <button id="invoice-submit-btn" onclick="submitInvoice()"
+          class="flex-1 bg-sky-500/15 border border-sky-500/30 text-sky-400 text-sm py-2 rounded-xl
+                 hover:bg-sky-500/25 transition-colors cursor-pointer font-semibold">
+          Create Invoice
+        </button>
+        <button onclick="closeInvoiceModal()"
+          class="flex-1 bg-panel2 border border-line text-muted text-sm py-2 rounded-xl
+                 hover:text-ink transition-colors cursor-pointer">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/projects.js"></script>
+  <script>
+    initUserUI();
+    window._reloadCurrentTab = loadProjects; // so the company filter buttons reload this page's data
+    loadProjects();
+  </script>
+</body>
+</html>

@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pop OS — People</title>
+  <link rel="icon" type="image/png" href="/lps-logo.png" />
+
+  <!-- Paint body background immediately to prevent a flash while Tailwind loads. -->
+  <script>
+    try {
+      const mode = localStorage.getItem('pop-os-mode') || 'dark';
+      const custom = JSON.parse(localStorage.getItem('pop-os-theme-' + mode) || localStorage.getItem('pop-os-theme') || 'null');
+      const fallback = mode === 'light' ? '#f5f2ec' : '#111009';
+      const bg = (custom && custom.bg) ? custom.bg : fallback;
+      document.write('<style>body{background-color:' + bg + '}</style>');
+    } catch (e) {}
+  </script>
+
+  <!-- CDN must load first so it can set up its own global object. -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- After CDN is ready, resolve and apply the active palette. -->
+  <script>
+    (function () {
+      const DARK  = { bg:'#111009', panel:'#191814', panel2:'#201e19', line:'#2c2920', ink:'#e4e0d4', muted:'#857f73', accent:'#d4a23a', warm:'#c05535' };
+      const LIGHT = { bg:'#f5f2ec', panel:'#fdfcf9', panel2:'#ece8e0', line:'#d8d2c8', ink:'#1a1814',  muted:'#7a7468', accent:'#b8871e', warm:'#b04525' };
+      const mode   = localStorage.getItem('pop-os-mode') || 'dark';
+      const base   = mode === 'light' ? LIGHT : DARK;
+      // Fall back to the old single-key format so previously saved themes aren't lost.
+      const custom = JSON.parse(localStorage.getItem('pop-os-theme-' + mode) || localStorage.getItem('pop-os-theme') || 'null');
+      const theme  = custom || base;
+      window._mode  = mode;
+      window._theme = theme;
+      window._DARK  = DARK;
+      window._LIGHT = LIGHT;
+      tailwind.config = { theme: { extend: { colors: theme } } };
+    })();
+  </script>
+
+  <style type="text/tailwindcss">
+    @layer components {
+      .form-input {
+        @apply w-full bg-panel2 border border-line text-ink placeholder-muted/60
+               px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-accent/70
+               transition-colors duration-150;
+      }
+      .form-label {
+        @apply block text-xs text-muted font-medium mb-1.5 mt-3;
+      }
+      .btn-del {
+        @apply bg-transparent border border-line text-muted px-2.5 py-1 rounded-md
+               text-xs font-medium hover:border-warm/60 hover:text-warm
+               transition-colors duration-150 cursor-pointer;
+      }
+      .btn-edit {
+        @apply bg-transparent border border-line text-muted px-2.5 py-1 rounded-md
+               text-xs font-medium hover:border-accent/60 hover:text-accent
+               transition-colors duration-150 cursor-pointer;
+      }
+      .badge {
+        @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold;
+      }
+      .nav-sub-item {
+        @apply block w-full text-left px-4 py-2 text-xs text-muted hover:text-ink hover:bg-panel2
+               transition-colors duration-150 cursor-pointer;
+      }
+      .nav-sub-item.active {
+        @apply text-ink font-semibold;
+      }
+    }
+  </style>
+
+  <!-- Shared shell: utilities, theme, auth (incl. the not-logged-in redirect),
+       nav, user menu. See shared.js's file header for the full contract. -->
+  <script src="/js/shared.js"></script>
+</head>
+<body class="bg-bg min-h-screen text-ink antialiased">
+
+  <!-- Header — same nav on every page, built by shared.js's renderHeader(). -->
+  <script>document.write(renderHeader('people'));</script>
+
+  <!-- ── SETTINGS OVERLAY ────────────────────────────────────── -->
+  <div id="settings-overlay"
+    class="hidden fixed inset-0 bg-bg/60 backdrop-blur-sm z-[100]"
+    onclick="closeSettings()"></div>
+
+  <!-- ── SETTINGS DRAWER ────────────────────────────────────── -->
+  <div id="settings-panel"
+    class="hidden fixed right-0 top-0 h-full w-80 bg-panel border-l border-line z-[101] overflow-y-auto flex flex-col">
+
+    <div class="flex items-center justify-between px-5 py-4 border-b border-line shrink-0">
+      <h2 class="text-sm font-semibold text-ink">Theme</h2>
+      <button onclick="closeSettings()"
+        class="w-7 h-7 flex items-center justify-center rounded-lg text-muted hover:text-ink hover:bg-panel2 transition-colors cursor-pointer text-lg leading-none">
+        ×
+      </button>
+    </div>
+
+    <div class="p-5 space-y-6 flex-1">
+
+      <!-- Day / Night mode -->
+      <div>
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Mode</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="switchMode('light')" id="mode-day-btn"
+            class="flex items-center justify-center gap-2 border rounded-lg px-3 py-2.5
+                   hover:border-accent/50 transition-colors cursor-pointer text-xs font-semibold">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+            </svg>
+            Day
+          </button>
+          <button onclick="switchMode('dark')" id="mode-night-btn"
+            class="flex items-center justify-center gap-2 border rounded-lg px-3 py-2.5
+                   hover:border-accent/50 transition-colors cursor-pointer text-xs font-semibold">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+            </svg>
+            Night
+          </button>
+        </div>
+      </div>
+
+      <!-- Presets -->
+      <div>
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Presets</p>
+        <div class="grid grid-cols-2 gap-2">
+          <button onclick="applyPreset('Warm Dark')" data-preset="Warm Dark"
+            class="preset-btn flex items-center gap-2 bg-panel2 border border-line rounded-lg px-3 py-2.5
+                   hover:border-accent/50 transition-colors cursor-pointer text-left">
+            <span class="w-4 h-4 rounded-full bg-[#d4a23a] shrink-0"></span>
+            <span class="text-xs font-medium text-ink">Warm Dark</span>
+          </button>
+          <button onclick="applyPreset('Cool Dark')" data-preset="Cool Dark"
+            class="preset-btn flex items-center gap-2 bg-panel2 border border-line rounded-lg px-3 py-2.5
+                   hover:border-accent/50 transition-colors cursor-pointer text-left">
+            <span class="w-4 h-4 rounded-full bg-[#5b9cf6] shrink-0"></span>
+            <span class="text-xs font-medium text-ink">Cool Dark</span>
+          </button>
+          <button onclick="applyPreset('Midnight')" data-preset="Midnight"
+            class="preset-btn flex items-center gap-2 bg-panel2 border border-line rounded-lg px-3 py-2.5
+                   hover:border-accent/50 transition-colors cursor-pointer text-left">
+            <span class="w-4 h-4 rounded-full bg-[#7c6fcd] shrink-0"></span>
+            <span class="text-xs font-medium text-ink">Midnight</span>
+          </button>
+          <button onclick="applyPreset('Forest')" data-preset="Forest"
+            class="preset-btn flex items-center gap-2 bg-panel2 border border-line rounded-lg px-3 py-2.5
+                   hover:border-accent/50 transition-colors cursor-pointer text-left">
+            <span class="w-4 h-4 rounded-full bg-[#5aab66] shrink-0"></span>
+            <span class="text-xs font-medium text-ink">Forest</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Color pickers -->
+      <div>
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Custom colors</p>
+        <div class="space-y-1">
+          <!-- Each row: label + hex text + color swatch -->
+          <div id="rows-colors"></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Footer actions -->
+    <div class="px-5 py-4 border-t border-line shrink-0 space-y-2">
+      <button onclick="saveAndApply()"
+        class="w-full bg-accent text-bg font-semibold py-2.5 rounded-lg text-sm
+               hover:brightness-110 transition-all duration-150 cursor-pointer">
+        Save &amp; apply
+      </button>
+      <button onclick="resetTheme()"
+        class="w-full bg-transparent border border-line text-muted font-medium py-2 rounded-lg text-sm
+               hover:border-warm/60 hover:text-warm transition-colors duration-150 cursor-pointer">
+        Reset to defaults
+      </button>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════
+       PEOPLE / ELC
+  ════════════════════════════════════════════════════ -->
+  <div class="max-w-7xl mx-auto px-5 py-6 grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5 items-start" id="people-tab-grid">
+
+    <div class="space-y-4" id="people-left-col">
+      <!-- New Joiner shortcut — creates Person + login in one step -->
+      <button onclick="openOnboardModal()"
+        class="w-full flex items-center justify-center gap-2 bg-accent text-bg font-semibold py-2.5 rounded-xl text-sm
+               hover:brightness-110 transition-all duration-150 cursor-pointer">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+        </svg>
+        New Joiner
+      </button>
+
+      <div class="bg-panel border border-line rounded-xl p-5">
+        <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-4">Add a person</h2>
+        <label class="form-label" style="margin-top:0">Name</label>
+        <input id="name" class="form-input" placeholder="e.g. Jia Jyn" />
+        <label class="form-label">Job Title</label>
+        <select id="role" class="form-input cursor-pointer">
+          <option value="">— select job title —</option>
+        </select>
+        <label class="form-label">Department</label>
+        <select id="department" class="form-input cursor-pointer">
+          <option value="">— select department —</option>
+        </select>
+        <label class="form-label">Start date</label>
+        <input id="startDate" type="date" class="form-input" />
+        <label class="form-label">Employment type</label>
+        <select id="employmentType" class="form-input cursor-pointer">
+          <option value="FULL_TIME">Full-time</option>
+          <option value="CONTRACT">Contract</option>
+          <option value="FREELANCE">Freelance</option>
+          <option value="INTERN">Intern</option>
+        </select>
+        <label class="form-label">Status</label>
+        <select id="status" class="form-input cursor-pointer">
+          <option value="ACTIVE">Active</option>
+          <option value="WARM_POOL">Warm pool</option>
+          <option value="RESIGNED">Resigned</option>
+          <option value="TERMINATED">Terminated</option>
+        </select>
+        <label class="form-label">Company</label>
+        <select id="company" class="form-input cursor-pointer">
+          <option value="">— not set —</option>
+          <option value="LPS">Lorrypop Studio (LPS)</option>
+          <option value="PXL">Popxical Lab (PXL)</option>
+          <option value="GROUP">Group (cross-company)</option>
+        </select>
+        <div id="salary-field">
+          <label class="form-label">Monthly salary (RM) <span class="text-muted/60 font-normal">optional · used for costing</span></label>
+          <input id="salary" type="number" min="0" step="500" class="form-input" placeholder="e.g. 6000" />
+        </div>
+        <button id="add"
+          class="mt-4 w-full bg-accent text-bg font-semibold py-2.5 rounded-lg text-sm
+                 hover:brightness-110 transition-all duration-150 cursor-pointer">
+          Add person
+        </button>
+        <div id="msg" class="text-xs mt-2 min-h-[18px]"></div>
+      </div>
+
+      <div id="skill-master-panel" class="bg-panel border border-line rounded-xl p-5">
+        <div class="flex items-center gap-2 mb-1">
+          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">Skill master list</h2>
+          <a href="/skills-guide.html" target="_blank" title="View skill descriptions"
+            class="inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold cursor-pointer transition-colors"
+            style="background:rgba(100,100,100,0.15);color:#6b6880;text-decoration:none;"
+            onmouseover="this.style.background='rgba(124,111,224,0.2)';this.style.color='#a89bef'"
+            onmouseout="this.style.background='rgba(100,100,100,0.15)';this.style.color='#6b6880'">?</a>
+        </div>
+        <p class="text-xs text-muted mb-3">Skills grouped by category. Click a category to expand. Admin can add or remove skills.</p>
+        <div id="skillList" class="mb-3 space-y-0"></div>
+        <label class="form-label" style="margin-top:0">New skill name</label>
+        <input id="newSkill" class="form-input" placeholder="e.g. Rigging" />
+        <label class="form-label">Category</label>
+        <select id="newSkillCat" class="form-input">
+          <option value="">— select category —</option>
+          <option>General Management Core Skills</option>
+          <option>Creative Studio Project Manager Skills</option>
+          <option>Creative Technologist Skills</option>
+          <option>Digital Content Creation &amp; Animation Skills</option>
+          <option>Marketing &amp; Growth Skills</option>
+        </select>
+        <button id="addSkill"
+          class="mt-3 w-full bg-panel2 border border-line text-ink font-semibold py-2 rounded-lg
+                 text-sm hover:border-accent/50 transition-all duration-150 cursor-pointer">
+          Add skill
+        </button>
+        <div id="skillMsg" class="text-xs mt-2 min-h-[18px]"></div>
+      </div>
+
+      <div id="job-title-master-panel" class="bg-panel border border-line rounded-xl p-5">
+        <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-1">Job title master list</h2>
+        <p class="text-xs text-muted mb-3">Studio-wide job titles shown in the new person form.</p>
+        <div id="jobTitleList" class="flex flex-wrap gap-1.5 mb-3 min-h-[24px]"></div>
+        <label class="form-label" style="margin-top:0">New job title</label>
+        <input id="newJobTitle" class="form-input" placeholder="e.g. 3D Artist" />
+        <button id="addJobTitle"
+          class="mt-3 w-full bg-panel2 border border-line text-ink font-semibold py-2 rounded-lg
+                 text-sm hover:border-accent/50 transition-all duration-150 cursor-pointer">
+          Add job title
+        </button>
+        <div id="jobTitleMsg" class="text-xs mt-2 min-h-[18px]"></div>
+      </div>
+
+      <div id="dept-master-panel" class="bg-panel border border-line rounded-xl p-5">
+        <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-1">Department master list</h2>
+        <p class="text-xs text-muted mb-3">Studio-wide departments shown in the new person form.</p>
+        <div id="deptList" class="flex flex-wrap gap-1.5 mb-3 min-h-[24px]"></div>
+        <label class="form-label" style="margin-top:0">New department</label>
+        <input id="newDept" class="form-input" placeholder="e.g. 3D" />
+        <button id="addDept"
+          class="mt-3 w-full bg-panel2 border border-line text-ink font-semibold py-2 rounded-lg
+                 text-sm hover:border-accent/50 transition-all duration-150 cursor-pointer">
+          Add department
+        </button>
+        <div id="deptMsg" class="text-xs mt-2 min-h-[18px]"></div>
+      </div>
+
+      <div id="software-master-panel" class="bg-panel border border-line rounded-xl p-5">
+        <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-1">Software master list</h2>
+        <p class="text-xs text-muted mb-3">Tools used in the studio. Tag people with the software they use.</p>
+        <div id="softwareList" class="flex flex-wrap gap-1.5 mb-3 min-h-[24px]"></div>
+        <label class="form-label" style="margin-top:0">Name</label>
+        <input id="newSoftwareName" class="form-input" placeholder="e.g. Houdini" />
+        <label class="form-label">Category (optional)</label>
+        <input id="newSoftwareCat" class="form-input" placeholder="e.g. 3D, Motion, Compositing" />
+        <button id="addSoftware"
+          class="mt-3 w-full bg-panel2 border border-line text-ink font-semibold py-2 rounded-lg
+                 text-sm hover:border-accent/50 transition-all duration-150 cursor-pointer">
+          Add software
+        </button>
+        <div id="softwareMsg" class="text-xs mt-2 min-h-[18px]"></div>
+      </div>
+
+      <!-- Self-assessment review panel — admin only -->
+      <div id="self-assess-panel" class="bg-panel border border-line rounded-xl p-5 hidden">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">Skill Self-Assessments</h2>
+            <p class="text-xs text-muted mt-0.5">Staff submissions awaiting review. Approve to apply ratings; reject to discard.</p>
+          </div>
+          <a href="/self-assess.html" target="_blank"
+            class="text-[11px] text-accent hover:text-ink border border-accent/30 hover:border-accent/60 px-2.5 py-1 rounded-lg transition-colors cursor-pointer no-underline">
+            Open form ↗
+          </a>
+        </div>
+        <div id="assess-list"><p class="text-xs text-muted">Loading…</p></div>
+      </div>
+    </div>
+
+    <div class="bg-panel border border-line rounded-xl p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">People</h2>
+        <div class="relative">
+          <button onclick="togglePeopleColPicker()"
+            class="flex items-center gap-1.5 text-xs text-muted border border-line px-3 py-1.5 rounded-lg
+                   hover:border-accent/50 hover:text-ink transition-colors cursor-pointer">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7"/>
+            </svg>
+            Columns
+          </button>
+          <div id="people-col-picker"
+            class="hidden absolute right-0 top-9 z-20 bg-panel border border-line rounded-xl shadow-lg py-1 w-48">
+          </div>
+        </div>
+      </div>
+      <!-- People filter bar -->
+      <div class="flex flex-wrap gap-2 mb-4">
+        <input id="people-search" type="text" placeholder="Search name or job title…" autocomplete="off"
+          class="bg-panel2 border border-line text-ink text-xs px-3 py-1.5 rounded-lg w-48
+                 focus:outline-none focus:border-accent/60" />
+        <select id="people-filter-dept"
+          class="bg-panel2 border border-line text-ink text-xs px-2 py-1.5 rounded-lg cursor-pointer
+                 focus:outline-none focus:border-accent/60">
+          <option value="">All departments</option>
+        </select>
+        <select id="people-filter-type"
+          class="bg-panel2 border border-line text-ink text-xs px-2 py-1.5 rounded-lg cursor-pointer
+                 focus:outline-none focus:border-accent/60">
+          <option value="">All types</option>
+          <option value="FULL_TIME">Full-time</option>
+          <option value="CONTRACT">Contract</option>
+          <option value="FREELANCE">Freelance</option>
+          <option value="INTERN">Intern</option>
+        </select>
+      </div>
+      <!-- Pagination bar -->
+      <div id="people-pagination" class="hidden flex items-center justify-between gap-3 pb-3 border-b border-line mb-3 flex-wrap gap-y-2">
+        <div class="flex items-center gap-2 text-xs text-muted">
+          <span>Rows per page:</span>
+          <button onclick="setPeoplePageSize(5)"  class="page-size-btn px-2 py-0.5 rounded border border-line hover:border-accent/50 transition-colors cursor-pointer">5</button>
+          <button onclick="setPeoplePageSize(10)" class="page-size-btn px-2 py-0.5 rounded border border-line hover:border-accent/50 transition-colors cursor-pointer">10</button>
+          <input id="people-page-size-custom" type="number" min="1" max="999" placeholder="custom"
+            class="w-20 bg-bg border border-line text-ink px-2 py-0.5 rounded text-xs focus:outline-none focus:border-accent/60"
+            onchange="setPeoplePageSize(+this.value || 10)" />
+        </div>
+        <div class="flex items-center gap-3 text-xs">
+          <span id="people-page-info" class="text-muted"></span>
+          <button onclick="changePeoplePage(-1)" id="people-prev"
+            class="px-2.5 py-1 rounded-lg border border-line text-muted hover:border-accent/50 hover:text-ink transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">← Prev</button>
+          <button onclick="changePeoplePage(1)"  id="people-next"
+            class="px-2.5 py-1 rounded-lg border border-line text-muted hover:border-accent/50 hover:text-ink transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed">Next →</button>
+        </div>
+      </div>
+      <div class="overflow-x-auto -mx-5 px-5">
+        <table class="w-full min-w-[520px] text-sm">
+          <thead>
+            <tr class="border-b border-line">
+              <th class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Name</th>
+              <th data-pcol="role"   class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Job Title</th>
+              <th data-pcol="dept"   class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Dept</th>
+              <th data-pcol="type"   class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Type</th>
+              <th data-pcol="start"  class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Start</th>
+              <th data-pcol="salary" class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Salary</th>
+              <th data-pcol="skills"   class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">
+                Skills
+                <button type="button" id="skill-tip-btn" onclick="showSkillTip(event)"
+                  class="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-muted/20 hover:bg-accent/20 text-muted hover:text-accent text-[9px] font-bold ml-0.5 align-middle cursor-pointer" style="border:none;background:rgba(100,100,100,0.15);padding:0;">?</button>
+              </th>
+              <th data-pcol="software" class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Software</th>
+              <th class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Status</th>
+              <th class="pb-3 px-2"></th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+      <div id="empty" class="hidden text-center text-muted text-sm py-10">
+        No people yet — add one on the left.
+      </div>
+    </div>
+  </div>
+
+  <!-- ── New Joiner modal ──────────────────────────────────────────────── -->
+  <div id="onboard-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+    <div class="bg-panel border border-line rounded-2xl shadow-2xl w-full max-w-lg mx-4 p-6">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-sm font-semibold text-ink">New Joiner</h2>
+        <button onclick="closeOnboardModal()" class="text-muted hover:text-ink text-lg leading-none cursor-pointer">×</button>
+      </div>
+
+      <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Staff record</p>
+      <div class="grid grid-cols-2 gap-2 mb-4">
+        <div class="col-span-2">
+          <label class="form-label" style="margin-top:0">Full name</label>
+          <input id="ob-name" class="form-input" placeholder="e.g. Emily Tan" />
+        </div>
+        <div>
+          <label class="form-label">Job title</label>
+          <select id="ob-role" class="form-input cursor-pointer">
+            <option value="">— select job title —</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Department</label>
+          <select id="ob-dept" class="form-input cursor-pointer">
+            <option value="">— select department —</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Start date</label>
+          <input id="ob-start" type="date" class="form-input" />
+        </div>
+        <div>
+          <label class="form-label">Employment type</label>
+          <select id="ob-emptype" class="form-input cursor-pointer">
+            <option value="FULL_TIME">Full-time</option>
+            <option value="CONTRACT">Contract</option>
+            <option value="FREELANCE">Freelance</option>
+            <option value="INTERN">Intern</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">Company</label>
+          <select id="ob-company" class="form-input cursor-pointer">
+            <option value="">— not set —</option>
+            <option value="LPS">Lorrypop Studio (LPS)</option>
+            <option value="PXL">Popxical Lab (PXL)</option>
+            <option value="GROUP">Group (cross-company)</option>
+          </select>
+        </div>
+      </div>
+
+      <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3 mt-2">System login</p>
+      <div class="grid grid-cols-2 gap-2 mb-5">
+        <div class="col-span-2">
+          <label class="form-label" style="margin-top:0">Work email</label>
+          <input id="ob-email" type="email" class="form-input" placeholder="e.g. emily@pop.studio" />
+        </div>
+        <div>
+          <label class="form-label">Temporary password</label>
+          <input id="ob-pw" type="password" class="form-input" placeholder="Min 6 characters" />
+        </div>
+        <div>
+          <label class="form-label">System role</label>
+          <select id="ob-sysrole" class="form-input cursor-pointer">
+            <option value="STAFF">Staff</option>
+            <option value="PRODUCER">Producer</option>
+            <option value="PM">Project Manager</option>
+            <option value="TEAM_LEAD">Team Lead</option>
+            <option value="SALES">Sales</option>
+            <option value="FINANCE">Finance</option>
+            <option value="ADMIN">Admin</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="ob-msg" class="text-xs mb-3 min-h-[18px]"></div>
+      <div class="flex gap-2">
+        <button onclick="closeOnboardModal()"
+          class="flex-1 py-2 rounded-lg text-sm border border-line text-muted hover:text-ink hover:border-accent/40 transition-all cursor-pointer">
+          Cancel
+        </button>
+        <button onclick="submitOnboard()"
+          class="flex-1 py-2 rounded-lg text-sm bg-accent text-bg font-semibold hover:brightness-110 transition-all cursor-pointer">
+          Create Joiner
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── User Manager modal (admin only) ──────────────────────── -->
+  <div id="user-mgr-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+    <div class="absolute inset-0 bg-bg/80 backdrop-blur-sm" onclick="closeUserManager()"></div>
+    <div class="relative bg-panel border border-line rounded-2xl p-6 w-full max-w-lg mx-4 z-10">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-sm font-semibold text-ink">Manage Users</h2>
+        <button onclick="closeUserManager()" class="text-muted hover:text-ink transition-colors cursor-pointer text-lg leading-none">×</button>
+      </div>
+
+      <div class="overflow-x-auto mb-5">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-line">
+              <th class="text-left pb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Name</th>
+              <th class="text-left pb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Email</th>
+              <th class="text-left pb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Role</th>
+              <th class="pb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted text-center">Active</th>
+              <th class="pb-2 px-3"></th>
+            </tr>
+          </thead>
+          <tbody id="user-list"></tbody>
+        </table>
+      </div>
+
+      <div class="border-t border-line pt-4">
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Add user</p>
+        <!-- Real <form> + autocomplete="new-password" scope this email+password
+             pair away from the rest of the page — without it, browsers detect
+             a login-shaped field pair here and offer to autofill unrelated
+             text inputs elsewhere on the page (e.g. a search box) with a
+             saved email. -->
+        <form autocomplete="off" onsubmit="return false">
+        <div class="grid grid-cols-2 gap-2 mb-2">
+          <input id="new-user-name"  class="form-input text-xs" placeholder="Full name" autocomplete="off" style="margin-top:0" />
+          <input id="new-user-email" class="form-input text-xs" placeholder="Email" autocomplete="off" style="margin-top:0" />
+          <input id="new-user-pw"    class="form-input text-xs" type="password" placeholder="Password (min 6)" autocomplete="new-password" style="margin-top:0" />
+          <select id="new-user-role" class="form-input text-xs cursor-pointer" style="margin-top:0">
+            <option value="STAFF">Staff</option>
+            <option value="PRODUCER">Producer</option>
+            <option value="PM">Project Manager</option>
+            <option value="TEAM_LEAD">Team Lead</option>
+            <option value="SALES">Sales</option>
+            <option value="FINANCE">Finance</option>
+            <option value="ADMIN">Admin</option>
+          </select>
+        </div>
+        <button type="button" onclick="addUser()"
+          class="w-full bg-accent text-bg text-xs font-semibold py-2 rounded-lg
+                 hover:brightness-110 transition-all cursor-pointer mt-1">
+          Add user
+        </button>
+        </form>
+        <div id="user-mgr-msg" class="text-xs mt-2 min-h-[16px]"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Skill rating tip — fixed-position so table overflow can't clip it -->
+  <div id="skill-rating-tip" class="hidden fixed z-[9999] w-64 bg-panel border border-line rounded-xl shadow-xl p-3 pointer-events-none">
+    <p class="text-[11px] font-semibold text-ink mb-2">Skill Rating Scale</p>
+    <div class="space-y-1.5 text-[10px] text-muted">
+      <div class="flex gap-2"><span class="w-3 font-bold text-ink shrink-0">1</span><span><span class="font-semibold text-ink">Awareness</span> — knows the concept, hasn't produced independently</span></div>
+      <div class="flex gap-2"><span class="w-3 font-bold text-ink shrink-0">2</span><span><span class="font-semibold text-yellow-400">Beginner</span> — can attempt with guidance; output needs review</span></div>
+      <div class="flex gap-2"><span class="w-3 font-bold text-ink shrink-0">3</span><span><span class="font-semibold text-accent">Practitioner</span> — delivers solid work independently</span></div>
+      <div class="flex gap-2"><span class="w-3 font-bold text-ink shrink-0">4</span><span><span class="font-semibold text-blue-400">Advanced</span> — handles complex work, mentors others</span></div>
+      <div class="flex gap-2"><span class="w-3 font-bold text-ink shrink-0">5</span><span><span class="font-semibold text-purple-400">Expert</span> — studio authority, sets the standard</span></div>
+    </div>
+  </div>
+  <script>
+    function showSkillTip(e) {
+      e.stopPropagation();
+      const tip = document.getElementById('skill-rating-tip');
+      if (!tip.classList.contains('hidden')) { tip.classList.add('hidden'); return; }
+      const rect = e.currentTarget.getBoundingClientRect();
+      tip.style.top  = (rect.bottom + 6) + 'px';
+      tip.style.left = Math.min(rect.left - 80, window.innerWidth - 270) + 'px';
+      tip.classList.remove('hidden');
+    }
+    document.addEventListener('click', e => {
+      if (!e.target.closest('#skill-tip-btn')) {
+        document.getElementById('skill-rating-tip')?.classList.add('hidden');
+      }
+    });
+  </script>
+
+  <script src="/js/person-profile.js"></script>
+  <script src="/js/people.js"></script>
+  <script>
+    initUserUI();
+    window._reloadCurrentTab = load; // so the company filter buttons reload this page's data
+    loadSkills();
+    load();
+  </script>
+</body>
+</html>

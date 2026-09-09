@@ -1,8 +1,7 @@
 // ══════════════════════════════════════════════════════════════
 // MY WORK — personal dashboard for the logged-in user
-// Depends on: $, esc, msg, coBadge  (index.html)
-//             STAGE_LABEL, STAGE_CLS  (assets.js)
-//             STATUS_LABEL, PRI_CLS, QUADRANT_LABEL  (projects.js)
+// Depends on: $, esc, msg, coBadge, STAGE_LABEL, STAGE_CLS, PRI_CLS  (shared.js)
+//             openPersonProfile  (person-profile.js)
 // ══════════════════════════════════════════════════════════════
 
 // Shared date formatter (short, e.g. "12 Jun")

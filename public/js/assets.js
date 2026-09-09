@@ -1,23 +1,7 @@
 // ══════════════════════════════════════════════════════════════
 // ASSETS
-// Depends on: $, msg, esc, matchesFilter, coBadge  (index.html)
+// Depends on: $, msg, esc, matchesFilter, coBadge, STAGE_LABEL, STAGE_CLS  (shared.js)
 // ══════════════════════════════════════════════════════════════
-
-const STAGE_LABEL = {
-  BRIEF:            'Brief',
-  WIP:              'WIP',
-  INTERNAL_REVIEW:  'Internal Review',
-  REVISION:         'Revision',
-  FINAL_DELIVERY:   'Final Delivery',
-};
-
-const STAGE_CLS = {
-  BRIEF:            'bg-panel2 border-line text-muted',
-  WIP:              'bg-sky-500/15 border-sky-500/30 text-sky-400',
-  INTERNAL_REVIEW:  'bg-yellow-500/15 border-yellow-500/30 text-yellow-400',
-  REVISION:         'bg-warm/15 border-warm/30 text-warm',
-  FINAL_DELIVERY:   'bg-emerald-500/15 border-emerald-500/30 text-emerald-400',
-};
 
 const STAGE_ORDER = ['BRIEF', 'WIP', 'INTERNAL_REVIEW', 'REVISION', 'FINAL_DELIVERY'];
 
@@ -25,7 +9,10 @@ const STAGE_ORDER = ['BRIEF', 'WIP', 'INTERNAL_REVIEW', 'REVISION', 'FINAL_DELIV
 
 let _assetProjects = [];
 let _assetPeople   = [];
-let _assetPendingProjectId = null; // set before switchTab to pre-filter on load
+// Pre-fill the project filter when arriving via a "Manage in Assets" link
+// from the Projects page (assets.html?project=<id>). Read once at load and
+// cleared after use, same as the old same-page switchTab() handoff did.
+let _assetPendingProjectId = new URLSearchParams(location.search).get('project');
 
 async function loadAssetProjects() {
   [_assetProjects, _assetPeople] = await Promise.all([
@@ -64,7 +51,7 @@ async function loadAssetProjects() {
 
 async function loadAssets() {
   // STAFF: hide the add-asset sidebar (they can't create assets)
-  const addPanel = document.querySelector('#tab-assets .lg\\:grid-cols-\\[280px_1fr\\] > .space-y-4');
+  const addPanel = $('add-asset-panel');
   if (addPanel) addPanel.classList.toggle('hidden', isStaff());
 
   if (_assetPendingProjectId) {

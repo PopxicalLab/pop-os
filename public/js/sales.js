@@ -1,24 +1,8 @@
 // ══════════════════════════════════════════════════════════════
 // SALES HUB — pipeline board + add lead
-// Depends on: $, msg, esc, coBadge, matchesFilter  (index.html)
+// Depends on: $, msg, esc, matchesFilter, LEAD_STATUS_LABEL, LEAD_STATUS_CLS  (shared.js)
 // ══════════════════════════════════════════════════════════════
 
-const LEAD_STATUS_LABEL = {
-  QUALIFICATION: 'Qualification',
-  PROPOSAL:      'Proposal',
-  NEGOTIATION:   'Negotiation',
-  WON:           'Won',
-  COMPLETED:     'Completed',
-  LOST:          'Lost',
-};
-const LEAD_STATUS_CLS = {
-  QUALIFICATION: 'bg-sky-500/15 border-sky-500/30 text-sky-400',
-  PROPOSAL:      'bg-yellow-500/15 border-yellow-500/30 text-yellow-400',
-  NEGOTIATION:   'bg-purple-500/15 border-purple-500/30 text-purple-400',
-  WON:           'bg-emerald-500/15 border-emerald-500/30 text-emerald-400',
-  COMPLETED:     'bg-slate-500/15 border-slate-500/30 text-slate-400',
-  LOST:          'bg-warm/15 border-warm/30 text-warm',
-};
 const LEAD_PRI_CLS = {
   VERY_HIGH: 'text-warm font-bold',
   HIGH:      'text-yellow-400 font-semibold',
@@ -358,9 +342,7 @@ async function convertLead(id) {
   const res = await fetch(`/api/leads/${id}/convert`, { method: 'POST' });
   if (res.ok) {
     const project = await res.json();
-    loadSales(); // refresh the board so the card shows "✓ Project created"
-    switchTab('projects');
-    showProjectDetail(project.id); // jump straight to the new project's detail view
+    location.href = '/projects.html?open=' + project.id; // jump straight to the new project's detail view
   } else {
     const e = await res.json().catch(() => ({}));
     msg($('sales-msg'), [].concat(e.message || 'Failed').join(', '), 'err');

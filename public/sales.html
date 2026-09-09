@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pop OS</title>
+  <title>Pop OS — Sales</title>
   <link rel="icon" type="image/png" href="/lps-logo.png" />
 
   <!-- Paint body background immediately to prevent a flash while Tailwind loads. -->
@@ -72,18 +72,13 @@
   </style>
 
   <!-- Shared shell: utilities, theme, auth (incl. the not-logged-in redirect),
-       nav, user menu. Loaded in <head> — safe because shared.js only
-       touches the DOM from inside functions called after this page's own
-       markup exists (initUserUI(), renderHeader(), etc), never at the
-       top level. See shared.js's file header for the full contract. -->
+       nav, user menu. See shared.js's file header for the full contract. -->
   <script src="/js/shared.js"></script>
 </head>
 <body class="bg-bg min-h-screen text-ink antialiased">
 
-  <!-- Header — same nav on every page, built by shared.js's renderHeader()
-       instead of duplicating ~140 lines of markup per page. 'dashboard' here
-       is this page's own tab — it renders as active in the nav. -->
-  <script>document.write(renderHeader('dashboard'));</script>
+  <!-- Header — same nav on every page, built by shared.js's renderHeader(). -->
+  <script>document.write(renderHeader('sales'));</script>
 
   <!-- ── SETTINGS OVERLAY ────────────────────────────────────── -->
   <div id="settings-overlay"
@@ -187,73 +182,99 @@
   </div>
 
   <!-- ════════════════════════════════════════════════════
-       PANEL: DASHBOARD
+       SALES HUB — pipeline board + add lead
   ════════════════════════════════════════════════════ -->
-  <div class="panel" id="tab-dashboard">
-    <div class="max-w-7xl mx-auto px-5 py-6">
+  <div class="max-w-7xl mx-auto px-5 py-6 grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5 items-start">
 
-      <!-- Stats strip -->
-      <div id="dash-stats"
-        class="text-sm px-5 py-3 mb-5 bg-panel border border-line rounded-xl text-muted">
-        Loading…
-      </div>
-
-      <!-- Three-column grid -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-
-        <!-- Active projects -->
-        <div class="bg-panel border border-line rounded-xl p-5">
-          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Active Projects</h2>
-          <div id="dash-active">
-            <div class="text-center text-muted text-sm py-8">Loading…</div>
-          </div>
-        </div>
-
-        <!-- This week's capacity -->
-        <div class="bg-panel border border-line rounded-xl p-5">
-          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">This Week</h2>
-          <div id="dash-week">
-            <div class="text-center text-muted text-sm py-8">Loading…</div>
-          </div>
-        </div>
-
-        <!-- Overdue / alerts -->
-        <div class="bg-panel border border-line rounded-xl p-5">
-          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Overdue / Alerts</h2>
-          <div id="dash-overdue">
-            <div class="text-center text-muted text-sm py-8">Loading…</div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- Payment alerts row (full width, only visible when there are due payments) -->
-      <div id="dash-payments-wrap" class="mt-5">
-        <div class="bg-panel border border-line rounded-xl p-5">
-          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">
-            Payment Alerts <span class="text-warm">· Due within 10 days</span>
-          </h2>
-          <div id="dash-payments">
-            <div class="text-center text-muted text-sm py-8">Loading…</div>
-          </div>
-        </div>
-      </div>
-
+    <!-- Left: add lead form -->
+    <div class="bg-panel border border-line rounded-xl p-5">
+      <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-4">Add a lead</h2>
+      <label class="form-label" style="margin-top:0">Lead name</label>
+      <input id="lead-name" class="form-input" placeholder="e.g. Petronas Brand Film" />
+      <label class="form-label">Account</label>
+      <select id="lead-account" class="form-input cursor-pointer"><option value="">— no account —</option></select>
+      <label class="form-label">Status</label>
+      <select id="lead-status" class="form-input cursor-pointer">
+        <option value="QUALIFICATION">Qualification</option>
+        <option value="PROPOSAL">Proposal</option>
+        <option value="NEGOTIATION">Negotiation</option>
+        <option value="WON">Won</option>
+        <option value="LOST">Lost</option>
+      </select>
+      <label class="form-label">Priority</label>
+      <select id="lead-priority" class="form-input cursor-pointer">
+        <option value="VERY_HIGH">Very high</option>
+        <option value="HIGH">High</option>
+        <option value="MEDIUM" selected>Medium</option>
+        <option value="LOW">Low</option>
+      </select>
+      <label class="form-label">Est. value (RM)</label>
+      <input id="lead-value" type="number" min="0" step="1000" class="form-input" placeholder="e.g. 50000" />
+      <label class="form-label">Closed by</label>
+      <select id="lead-closed-by" class="form-input cursor-pointer"><option value="">— unassigned —</option></select>
+      <label class="form-label">Company</label>
+      <select id="lead-company" class="form-input cursor-pointer">
+        <option value="">— not set —</option>
+        <option value="LPS">LPS</option>
+        <option value="PXL">PXL</option>
+      </select>
+      <button id="lead-add"
+        class="mt-4 w-full bg-accent text-bg font-semibold py-2.5 rounded-lg text-sm
+               hover:brightness-110 transition-all duration-150 cursor-pointer">
+        Add lead
+      </button>
+      <div id="sales-msg" class="text-xs mt-2 min-h-[18px]"></div>
     </div>
+
+    <!-- Right: pipeline board -->
+    <div class="bg-panel border border-line rounded-xl p-5">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">Pipeline</h2>
+        <div id="sales-stats" class="text-xs text-muted"></div>
+      </div>
+      <input id="sales-search" type="text" placeholder="Search leads or accounts…" autocomplete="off"
+        class="w-full bg-panel2 border border-line text-ink text-xs px-3 py-1.5 rounded-lg mb-3
+               focus:outline-none focus:border-accent/60" />
+      <div id="sales-board">
+        <div class="text-center text-muted text-sm py-10">Loading…</div>
+      </div>
+    </div>
+
   </div>
 
-  <!-- My Work moved to its own page — see /mywork.html -->
-  <!-- People moved to its own page — see /people.html -->
-
-  <!-- Sales moved to its own page — see /sales.html -->
-  <!-- Clients moved to its own page — see /clients.html -->
-  <!-- Sales Performance moved to its own page — see /sp.html -->
-  <!-- Change Requests moved to its own page — see /cr.html -->
-  <!-- Financial moved to its own page — see /financial.html -->
-
-  <!-- Staffing moved to its own page — see /staffing.html -->
-
-  <!-- Committees moved to its own page — see /committees.html -->
+  <!-- ── Autocount: push-to-quotation modal ───────────────────── -->
+  <div id="quote-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
+    <div class="bg-panel border border-line rounded-2xl w-full max-w-sm mx-4 p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-ink">Push to Autocount</h2>
+        <button onclick="closeQuoteModal()" class="text-muted hover:text-ink text-lg leading-none">×</button>
+      </div>
+      <p class="text-xs text-muted">
+        Creating a quotation for: <span id="quote-modal-title" class="text-ink font-medium"></span>
+      </p>
+      <input type="hidden" id="quote-modal-lead-id" />
+      <div>
+        <label class="form-label">Autocount Debtor</label>
+        <select id="quote-debtor-sel" class="form-input text-sm">
+          <option value="">— loading debtors —</option>
+        </select>
+        <p class="text-[11px] text-muted mt-1">Select the client company in Autocount. Once pushed, the selection is saved for future quotes.</p>
+      </div>
+      <div id="quote-modal-msg" class="text-xs min-h-[16px]"></div>
+      <div class="flex gap-2 pt-1">
+        <button id="quote-submit-btn" onclick="submitQuote()"
+          class="flex-1 bg-sky-500/15 border border-sky-500/30 text-sky-400 text-sm py-2 rounded-xl
+                 hover:bg-sky-500/25 transition-colors cursor-pointer font-semibold">
+          Create Quotation
+        </button>
+        <button onclick="closeQuoteModal()"
+          class="flex-1 bg-panel2 border border-line text-muted text-sm py-2 rounded-xl
+                 hover:text-ink transition-colors cursor-pointer">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- ── User Manager modal (admin only) ──────────────────────── -->
   <div id="user-mgr-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center">
@@ -312,19 +333,11 @@
     </div>
   </div>
 
-  <!-- Quote modal (Autocount push-to-quotation) moved to /sales.html — Sales-only. -->
-
-  <!-- Admin moved to its own page — see /admin.html -->
-
-  <!-- ── Module scripts: one file per tab ─────────────────────── -->
-  <!-- Projects, Capacity, Assets, Production, People, My Work, Admin moved to their own pages —
-       see /projects.html, /capacity.html, /assets.html, /production.html, /people.html, /mywork.html, /admin.html -->
-  <script src="/js/dashboard.js"></script>
-
-  <!-- Boot: initialise user UI, then load default tab data -->
+  <script src="/js/sales.js"></script>
   <script>
     initUserUI();
-    loadDashboard();
+    window._reloadCurrentTab = loadSales; // so the company filter buttons reload this page's data
+    initSalesTab().then(loadSales);
   </script>
 </body>
 </html>

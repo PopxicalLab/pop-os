@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pop OS</title>
+  <title>Pop OS — Committees</title>
   <link rel="icon" type="image/png" href="/lps-logo.png" />
 
   <!-- Paint body background immediately to prevent a flash while Tailwind loads. -->
@@ -72,18 +72,13 @@
   </style>
 
   <!-- Shared shell: utilities, theme, auth (incl. the not-logged-in redirect),
-       nav, user menu. Loaded in <head> — safe because shared.js only
-       touches the DOM from inside functions called after this page's own
-       markup exists (initUserUI(), renderHeader(), etc), never at the
-       top level. See shared.js's file header for the full contract. -->
+       nav, user menu. See shared.js's file header for the full contract. -->
   <script src="/js/shared.js"></script>
 </head>
 <body class="bg-bg min-h-screen text-ink antialiased">
 
-  <!-- Header — same nav on every page, built by shared.js's renderHeader()
-       instead of duplicating ~140 lines of markup per page. 'dashboard' here
-       is this page's own tab — it renders as active in the nav. -->
-  <script>document.write(renderHeader('dashboard'));</script>
+  <!-- Header — same nav on every page, built by shared.js's renderHeader(). -->
+  <script>document.write(renderHeader('committees'));</script>
 
   <!-- ── SETTINGS OVERLAY ────────────────────────────────────── -->
   <div id="settings-overlay"
@@ -187,73 +182,51 @@
   </div>
 
   <!-- ════════════════════════════════════════════════════
-       PANEL: DASHBOARD
+       COMMITTEES — HR module
   ════════════════════════════════════════════════════ -->
-  <div class="panel" id="tab-dashboard">
-    <div class="max-w-7xl mx-auto px-5 py-6">
+  <div class="max-w-7xl mx-auto px-5 py-6">
 
-      <!-- Stats strip -->
-      <div id="dash-stats"
-        class="text-sm px-5 py-3 mb-5 bg-panel border border-line rounded-xl text-muted">
-        Loading…
+    <!-- Stats strip -->
+    <div id="cmte-stats"
+      class="text-sm px-5 py-3 mb-5 bg-panel border border-line rounded-xl text-muted">
+      Loading…
+    </div>
+
+    <!-- Two-column layout: list on left, detail on right -->
+    <div class="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5 items-start">
+
+      <!-- Left: committee list + create -->
+      <div>
+        <div class="bg-panel border border-line rounded-xl p-4 mb-4">
+          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Committees</h2>
+          <div id="cmte-list" class="space-y-1.5">
+            <div class="text-xs text-muted">Loading…</div>
+          </div>
+        </div>
+
+        <!-- Create new committee (admin only) -->
+        <div id="cmte-create-panel" class="bg-panel border border-line rounded-xl p-4">
+          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">New Committee</h2>
+          <input id="cmte-new-name" class="form-input text-xs" placeholder="Name, e.g. Health &amp; Safety" />
+          <input id="cmte-new-purpose" class="form-input text-xs" placeholder="Purpose (optional)" />
+          <button onclick="createCommittee()"
+            class="w-full bg-accent text-bg text-xs font-semibold py-2 rounded-lg
+                   hover:brightness-110 transition-all cursor-pointer mt-1">
+            Create
+          </button>
+          <div id="cmte-create-msg" class="text-xs mt-1 min-h-[16px]"></div>
+        </div>
       </div>
 
-      <!-- Three-column grid -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-
-        <!-- Active projects -->
-        <div class="bg-panel border border-line rounded-xl p-5">
-          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Active Projects</h2>
-          <div id="dash-active">
-            <div class="text-center text-muted text-sm py-8">Loading…</div>
-          </div>
-        </div>
-
-        <!-- This week's capacity -->
-        <div class="bg-panel border border-line rounded-xl p-5">
-          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">This Week</h2>
-          <div id="dash-week">
-            <div class="text-center text-muted text-sm py-8">Loading…</div>
-          </div>
-        </div>
-
-        <!-- Overdue / alerts -->
-        <div class="bg-panel border border-line rounded-xl p-5">
-          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Overdue / Alerts</h2>
-          <div id="dash-overdue">
-            <div class="text-center text-muted text-sm py-8">Loading…</div>
-          </div>
-        </div>
-
-      </div>
-
-      <!-- Payment alerts row (full width, only visible when there are due payments) -->
-      <div id="dash-payments-wrap" class="mt-5">
-        <div class="bg-panel border border-line rounded-xl p-5">
-          <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">
-            Payment Alerts <span class="text-warm">· Due within 10 days</span>
-          </h2>
-          <div id="dash-payments">
-            <div class="text-center text-muted text-sm py-8">Loading…</div>
-          </div>
+      <!-- Right: committee detail (rendered by committees.js) -->
+      <div id="cmte-detail">
+        <div class="bg-panel border border-line rounded-xl p-10 text-center text-muted text-sm">
+          Select a committee to view details.
         </div>
       </div>
 
     </div>
   </div>
-
-  <!-- My Work moved to its own page — see /mywork.html -->
-  <!-- People moved to its own page — see /people.html -->
-
-  <!-- Sales moved to its own page — see /sales.html -->
-  <!-- Clients moved to its own page — see /clients.html -->
-  <!-- Sales Performance moved to its own page — see /sp.html -->
-  <!-- Change Requests moved to its own page — see /cr.html -->
-  <!-- Financial moved to its own page — see /financial.html -->
-
-  <!-- Staffing moved to its own page — see /staffing.html -->
-
-  <!-- Committees moved to its own page — see /committees.html -->
 
   <!-- ── User Manager modal (admin only) ──────────────────────── -->
   <div id="user-mgr-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center">
@@ -312,19 +285,11 @@
     </div>
   </div>
 
-  <!-- Quote modal (Autocount push-to-quotation) moved to /sales.html — Sales-only. -->
-
-  <!-- Admin moved to its own page — see /admin.html -->
-
-  <!-- ── Module scripts: one file per tab ─────────────────────── -->
-  <!-- Projects, Capacity, Assets, Production, People, My Work, Admin moved to their own pages —
-       see /projects.html, /capacity.html, /assets.html, /production.html, /people.html, /mywork.html, /admin.html -->
-  <script src="/js/dashboard.js"></script>
-
-  <!-- Boot: initialise user UI, then load default tab data -->
+  <script src="/js/committees.js"></script>
   <script>
     initUserUI();
-    loadDashboard();
+    window._reloadCurrentTab = loadCommittees; // so the company filter buttons reload this page's data
+    loadCommittees();
   </script>
 </body>
 </html>

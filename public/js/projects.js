@@ -1,8 +1,11 @@
 // ══════════════════════════════════════════════════════════════
 // PROJECTS
-// Depends on: $, msg, esc  (index.html shared script)
-//             PEOPLE       (people.js — populated before Projects tab is used)
+// Depends on: $, msg, esc, STAGE_LABEL, STAGE_CLS  (shared.js)
+// Fetches its own People list (_peopleCache) rather than relying on
+// people.js's PEOPLE global — this tab is its own page (projects.html).
 // ══════════════════════════════════════════════════════════════
+
+let _peopleCache = []; // used for Producer/PM pickers — populated in loadProjects()
 
 // ── display helpers ──────────────────────────────────────────
 
@@ -19,27 +22,9 @@ function fmtValue(v) {
   return 'RM ' + Number(v).toLocaleString('en-MY', { maximumFractionDigits: 0 });
 }
 
-const CLIENT_TIER_LABEL = { NEW: 'New', RETURNING: 'Returning', KEY_ACCOUNT: 'Key acct' };
-
-const QUADRANT_LABEL = {
-  GOLD: 'Gold', STRATEGIC_BET: 'Strategic Bet',
-  OPERATIONAL_FILLER: 'Op. Filler', DRAIN: 'Drain',
-};
-const QUADRANT_CLS = {
-  GOLD:               'bg-yellow-500/15 text-yellow-400',
-  STRATEGIC_BET:      'bg-emerald-500/15 text-emerald-400',
-  OPERATIONAL_FILLER: 'bg-sky-500/15 text-sky-400',
-  DRAIN:              'bg-warm/15 text-warm',
-};
-const STATUS_LABEL = {
-  BRIEF: 'Brief', IN_PROGRESS: 'In progress', INTERNAL_REVIEW: 'Internal review',
-  DELIVERED: 'Delivered', ON_HOLD: 'On hold', CANCELLED: 'Cancelled',
-};
-const PRI_CLS = {
-  P1: 'font-bold text-warm',
-  P2: 'font-semibold text-accent',
-  P3: 'font-medium text-muted',
-};
+// CLIENT_TIER_LABEL, QUADRANT_LABEL, QUADRANT_CLS, STATUS_LABEL, PRI_CLS
+// moved to shared.js — 11 files across the app read them, so they need to
+// be available on every page, not just wherever projects.js happens to load.
 
 // ── column visibility ────────────────────────────────────────
 
@@ -377,7 +362,7 @@ async function showProjectDetail(id) {
 
   const peopleOpts = (selected) =>
     `<option value="">— none —</option>` +
-    (typeof PEOPLE !== 'undefined' ? PEOPLE : [])
+    _peopleCache
       .map(pe => `<option value="${pe.id}"${pe.id === selected ? ' selected' : ''}>${esc(pe.name)}</option>`)
       .join('');
 
@@ -469,8 +454,8 @@ async function showProjectDetail(id) {
     <div class="mt-5 pb-5 border-b border-line">
       <div class="flex items-center justify-between mb-2">
         <p class="text-[11px] font-semibold uppercase tracking-widest text-muted">Assets</p>
-        <button onclick="_assetPendingProjectId='${p.id}'; switchTab('assets');"
-          class="text-[11px] text-accent hover:underline cursor-pointer">Manage in Assets tab →</button>
+        <a href="/assets.html?project=${p.id}"
+          class="text-[11px] text-accent hover:underline cursor-pointer">Manage in Assets tab →</a>
       </div>
       <div id="proj-assets-${p.id}" class="text-xs text-muted">Loading…</div>
     </div>
@@ -478,8 +463,8 @@ async function showProjectDetail(id) {
     <div class="mt-5 pb-5 border-b border-line">
       <div class="flex items-center justify-between mb-2">
         <p class="text-[11px] font-semibold uppercase tracking-widest text-muted">Capacity</p>
-        <button onclick="_capPendingProjectName='${esc(p.name)}'; switchTab('capacity');"
-          class="text-[11px] text-accent hover:underline cursor-pointer">Manage in Capacity tab →</button>
+        <a href="/capacity.html?project=${encodeURIComponent(p.name)}"
+          class="text-[11px] text-accent hover:underline cursor-pointer">Manage in Capacity tab →</a>
       </div>
       <div id="proj-capacity-${p.id}" class="text-xs text-muted">Loading…</div>
     </div>
@@ -1070,7 +1055,7 @@ async function loadStaffSuggestions(projectId) {
       if (res.ok) {
         if (msgEl) {
           const projName = el.dataset.projName || '';
-          msgEl.innerHTML = `✓ Allocated — <button onclick="_capPendingProjectName=${JSON.stringify(projName)}; switchTab('capacity');" class="underline cursor-pointer hover:text-emerald-300 transition-colors">View in Capacity tab →</button>`;
+          msgEl.innerHTML = `✓ Allocated — <a href="/capacity.html?project=${encodeURIComponent(projName)}" class="underline cursor-pointer hover:text-emerald-300 transition-colors">View in Capacity tab →</a>`;
           msgEl.className = 'mt-1.5 text-[11px] text-emerald-400 font-semibold';
         }
         loadProjectCapacity(projectId); // refresh capacity section immediately
@@ -1260,7 +1245,7 @@ let _allProjects = []; // full cache — filters apply client-side
 
 async function loadProjects() {
   // STAFF are read-only — hide the add-project sidebar and Remove column
-  const addSidebar = document.querySelector('#tab-projects > div > .space-y-4:first-child > .bg-panel:first-child');
+  const addSidebar = $('add-project-panel');
   if (addSidebar) addSidebar.classList.toggle('hidden', isStaff());
 
   _allProjects = await (await fetch('/api/projects')).json();
@@ -1278,6 +1263,19 @@ async function loadProjects() {
       .join('');
   }
 
+  // Own People fetch — self-contained rather than relying on People tab's
+  // PEOPLE global, now that Projects is its own page (same pattern
+  // Capacity/Assets use). Feeds both the Add-a-project form and the detail
+  // view's Producer/PM pickers (peopleOpts(), below).
+  _peopleCache = await fetch('/api/people').then(r => r.json()).catch(() => []);
+  const prodPick = $('p-producer'), pmPick = $('p-pm');
+  if (prodPick || pmPick) {
+    const opts = '<option value="">— none —</option>' +
+      _peopleCache.map(p => `<option value="${p.id}">${esc(p.name)} (${esc(p.role)})</option>`).join('');
+    if (prodPick) prodPick.innerHTML = opts;
+    if (pmPick)   pmPick.innerHTML   = opts;
+  }
+
   // Populate the producer filter dropdown from the loaded data.
   const prodSel = $('p-filter-producer');
   if (prodSel) {
@@ -1289,7 +1287,19 @@ async function loadProjects() {
   }
 
   renderProjects();
+
+  // Jump straight to a project's detail view when arriving via a "view
+  // project" link from another page (projects.html?open=<id>) — e.g. from
+  // Dashboard, Capacity, or after converting a Sales lead. Consumed once so
+  // it doesn't re-trigger if loadProjects() runs again (company filter, etc).
+  if (_pendingOpenId) {
+    const id = _pendingOpenId;
+    _pendingOpenId = null;
+    showProjectDetail(id);
+  }
 }
+
+let _pendingOpenId = new URLSearchParams(location.search).get('open');
 
 function renderProjects() {
   const search   = ($('p-search')?.value   || '').toLowerCase();

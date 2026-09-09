@@ -1,6 +1,6 @@
 // ══════════════════════════════════════════════════════════════
 // ADMIN — Audit Log viewer
-// Depends on: $, msg, esc  (index.html)
+// Depends on: $, msg, esc  (shared.js)
 // ══════════════════════════════════════════════════════════════
 
 const ACTION_CLS = {

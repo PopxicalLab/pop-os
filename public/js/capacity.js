@@ -1,6 +1,6 @@
 // ══════════════════════════════════════════════════════════════
 // CAPACITY BOARD
-// Depends on: $, msg, esc  (index.html shared script)
+// Depends on: $, msg, esc  (shared.js)
 // ══════════════════════════════════════════════════════════════
 
 // Snap any Date to the Monday of its ISO week at UTC midnight.
@@ -34,8 +34,8 @@ function shiftWeek(delta) {
 }
 
 async function loadCapacityBoard() {
-  // STAFF: hide the add-allocation sidebar and remove buttons (read-only view)
-  const addPanel = document.querySelector('#tab-capacity .lg\\:grid-cols-\\[280px_1fr\\] > .space-y-4');
+  // STAFF: hide the add-allocation form and remove buttons (read-only view)
+  const addPanel = $('add-allocation-panel');
   if (addPanel) addPanel.classList.toggle('hidden', isStaff());
 
   $('cap-week-label').textContent = fmtWeekRange(_capWeek);
@@ -93,7 +93,10 @@ async function loadCapacityBoard() {
 }
 
 let _capAllEntries = []; // full cache — filters apply client-side
-let _capPendingProjectName = null; // set before switchTab('capacity') to pre-filter by project
+// Pre-fill the project filter when arriving via a "View in Capacity" link
+// from the Projects page (capacity.html?project=<name>). Read once at load
+// and cleared after use, same as the old same-page switchTab() handoff did.
+let _capPendingProjectName = new URLSearchParams(location.search).get('project');
 
 function renderCapacityBoard(entries) {
   if (entries) _capAllEntries = entries; // refresh cache when called from loadCapacityBoard
@@ -170,7 +173,7 @@ function renderCapacityBoard(entries) {
       html += `<tr class="border-b border-line/40 hover:bg-panel2/30 transition-colors">
         <td class="py-2.5 px-2"></td>
         <td class="py-2.5 px-2 text-ink">
-          <span class="cursor-pointer hover:text-accent transition-colors" onclick="switchTab('projects'); showProjectDetail('${e.project.id}')">${esc(e.project.name)}</span>${coBadge(e.project.company)}${weekendBadge}
+          <a href="/projects.html?open=${e.project.id}" class="hover:text-accent transition-colors">${esc(e.project.name)}</a>${coBadge(e.project.company)}${weekendBadge}
         </td>
         <td class="py-2.5 px-2"><span class="text-xs ${roleCls}">${roleLabel}</span></td>
         <td class="py-2.5 px-2 text-right text-muted text-xs">${e.pctWeek}%</td>
