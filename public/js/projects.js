@@ -1455,18 +1455,58 @@ $('p-add').addEventListener('click', addProject);
 // ── Timeline (Gantt) view ─────────────────────────────────────
 
 let _tlProjects = [];   // cached from last loadProjects call
-let _tlOffset   = -4;   // weeks offset from today's Monday (show from 4 weeks ago)
-const TL_WEEKS  = 16;   // number of weeks visible at once
+// 'week' (default) or 'month' — which unit each timeline column represents.
+let _tlZoom     = localStorage.getItem('pop-os-tl-zoom') === 'month' ? 'month' : 'week';
+// units (weeks or months, per _tlZoom) from today's unit start
+let _tlOffset   = _tlZoom === 'month' ? -2 : -4;
 const TL_NAME_W = 180;  // px width of project name column
-const TL_WEEK_W = 38;   // px width per week column
+// Per-zoom column count/width/pan-step — month columns are wider (need room
+// for a month+year label) and fewer are shown at once (12 ≈ a year of runway,
+// vs. 16 weeks ≈ a quarter) since the point of Month zoom is a longer-range
+// overview, not day-level scheduling precision.
+const TL_CONFIG = {
+  week:  { units: 16, colW: 38, shiftStep: 4 },
+  month: { units: 12, colW: 70, shiftStep: 3 },
+};
 
-// Returns the Monday of the current week (UTC midnight)
-function _tlMonday(offset = 0) {
+// Returns the start (UTC midnight) of the timeline unit `offset` units from
+// today's unit — the Monday of that week, or the 1st of that month.
+function _tlUnitStart(offset = 0) {
+  if (_tlZoom === 'month') {
+    const d = new Date();
+    d.setUTCHours(0, 0, 0, 0);
+    d.setUTCDate(1);
+    d.setUTCMonth(d.getUTCMonth() + offset);
+    return d;
+  }
   const d = new Date();
   const day = d.getUTCDay();
   d.setUTCDate(d.getUTCDate() + (day === 0 ? -6 : 1 - day) + offset * 7);
   d.setUTCHours(0, 0, 0, 0);
   return d;
+}
+
+// Continuous (fractional) offset of `date` from `startUnit`, measured in
+// timeline units. Week zoom: exact — a week is always 7 fixed days. Month
+// zoom: months vary in length, so this interpolates by day-within-month
+// rather than snapping to whole months — good enough for an overview, per
+// the explicit "loses day-level precision" tradeoff on this zoomed-out view.
+function _tlDateOffset(date, startUnit) {
+  if (_tlZoom === 'month') {
+    const wholeMonths = (date.getUTCFullYear() - startUnit.getUTCFullYear()) * 12
+                       + (date.getUTCMonth() - startUnit.getUTCMonth());
+    const daysInMonth = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
+    return wholeMonths + (date.getUTCDate() - 1) / daysInMonth;
+  }
+  return Math.round((date.getTime() - startUnit.getTime()) / (7 * 86_400_000));
+}
+
+function setTimelineZoom(zoom) {
+  if (zoom === _tlZoom) return;
+  _tlZoom = zoom;
+  localStorage.setItem('pop-os-tl-zoom', zoom);
+  _tlOffset = zoom === 'month' ? -2 : -4; // sensible default starting window per granularity
+  renderTimeline();
 }
 
 function switchProjView(view) {
@@ -1714,7 +1754,7 @@ function renderKanbanCard(p, col) {
 }
 
 function shiftTimeline(dir) {
-  _tlOffset += dir * 4;
+  _tlOffset += dir * TL_CONFIG[_tlZoom].shiftStep;
   renderTimeline();
 }
 
@@ -1722,6 +1762,15 @@ function renderTimeline() {
   const canvas = document.getElementById('tl-canvas');
   const label  = document.getElementById('tl-label');
   if (!canvas) return;
+
+  const weekBtn  = document.getElementById('tl-zoom-week');
+  const monthBtn = document.getElementById('tl-zoom-month');
+  if (weekBtn && monthBtn) {
+    const on  = 'bg-accent text-bg font-semibold';
+    const off = 'text-muted hover:text-ink';
+    weekBtn.className  = 'px-2.5 py-1 rounded-md cursor-pointer transition-colors ' + (_tlZoom === 'week'  ? on : off);
+    monthBtn.className = 'px-2.5 py-1 rounded-md cursor-pointer transition-colors ' + (_tlZoom === 'month' ? on : off);
+  }
 
   try {
     renderTimelineInner(canvas, label);
@@ -1735,16 +1784,19 @@ function renderTimeline() {
 }
 
 function renderTimelineInner(canvas, label) {
-  const startMonday = _tlMonday(_tlOffset);
-  const endMonday   = _tlMonday(_tlOffset + TL_WEEKS);
+  const { units: TL_UNITS, colW: TL_COL_W } = TL_CONFIG[_tlZoom];
+  const startUnit = _tlUnitStart(_tlOffset);
+  const endUnit   = _tlUnitStart(_tlOffset + TL_UNITS);
 
   // Update header label
-  const fmt = d => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
-  if (label) label.textContent = `${fmt(startMonday)} – ${fmt(endMonday)}`;
+  const fmt = _tlZoom === 'month'
+    ? (d => d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' }))
+    : (d => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }));
+  if (label) label.textContent = `${fmt(startUnit)} – ${fmt(endUnit)}`;
 
   const activeProjects = _tlProjects.filter(p =>
     !['DELIVERED', 'CANCELLED'].includes(p.status) ||
-    (p.deadline && new Date(p.deadline) >= startMonday)
+    (p.deadline && new Date(p.deadline) >= startUnit)
   );
 
   if (!activeProjects.length) {
@@ -1752,36 +1804,41 @@ function renderTimelineInner(canvas, label) {
     return;
   }
 
-  const totalW = TL_NAME_W + TL_WEEKS * TL_WEEK_W;
+  const totalW = TL_NAME_W + TL_UNITS * TL_COL_W;
   const rowH   = 32;
   const headH  = 28;
   const totalH = headH + activeProjects.length * rowH;
 
-  // Week header labels
-  const weekHeaders = Array.from({ length: TL_WEEKS }, (_, i) => {
-    const d = _tlMonday(_tlOffset + i);
-    const x = TL_NAME_W + i * TL_WEEK_W;
-    const isToday = i === -_tlOffset; // the current week
-    const monthLabel = d.getUTCDate() <= 7
-      ? d.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' })
-      : '';
+  // Column header labels — week zoom: day number, with the month name once
+  // per month (on its first visible week). Month zoom: "Mon 'YY" per column,
+  // since there's no day-level detail left to show at this zoom.
+  const colHeaders = Array.from({ length: TL_UNITS }, (_, i) => {
+    const d = _tlUnitStart(_tlOffset + i);
+    const x = TL_NAME_W + i * TL_COL_W;
+    const isToday = i === -_tlOffset; // the current week/month
+    const topLabel = _tlZoom === 'month'
+      ? d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit', timeZone: 'UTC' })
+      : d.getUTCDate();
+    const subLabel = _tlZoom === 'month'
+      ? ''
+      : (d.getUTCDate() <= 7 ? d.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' }) : '');
     return `
-      <rect x="${x}" y="0" width="${TL_WEEK_W}" height="${headH}"
+      <rect x="${x}" y="0" width="${TL_COL_W}" height="${headH}"
         fill="${isToday ? 'rgba(99,179,162,0.08)' : 'transparent'}"/>
-      <text x="${x + TL_WEEK_W / 2}" y="11" text-anchor="middle"
-        font-size="9" fill="${isToday ? '#63b3a2' : '#6b7280'}">${d.getUTCDate()}</text>
-      ${monthLabel ? `<text x="${x + TL_WEEK_W / 2}" y="22" text-anchor="middle" font-size="8" fill="#4b5563">${monthLabel}</text>` : ''}`;
+      <text x="${x + TL_COL_W / 2}" y="${subLabel ? 11 : 17}" text-anchor="middle"
+        font-size="9" fill="${isToday ? '#63b3a2' : '#6b7280'}">${topLabel}</text>
+      ${subLabel ? `<text x="${x + TL_COL_W / 2}" y="22" text-anchor="middle" font-size="8" fill="#4b5563">${subLabel}</text>` : ''}`;
   }).join('');
 
   // Grid lines
-  const gridLines = Array.from({ length: TL_WEEKS + 1 }, (_, i) => {
-    const x = TL_NAME_W + i * TL_WEEK_W;
+  const gridLines = Array.from({ length: TL_UNITS + 1 }, (_, i) => {
+    const x = TL_NAME_W + i * TL_COL_W;
     return `<line x1="${x}" y1="${headH}" x2="${x}" y2="${totalH}" stroke="#2d3748" stroke-width="1"/>`;
   }).join('');
 
   // "Today" highlight column
-  const todayX = TL_NAME_W + (-_tlOffset) * TL_WEEK_W;
-  const todayCol = `<rect x="${todayX}" y="${headH}" width="${TL_WEEK_W}" height="${totalH - headH}"
+  const todayX = TL_NAME_W + (-_tlOffset) * TL_COL_W;
+  const todayCol = `<rect x="${todayX}" y="${headH}" width="${TL_COL_W}" height="${totalH - headH}"
     fill="rgba(99,179,162,0.05)"/>`;
 
   // Project rows
@@ -1806,25 +1863,25 @@ function renderTimelineInner(canvas, label) {
 
     let barSvg = '';
     if (pEnd) {
-      // Convert dates to week-column offsets
-      const startOff = Math.round((pStart.getTime() - startMonday.getTime()) / (7 * 86_400_000));
-      const endOff   = Math.round((pEnd.getTime()   - startMonday.getTime()) / (7 * 86_400_000));
+      // Convert dates to column offsets (fractional for month zoom, whole-week for week zoom)
+      const startOff = _tlDateOffset(pStart, startUnit);
+      const endOff   = _tlDateOffset(pEnd,   startUnit);
 
       const clampedStart = Math.max(0, startOff);
-      const clampedEnd   = Math.min(TL_WEEKS, endOff);
+      const clampedEnd   = Math.min(TL_UNITS, endOff);
 
       if (clampedEnd > clampedStart) {
-        const bx = TL_NAME_W + clampedStart * TL_WEEK_W + 2;
-        const bw = (clampedEnd - clampedStart) * TL_WEEK_W - 4;
+        const bx = TL_NAME_W + clampedStart * TL_COL_W + 2;
+        const bw = (clampedEnd - clampedStart) * TL_COL_W - 4;
         barSvg = `<rect x="${bx}" y="${y + 8}" width="${bw}" height="${rowH - 16}"
           rx="3" fill="${barColor}" opacity="0.75"/>`;
       }
     } else {
       // No deadline — show a thin line from start extending to the right edge
-      const startOff = Math.round((pStart.getTime() - startMonday.getTime()) / (7 * 86_400_000));
-      const clamped  = Math.max(0, Math.min(TL_WEEKS, startOff));
-      const bx = TL_NAME_W + clamped * TL_WEEK_W + 2;
-      const bw = (TL_NAME_W + TL_WEEKS * TL_WEEK_W) - bx - 2;
+      const startOff = _tlDateOffset(pStart, startUnit);
+      const clamped  = Math.max(0, Math.min(TL_UNITS, startOff));
+      const bx = TL_NAME_W + clamped * TL_COL_W + 2;
+      const bw = (TL_NAME_W + TL_UNITS * TL_COL_W) - bx - 2;
       barSvg = `<rect x="${bx}" y="${y + 12}" width="${bw}" height="${rowH - 24}"
         rx="3" fill="${barColor}" opacity="0.4" stroke-dasharray="4 2"/>`;
     }
@@ -1848,9 +1905,9 @@ function renderTimelineInner(canvas, label) {
       <!-- Header -->
       <rect x="0" y="0" width="${totalW}" height="${headH}" fill="rgba(0,0,0,0.2)"/>
       <line x1="0" y1="${headH}" x2="${totalW}" y2="${headH}" stroke="#2d3748" stroke-width="1"/>
-      ${weekHeaders}
+      ${colHeaders}
       <!-- Today highlight -->
-      ${_tlOffset <= 0 && -_tlOffset < TL_WEEKS ? todayCol : ''}
+      ${_tlOffset <= 0 && -_tlOffset < TL_UNITS ? todayCol : ''}
       <!-- Grid -->
       ${gridLines}
       <!-- Rows -->

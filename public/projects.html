@@ -403,10 +403,18 @@
     <div id="p-timeline-view" class="hidden bg-panel border border-line rounded-xl p-5">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">Project Timeline</h2>
-        <div class="flex gap-2 items-center">
-          <button onclick="shiftTimeline(-1)" class="text-muted hover:text-ink text-lg cursor-pointer leading-none">‹</button>
-          <span id="tl-label" class="text-xs text-muted w-28 text-center"></span>
-          <button onclick="shiftTimeline(1)"  class="text-muted hover:text-ink text-lg cursor-pointer leading-none">›</button>
+        <div class="flex gap-3 items-center">
+          <div class="flex items-center bg-panel2 border border-line rounded-lg p-0.5 text-xs">
+            <button id="tl-zoom-week" onclick="setTimelineZoom('week')"
+              class="px-2.5 py-1 rounded-md cursor-pointer transition-colors">Week</button>
+            <button id="tl-zoom-month" onclick="setTimelineZoom('month')"
+              class="px-2.5 py-1 rounded-md cursor-pointer transition-colors">Month</button>
+          </div>
+          <div class="flex gap-2 items-center">
+            <button onclick="shiftTimeline(-1)" class="text-muted hover:text-ink text-lg cursor-pointer leading-none">‹</button>
+            <span id="tl-label" class="text-xs text-muted w-32 text-center"></span>
+            <button onclick="shiftTimeline(1)"  class="text-muted hover:text-ink text-lg cursor-pointer leading-none">›</button>
+          </div>
         </div>
       </div>
       <div id="tl-canvas" class="overflow-x-auto"></div>
