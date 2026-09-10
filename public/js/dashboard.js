@@ -216,4 +216,70 @@ function renderDashboard(data) {
       </div>
     </div>`;
   }).join('');
+
+  // ── panel: sales pipeline snapshot ────────────────────────────
+  renderPipelineSnapshot(data.leadsByStage || [], data.hotLeads || []);
+}
+
+const LEAD_STAGE_ORDER = ['QUALIFICATION', 'PROPOSAL', 'NEGOTIATION', 'WON', 'COMPLETED', 'LOST'];
+const LEAD_STAGE_LABEL = {
+  QUALIFICATION: 'Qualification', PROPOSAL: 'Proposal', NEGOTIATION: 'Negotiation',
+  WON: 'Won', COMPLETED: 'Completed', LOST: 'Lost',
+};
+const LEAD_STAGE_COLOR = {
+  QUALIFICATION: '#38bdf8', PROPOSAL: '#facc15', NEGOTIATION: '#c084fc',
+  WON: '#34d399', COMPLETED: '#94a3b8', LOST: '#fb923c',
+};
+const LEAD_PRI_DASH_CLS = { VERY_HIGH: 'text-warm font-bold', HIGH: 'text-yellow-400 font-semibold' };
+
+function renderPipelineSnapshot(leadsByStage, hotLeads) {
+  const wrap = $('dash-pipeline-wrap');
+  if (!wrap) return;
+
+  const byStage = {};
+  for (const g of leadsByStage) byStage[g.status] = g;
+  const totalLeads = leadsByStage.reduce((s, g) => s + g.count, 0);
+  if (!totalLeads) { wrap.classList.add('hidden'); return; }
+  wrap.classList.remove('hidden');
+
+  // Stacked bar — proportional by lead COUNT (not value), so it reads as
+  // "where the deals are" at a glance, same visual language as the
+  // Financial tab's pipeline-by-stage bar.
+  $('dash-pipeline-bar').innerHTML =
+    `<div class="h-2.5 w-full rounded-full overflow-hidden flex bg-panel2">` +
+    LEAD_STAGE_ORDER.map(s => {
+      const g = byStage[s];
+      if (!g || !g.count) return '';
+      const pct = (g.count / totalLeads * 100).toFixed(1);
+      return `<div style="width:${pct}%;background:${LEAD_STAGE_COLOR[s]}" title="${LEAD_STAGE_LABEL[s]}: ${g.count}"></div>`;
+    }).join('') +
+    `</div>`;
+
+  $('dash-pipeline-stages').innerHTML = LEAD_STAGE_ORDER.map(s => {
+    const g = byStage[s];
+    if (!g || !g.count) return '';
+    return `<div class="flex items-center gap-2.5 py-1">
+      <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${LEAD_STAGE_COLOR[s]}"></div>
+      <span class="text-xs text-muted flex-1">${LEAD_STAGE_LABEL[s]}</span>
+      <span class="text-xs text-ink font-semibold">${g.count}</span>
+      <span class="text-xs text-muted w-24 text-right">RM ${Math.round(g.value).toLocaleString('en-MY')}</span>
+    </div>`;
+  }).join('');
+
+  $('dash-pipeline-hot').innerHTML = hotLeadsHtml(hotLeads);
+}
+
+function hotLeadsHtml(hotLeads) {
+  return hotLeads.length
+    ? hotLeads.map(l => `<div class="flex items-start justify-between gap-2 py-1.5 border-b border-line/40 last:border-0">
+        <div class="min-w-0">
+          <p class="text-xs font-medium text-ink truncate">${esc(l.name)}</p>
+          <p class="text-[11px] text-muted truncate">${l.account?.name ? esc(l.account.name) : 'No account'} · ${LEAD_STAGE_LABEL[l.status]}</p>
+        </div>
+        <div class="text-right shrink-0">
+          <p class="text-xs ${LEAD_PRI_DASH_CLS[l.priority] || 'text-muted'}">${l.priority.replace('_',' ')}</p>
+          ${l.estimatedValue ? `<p class="text-[11px] text-muted">RM ${Math.round(l.estimatedValue).toLocaleString('en-MY')}</p>` : ''}
+        </div>
+      </div>`).join('')
+    : '<p class="text-xs text-muted">Nothing urgent — no high-priority deals stuck open.</p>';
 }

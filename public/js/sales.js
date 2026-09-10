@@ -243,7 +243,9 @@ function renderLeadCard(l) {
     ? `<button class="mt-2 w-full text-[11px] bg-emerald-500/15 border border-emerald-500/30 text-emerald-400
                       px-2 py-1 rounded-lg hover:bg-emerald-500/25 transition-colors cursor-pointer font-semibold"
               data-lead-convert="${l.id}">→ Create project</button>`
-    : (l.projectId ? `<p class="text-[11px] text-emerald-400 mt-1.5">✓ Project created</p>` : '');
+    : (l.projectId
+        ? `<a href="/projects.html?open=${l.projectId}" class="block text-[11px] text-emerald-400 mt-1.5 hover:underline cursor-pointer">✓ ${esc(l.project?.name || 'Project created')}</a>`
+        : '');
 
   // Show existing document badges (quotations + invoices — a lead can carry
   // several of each, e.g. milestone billing) + always allow pushing another quote.

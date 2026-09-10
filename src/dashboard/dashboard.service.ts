@@ -69,6 +69,36 @@ export class DashboardService {
         : Promise.resolve([]),
     ]);
 
+    // ── sales pipeline snapshot — same audience as payment alerts (deal
+    //    values are financial data; TEAM_LEAD/STAFF have no Sales tab access) ──
+    const leadWhere = co ?? undefined;
+    const showPipeline = ['ADMIN', 'FINANCE', 'PM', 'PRODUCER'].includes(role ?? '');
+    const [leadsByStage, hotLeads] = showPipeline
+      ? await Promise.all([
+          this.prisma.lead.groupBy({
+            by:     ['status'],
+            where:  leadWhere,
+            _count: { _all: true },
+            _sum:   { estimatedValue: true },
+          }),
+          // Leads that most need a human to chase: high/very-high priority,
+          // still open, sorted by biggest deal first.
+          this.prisma.lead.findMany({
+            where: {
+              ...(leadWhere ?? {}),
+              status:   { notIn: ['WON', 'COMPLETED', 'LOST'] },
+              priority: { in: ['VERY_HIGH', 'HIGH'] },
+            },
+            select: {
+              id: true, name: true, status: true, priority: true, estimatedValue: true, updatedAt: true,
+              account: { select: { id: true, name: true } },
+            },
+            orderBy: { estimatedValue: 'desc' },
+            take: 5,
+          }),
+        ])
+      : [[], []];
+
     // Compute derived stats in memory — avoids extra DB round-trips.
     const activePeople     = allPeople.filter(p => p.status === 'ACTIVE');
     const warmPoolCount    = allPeople.filter(p => p.status !== 'ACTIVE').length;
@@ -100,6 +130,12 @@ export class DashboardService {
       activeProjects,
       overdueProjects,
       paymentAlerts,
+      leadsByStage: leadsByStage.map(g => ({
+        status: g.status,
+        count:  g._count._all,
+        value:  g._sum.estimatedValue ?? 0,
+      })),
+      hotLeads,
       thisWeek: {
         weekStart,
         allocations:       thisWeekAllocations,

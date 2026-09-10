@@ -303,104 +303,11 @@ is its own mini-dashboard in context.
 
 ---
 
-## Roadmap (build order, and why)
+## Roadmap
 
-### Foundation (done)
-1. **People / ELC** — DONE.
-2. **Projects** — DONE.
-3. **Capacity** — DONE.
-
-### Intelligence layer (done)
-4. **Dashboard** — DONE. Payment alerts section added (AccountingDocuments due
-   within 10 days, with producer name to chase).
-5. **PPM recommendation engine** — DONE.
-6. **Staffing recommendation engine** — DONE.
-
-### Production layer (done)
-7. **Assets** — DONE.
-8. **Production Engine / Lane Routing** — DONE.
-
-### Financial layer (done)
-9. **Financial Engine** — DONE. Man-day costing. `GET /api/financial/overview`,
-   `GET /api/financial/projects`, `GET /api/financial/dashboard`.
-   Finance Dashboard: AR KPI cards, overdue invoices, due-soon panel,
-   pipeline by stage, project health RAG, recent Autocount documents.
-
-### Auth & access control (done)
-- **JWT auth** — DONE. Login page at `/login.html`. 7 roles. Global guard.
-  `POST /api/auth/login`, `GET /api/auth/me`.
-- **Users module** — DONE. `GET/POST/PATCH/DELETE /api/users` (admin only).
-  User manager modal in the header (admin).
-- **Person ↔ User link** — DONE. Lock icon on People tab lets admin create a
-  login for a staff member.
-- **canSignOff flag** — DONE. Per-person sign-off authority (not role-based).
-  Admin toggles on People tab. Affects sign-off queue visibility on My Work.
-- **Salary visibility** — DONE. Restricted to ADMIN + FINANCE. All other roles
-  see `—` in salary column.
-
-### Growth & client layer (done)
-10. **Sales & Growth Hub** — DONE. Accounts, Contacts, Leads. Pipeline board.
-    Lead → Project conversion. `POST /api/leads/:id/convert`.
-11. **Client Hub** — DONE. Account detail view with contacts, linked leads and
-    projects.
-
-### Accounting integration (done)
-- **Autocount Cloud** — DONE. Push quotations from WON leads, invoices from
-  projects. AccountingDocument model tracks all documents with due dates.
-  Finance Dashboard shows AR position, overdue alerts, pipeline, health.
-
-### Staffing suggestion engine (done)
-12. **Required Skills + Staff Suggestions** — DONE. Producer tags `ProjectSkill` records
-    (project ↔ skill join table). `GET /api/projects/:id/staff-suggestions` returns per-skill
-    ranked candidates scored by skill rating (60%) + free capacity during project window (40%).
-    UI: Required Skills chip-tag section + Suggested Staff ranked panel in project detail.
-    Endpoints: `GET /api/projects/all-skills`, `GET/POST/DELETE /api/projects/:id/skills/:skillId`.
-
-### Workflow & productivity (done)
-- **Change Requests** — DONE. Per-project formal CRs with PENDING/APPROVED/REJECTED
-  status, budget impact, and approval notes. `GET/POST/PATCH/DELETE /api/change-requests`.
-- **My Work tab** — DONE. Personal dashboard for all roles — capacity, assigned
-  assets, sign-off queue (canSignOff), payment alerts. `GET /api/me/dashboard`.
-  CD approve/reject from sign-off queue with rejection note back to REVISION.
-- **Email payment alerts** — DONE. Nodemailer digest via SMTP. Configure
-  `SMTP_*` vars in `.env`. `POST /api/notifications/payment-alerts`. Trigger from
-  Financial tab ("✉ Send alert email").
-- **CSV exports** — DONE. Projects, capacity, AR. `GET /api/reports/*`.
-- **Project Gantt timeline** — DONE. 16-week SVG view in project detail.
-- **Kanban views** — DONE. Assets kanban board in assets.js.
-
-### Sales performance & commissions (done)
-- **Sales Performance tab** — DONE. Commission report — attainment %, net profit,
-  commission per producer. `GET /api/sales-performance`.
-- **CommissionTier** — DONE. Global rate schedule (50/75/100/150%). Admin-editable.
-- **SalesTarget** — DONE. Quarterly targets per producer.
-- **ProjectCost** — DONE. Per-project cost lines (WARM_POOL / SUPPLIER / ADDITIONAL).
-- **PersonTierRate** — DONE. Per-person commission rate override per tier.
-- **STAFF role + onboarding flow** — DONE. STAFF has My Work access; onboarding
-  flow guides new staff without a linked Person record.
-
-### Go-live & data ops (done)
-- **Production reset script** — `prisma/reset-for-production.js`. Deletes all
-  transactional data in FK order, keeps Skills/Departments/JobTitles/CommissionTiers,
-  creates admin account. Run once before go-live.
-- **Airtable import** — `prisma/import-airtable.js`. Imports Accounts, Contacts,
-  Leads from two Airtable bases (2024-2025 and 2026). Requires `AIRTABLE_PAT` env var.
-- **Welcome email** — sent automatically on new joiner onboard (`POST /api/people/onboard`)
-  and when admin creates a login (`POST /api/users`). HTML email with per-company
-  branding: LPS=amber "Lorrypop Studio", PXL=teal "Popxical Lab". Uses `APP_URL`
-  env var for the login link. Fire-and-forget — never blocks the API response.
-- **Autocount reconciliation** — `GET /api/autocount/reconcile`. Compares every
-  Pop OS AccountingDocument against live Autocount. Returns OK / AMOUNT_MISMATCH /
-  STATUS_MISMATCH / BOTH_MISMATCH / NOT_FOUND per document. Triggered from Financial
-  tab (⚖ Reconcile button).
-- **Autocount sync year filter** — `syncDocuments()` only pulls current calendar
-  year documents. Prevents historical data bloat.
-
-### Enterprise readiness (done)
-- **Audit Log** — DONE. `src/audit/`. Immutable event log for all key mutations.
-  Admin tab (`public/js/admin.js`) with filters: year, resource, action, actor,
-  date range, search. Expandable detail viewer shows full record state + field diff.
-  Year picker defaults to current year; "All years" available for history.
+Every module listed here has shipped. Full build-order history (what, why,
+grouped by layer) moved to `CHANGELOG.md` → "Module build order (historical)"
+to keep this file focused on current contract, not a growing done-list.
 
 ### Deferred
 - Kakitangan.com sync (payroll + leave).
@@ -452,3 +359,11 @@ The server does NOT use Docker — PostgreSQL runs natively via the system packa
 - Never introduce a paid service or external dependency without flagging it.
 - If a change requires a migration, remind about the stop-server-first rule.
 - Match the teaching-comment style already in the codebase.
+- Whenever a new feature, fix, or user-visible change ships, add an entry to
+  `public/changelog.html`. Format (see existing entries): find or create the
+  `<section class="month" id="m-YYYY-MM">` for the current month, add a
+  `<div class="entry">` with `<span class="entry-area">` (the tab/module,
+  e.g. "Sales", "Projects") and `<div class="entry-desc">` (plain-language,
+  non-technical — this is read by the studio owner, not a developer), and
+  bump that month's `<span class="entry-count">N changes</span>`. Do this as
+  part of the change itself, not as a separate follow-up step.
