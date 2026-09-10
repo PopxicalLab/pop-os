@@ -244,7 +244,7 @@ function renderCapacityBoard(entries) {
             : `<input type="text" inputmode="decimal" data-cap-pct="${e.id}" value="${e.pctWeek}"
                  title="Click to change this allocation's % of the week"
                  class="w-11 bg-transparent border-b border-transparent hover:border-line focus:border-accent/70
-                        text-right text-xs text-muted font-semibold focus:outline-none px-0.5" />%`}
+                        text-right text-xs text-muted font-semibold focus:outline-none px-0.5" /><span class="text-muted text-xs">%</span>`}
         </td>
         ${isStaff() ? '<td></td>' : `<td class="py-2.5 px-2"><button class="btn-del" data-cap-del="${e.id}">Remove</button></td>`}
       </tr>`;
