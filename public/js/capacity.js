@@ -176,7 +176,14 @@ function renderCapacityBoard(entries) {
           <a href="/projects.html?open=${e.project.id}" class="hover:text-accent transition-colors">${esc(e.project.name)}</a>${coBadge(e.project.company)}${weekendBadge}
         </td>
         <td class="py-2.5 px-2"><span class="text-xs ${roleCls}">${roleLabel}</span></td>
-        <td class="py-2.5 px-2 text-right text-muted text-xs">${e.pctWeek}%</td>
+        <td class="py-2.5 px-2 text-right">
+          ${isStaff()
+            ? `<span class="text-muted text-xs">${e.pctWeek}%</span>`
+            : `<input type="text" inputmode="decimal" data-cap-pct="${e.id}" value="${e.pctWeek}"
+                 title="Click to change this allocation's % of the week"
+                 class="w-11 bg-transparent border-b border-transparent hover:border-line focus:border-accent/70
+                        text-right text-xs text-muted font-semibold focus:outline-none px-0.5" />%`}
+        </td>
         ${isStaff() ? '<td></td>' : `<td class="py-2.5 px-2"><button class="btn-del" data-cap-del="${e.id}">Remove</button></td>`}
       </tr>`;
     }
@@ -188,6 +195,67 @@ function renderCapacityBoard(entries) {
   board.querySelectorAll('[data-cap-del]').forEach(b => {
     b.onclick = () => removeAllocation(b.dataset.capDel);
   });
+  board.querySelectorAll('[data-cap-pct]').forEach(inp => {
+    inp.onchange = () => updateAllocationPct(inp);
+  });
+}
+
+// Inline-editable % cell — PATCH on blur/enter. Reverts on failure.
+// Pushing the person over 100% for the week requires weekend approval
+// (server-enforced) — this editor has no checkbox for that up front, so
+// on that specific rejection it asks via confirm() and retries with
+// weekendApproved:true, same effect as ticking the box on the add form.
+async function updateAllocationPct(inp) {
+  const id      = inp.dataset.capPct;
+  const entry   = _capAllEntries.find(e => e.id === id);
+  const raw     = inp.value.trim();
+  const pctWeek = Number(raw);
+
+  if (!entry) return;
+  if (raw === '' || isNaN(pctWeek) || pctWeek < 1 || pctWeek > 140) {
+    inp.value = entry.pctWeek;
+    msg($('cap-msg'), 'Enter a value between 1 and 140.', 'err');
+    return;
+  }
+  if (pctWeek === entry.pctWeek) return;
+
+  const result = await patchAllocation(id, { pctWeek });
+
+  if (result.ok) {
+    msg($('cap-msg'), 'Allocation updated.', 'ok');
+    loadCapacityBoard();
+    return;
+  }
+
+  // Two distinct server messages land here — "requires weekend approval"
+  // (this edit alone pushes >100%) and "...max 100%)" (fine alone, but
+  // combined with the person's other allocations it isn't) — both are
+  // exactly the cases weekend approval (cap 140 instead of 100) fixes.
+  const needsWeekend = /weekend approval|\(max 100%\)/i.test(result.message) && !entry.weekendApproved;
+  if (needsWeekend && confirm(`${result.message}\n\nApprove weekend work to allow this?`)) {
+    const retry = await patchAllocation(id, { pctWeek, weekendApproved: true });
+    if (retry.ok) {
+      msg($('cap-msg'), 'Allocation updated (weekend approved).', 'ok');
+      loadCapacityBoard();
+      return;
+    }
+    inp.value = entry.pctWeek;
+    msg($('cap-msg'), retry.message, 'err');
+    return;
+  }
+
+  inp.value = entry.pctWeek;
+  msg($('cap-msg'), result.message, 'err');
+}
+
+async function patchAllocation(id, body) {
+  const res = await fetch(`/api/capacity/${id}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (res.ok) return { ok: true };
+  const e = await res.json().catch(() => ({}));
+  return { ok: false, message: [].concat(e.message || 'Failed').join(', ') };
 }
 
 async function addAllocation() {
