@@ -7,6 +7,10 @@ user menu (top right, after login) → **What's new**.
 
 ## 2026-09
 
+- **Projects:** added a Week / Month zoom toggle to the Project Timeline
+  view — Month zoom shows a full year at a glance instead of just 16 weeks.
+- **Capacity:** fixed the editable allocation % input's "%" sign not
+  matching the number's color.
 - **Capacity:** added a By person / By project toggle with collapsible
   groups (+ "Collapse all") for boards with many people; added an
   Unallocated this week list, sorted by company; allocation % is now
