@@ -241,7 +241,7 @@
 
     <!-- Right: the board -->
     <div class="bg-panel border border-line rounded-xl p-5">
-      <div class="flex items-center justify-between mb-4">
+      <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
         <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">Capacity Board</h2>
         <a href="/api/reports/capacity" download
           class="px-3 py-1.5 rounded-lg border border-line text-xs text-muted
@@ -250,16 +250,34 @@
         </a>
       </div>
       <!-- Capacity filter bar -->
-      <div class="flex flex-wrap gap-2 mb-4">
+      <div class="flex flex-wrap items-center gap-2 mb-4">
         <input id="cap-filter-person" type="text" placeholder="Filter by person…" autocomplete="off"
           class="bg-panel2 border border-line text-ink text-xs px-3 py-1.5 rounded-lg w-40
                  focus:outline-none focus:border-accent/60" />
         <input id="cap-filter-project" type="text" placeholder="Filter by project…" autocomplete="off"
           class="bg-panel2 border border-line text-ink text-xs px-3 py-1.5 rounded-lg w-44
                  focus:outline-none focus:border-accent/60" />
+        <div class="flex-1"></div>
+        <!-- Group-by toggle -->
+        <div class="flex items-center bg-panel2 border border-line rounded-lg p-0.5 text-xs">
+          <button id="cap-group-person" onclick="setCapGroupBy('person')"
+            class="px-2.5 py-1 rounded-md cursor-pointer transition-colors">By person</button>
+          <button id="cap-group-project" onclick="setCapGroupBy('project')"
+            class="px-2.5 py-1 rounded-md cursor-pointer transition-colors">By project</button>
+        </div>
+        <button onclick="toggleAllCapGroups()" id="cap-toggle-all"
+          class="px-2.5 py-1.5 rounded-lg border border-line text-xs text-muted
+                 hover:text-ink hover:border-accent/50 transition cursor-pointer">
+          Collapse all
+        </button>
       </div>
       <div id="cap-board">
         <div class="text-center text-muted text-sm py-10">Loading…</div>
+      </div>
+      <!-- Unallocated this week -->
+      <div class="mt-5 pt-4 border-t border-line">
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-2">Unallocated this week</p>
+        <div id="cap-unallocated" class="flex flex-wrap gap-1.5"></div>
       </div>
     </div>
   </div>

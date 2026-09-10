@@ -7,6 +7,16 @@ user menu (top right, after login) → **What's new**.
 
 ## 2026-09
 
+- **Capacity:** added a By person / By project toggle with collapsible
+  groups (+ "Collapse all") for boards with many people; added an
+  Unallocated this week list, sorted by company; allocation % is now
+  editable inline on the board.
+- **Dashboard:** added a Sales Pipeline summary — deal counts and value
+  per stage, plus a "Needs attention" list of high-priority open deals.
+- **Sales pipeline:** a won lead's card now links its project name
+  straight to the project's page.
+- **Projects:** fixed adding a project cost from the project detail page
+  silently failing and reloading the page instead of saving.
 - **Sales pipeline:** added a "Completed" kanban stage; fixed commission
   figures not syncing when a project's cost lines change.
 - **Projects:** fixed start date not saving (was silently failing on

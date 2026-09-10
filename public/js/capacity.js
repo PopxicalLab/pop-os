@@ -53,6 +53,10 @@ async function loadCapacityBoard() {
   }
   const weekTotals = _weekTotals;
 
+  // Cached separately from the dropdown — used to compute who has NO
+  // allocation at all this week (the "Unallocated" strip below the board).
+  _capAllPeople = people.filter(p => p.status === 'ACTIVE');
+
   // Person dropdown — active staff only (not warm pool).
   // 100% = full weekday schedule; 101–140 = includes approved weekend days.
   // Disable completely at 140% (genuinely no capacity left).
@@ -93,6 +97,32 @@ async function loadCapacityBoard() {
 }
 
 let _capAllEntries = []; // full cache — filters apply client-side
+let _capAllPeople  = []; // full ACTIVE people cache, for the "Unallocated this week" strip
+// 'person' (default) or 'project' — which column the board groups rows under.
+let _capGroupBy    = localStorage.getItem('pop-os-cap-groupby') === 'project' ? 'project' : 'person';
+// Collapsed group keys, e.g. "person:<id>" / "project:<id>" — lets a 30+
+// person board collapse down to just summary rows instead of one giant list.
+let _capCollapsed  = new Set();
+
+function setCapGroupBy(mode) {
+  _capGroupBy = mode;
+  localStorage.setItem('pop-os-cap-groupby', mode);
+  _capCollapsed.clear(); // group keys are mode-specific; stale collapse state would be meaningless
+  renderCapacityBoard();
+}
+
+function toggleCapGroup(key) {
+  _capCollapsed.has(key) ? _capCollapsed.delete(key) : _capCollapsed.add(key);
+  renderCapacityBoard();
+}
+
+// Collapse/expand every group currently on screen in one click.
+function toggleAllCapGroups() {
+  const keys = window._capVisibleGroupKeys || [];
+  const anyExpanded = keys.some(k => !_capCollapsed.has(k));
+  keys.forEach(k => anyExpanded ? _capCollapsed.add(k) : _capCollapsed.delete(k));
+  renderCapacityBoard();
+}
 // Pre-fill the project filter when arriving via a "View in Capacity" link
 // from the Projects page (capacity.html?project=<name>). Read once at load
 // and cleared after use, same as the old same-page switchTab() handoff did.
@@ -101,6 +131,16 @@ let _capPendingProjectName = new URLSearchParams(location.search).get('project')
 function renderCapacityBoard(entries) {
   if (entries) _capAllEntries = entries; // refresh cache when called from loadCapacityBoard
   const board = $('cap-board');
+
+  // Group-by toggle button active states.
+  const personBtn  = $('cap-group-person');
+  const projectBtn = $('cap-group-project');
+  if (personBtn && projectBtn) {
+    const on  = 'bg-accent text-bg font-semibold';
+    const off = 'text-muted hover:text-ink';
+    personBtn.className  = 'px-2.5 py-1 rounded-md cursor-pointer transition-colors ' + (_capGroupBy === 'person'  ? on : off);
+    projectBtn.className = 'px-2.5 py-1 rounded-md cursor-pointer transition-colors ' + (_capGroupBy === 'project' ? on : off);
+  }
 
   const personQ  = ($('cap-filter-person')?.value  || '').toLowerCase();
   const projectQ = ($('cap-filter-project')?.value || '').toLowerCase();
@@ -113,56 +153,76 @@ function renderCapacityBoard(entries) {
     return true;
   });
 
+  renderCapUnallocated(personQ);
+
   if (!visible.length) {
     board.innerHTML = '<div class="text-center text-muted text-sm py-10">No allocations this week — add one on the left.</div>';
+    window._capVisibleGroupKeys = [];
     return;
   }
 
-  // Group by person, preserving order from API (sorted by name asc).
-  const byPerson = {};
+  const byProject = _capGroupBy === 'project';
+
+  // Group by whichever dimension is active, preserving API order (name asc).
+  const groupsByKey = {};
   for (const e of visible) {
-    if (!byPerson[e.personId]) byPerson[e.personId] = { person: e.person, entries: [] };
-    byPerson[e.personId].entries.push(e);
+    const rawKey = byProject ? e.projectId : e.personId;
+    if (!groupsByKey[rawKey]) {
+      groupsByKey[rawKey] = byProject
+        ? { key: 'project:' + rawKey, label: e.project.name, company: e.project.company, sub: null, entries: [] }
+        : { key: 'person:'  + rawKey, label: e.person.name,  company: null, sub: e.person.role, entries: [] };
+    }
+    groupsByKey[rawKey].entries.push(e);
   }
-  const groups = Object.values(byPerson);
-  for (const g of groups) {
-    g.total = g.entries.reduce((s, e) => s + e.pctWeek, 0);
-  }
+  const groupList = Object.values(groupsByKey);
+  for (const g of groupList) g.total = g.entries.reduce((s, e) => s + e.pctWeek, 0);
+  window._capVisibleGroupKeys = groupList.map(g => g.key);
 
   let html = '<div class="overflow-x-auto -mx-5 px-5"><table class="w-full text-sm">';
   html += `<thead><tr class="border-b border-line">
-    <th class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Person</th>
-    <th class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Project</th>
+    <th class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">${byProject ? 'Project' : 'Person'}</th>
+    <th class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">${byProject ? 'Person' : 'Project'}</th>
     <th class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Role</th>
     <th class="text-right pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">%</th>
     <th class="pb-3 px-2"></th>
   </tr></thead><tbody>`;
 
-  for (const g of groups) {
-    const totalCls = g.total > 100 ? 'text-warm font-bold'
-                   : g.total >= 80  ? 'text-accent font-semibold'
-                   :                  'text-muted';
-    const barCls   = g.total > 100 ? 'bg-warm' : g.total >= 80 ? 'bg-accent' : 'bg-muted/50';
-    // Scale the bar against 140 when weekend work is present; 100 otherwise.
-    const hasWeekend = g.entries.some(e => e.weekendApproved);
-    const barPct     = Math.min((g.total / (hasWeekend ? 140 : 100)) * 100, 100);
+  for (const g of groupList) {
+    const collapsed = _capCollapsed.has(g.key);
 
-    html += `<tr class="bg-panel2/50 border-t border-line">
-      <td class="px-2 py-2.5" colspan="3">
-        <div class="flex items-center gap-2.5">
-          <span class="font-semibold text-sm text-ink">${esc(g.person.name)}</span>
-          <span class="text-xs text-muted">${esc(g.person.role)}</span>
-        </div>
-      </td>
-      <td class="px-2 py-2.5 text-right">
-        <span class="text-sm ${totalCls}">${g.total}%</span>
-      </td>
-      <td class="px-2 py-2.5">
-        <div class="w-16 h-1.5 bg-line rounded-full overflow-hidden">
+    // Person grouping: the total is a real "% of week used" — show the
+    // usual capacity bar. Project grouping: summing % across different
+    // people isn't a percentage of anything single, so show headcount
+    // instead of implying a capacity-used bar that doesn't apply.
+    let totalCell, barCell;
+    if (byProject) {
+      totalCell = `<span class="text-sm text-ink">${g.entries.length} ${g.entries.length === 1 ? 'person' : 'people'}</span>`;
+      barCell   = '';
+    } else {
+      const totalCls   = g.total > 100 ? 'text-warm font-bold' : g.total >= 80 ? 'text-accent font-semibold' : 'text-muted';
+      const barCls     = g.total > 100 ? 'bg-warm' : g.total >= 80 ? 'bg-accent' : 'bg-muted/50';
+      const hasWeekend = g.entries.some(e => e.weekendApproved);
+      const barPct     = Math.min((g.total / (hasWeekend ? 140 : 100)) * 100, 100);
+      totalCell = `<span class="text-sm ${totalCls}">${g.total}%</span>`;
+      barCell   = `<div class="w-16 h-1.5 bg-line rounded-full overflow-hidden">
           <div class="h-full ${barCls} rounded-full" style="width:${barPct}%"></div>
+        </div>`;
+    }
+
+    html += `<tr class="bg-panel2/50 border-t border-line cursor-pointer hover:bg-panel2/70 transition-colors" data-cap-group-toggle="${g.key}">
+      <td class="px-2 py-2.5" colspan="3">
+        <div class="flex items-center gap-2">
+          <span class="text-muted text-[10px] w-3 inline-block">${collapsed ? '▸' : '▾'}</span>
+          <span class="font-semibold text-sm text-ink">${esc(g.label)}</span>
+          ${g.company ? coBadge(g.company) : ''}
+          ${g.sub ? `<span class="text-xs text-muted">${esc(g.sub)}</span>` : ''}
         </div>
       </td>
+      <td class="px-2 py-2.5 text-right">${totalCell}</td>
+      <td class="px-2 py-2.5">${barCell}</td>
     </tr>`;
+
+    if (collapsed) continue;
 
     for (const e of g.entries) {
       const roleCls      = e.role === 'MAIN' ? 'text-accent' : 'text-muted';
@@ -170,11 +230,13 @@ function renderCapacityBoard(entries) {
       const weekendBadge = e.weekendApproved
         ? '<span class="ml-1.5 text-[10px] font-semibold uppercase tracking-wide text-warm border border-warm/40 rounded px-1 py-0.5">Weekend</span>'
         : '';
+      const otherCell = byProject
+        ? `<span class="text-ink">${esc(e.person.name)}</span>`
+        : `<a href="/projects.html?open=${e.project.id}" class="hover:text-accent transition-colors">${esc(e.project.name)}</a>${coBadge(e.project.company)}`;
+
       html += `<tr class="border-b border-line/40 hover:bg-panel2/30 transition-colors">
         <td class="py-2.5 px-2"></td>
-        <td class="py-2.5 px-2 text-ink">
-          <a href="/projects.html?open=${e.project.id}" class="hover:text-accent transition-colors">${esc(e.project.name)}</a>${coBadge(e.project.company)}${weekendBadge}
-        </td>
+        <td class="py-2.5 px-2 text-ink">${otherCell}${weekendBadge}</td>
         <td class="py-2.5 px-2"><span class="text-xs ${roleCls}">${roleLabel}</span></td>
         <td class="py-2.5 px-2 text-right">
           ${isStaff()
@@ -193,11 +255,40 @@ function renderCapacityBoard(entries) {
   board.innerHTML = html;
 
   board.querySelectorAll('[data-cap-del]').forEach(b => {
-    b.onclick = () => removeAllocation(b.dataset.capDel);
+    b.onclick = (ev) => { ev.stopPropagation(); removeAllocation(b.dataset.capDel); };
   });
   board.querySelectorAll('[data-cap-pct]').forEach(inp => {
+    inp.onclick  = (ev) => ev.stopPropagation(); // don't collapse the group when editing %
     inp.onchange = () => updateAllocationPct(inp);
   });
+  board.querySelectorAll('[data-cap-group-toggle]').forEach(row => {
+    row.onclick = () => toggleCapGroup(row.dataset.capGroupToggle);
+  });
+
+  const toggleAllBtn = $('cap-toggle-all');
+  if (toggleAllBtn) {
+    const anyExpanded = groupList.some(g => !_capCollapsed.has(g.key));
+    toggleAllBtn.textContent = anyExpanded ? 'Collapse all' : 'Expand all';
+  }
+}
+
+// Anyone ACTIVE with no allocation at all this week (any company/project) —
+// answers "who's free right now" at a glance instead of forcing a scan of
+// every row for an absence.
+function renderCapUnallocated(personQ) {
+  const el = $('cap-unallocated');
+  if (!el) return;
+
+  const allocatedIds = new Set(_capAllEntries.map(e => e.personId));
+  const free = _capAllPeople
+    .filter(p => matchesFilter(p.company))
+    .filter(p => !allocatedIds.has(p.id))
+    .filter(p => !personQ || p.name.toLowerCase().includes(personQ))
+    .sort((a, b) => (a.company || '').localeCompare(b.company || '') || a.name.localeCompare(b.name));
+
+  el.innerHTML = free.length
+    ? free.map(p => `<span class="badge bg-panel2 border border-line text-muted text-xs">${esc(p.name)}${coBadge(p.company)}</span>`).join('')
+    : '<span class="text-xs text-muted">Everyone active is allocated this week.</span>';
 }
 
 // Inline-editable % cell — PATCH on blur/enter. Reverts on failure.
