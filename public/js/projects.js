@@ -22,6 +22,23 @@ function fmtValue(v) {
   return 'RM ' + Number(v).toLocaleString('en-MY', { maximumFractionDigits: 0 });
 }
 
+// Deadline + days-left/overdue, same overdue/due-soon convention as the
+// Kanban card (renderKanbanCard) — finished/cancelled projects never show
+// as overdue since nobody's still racing that clock.
+function fmtDeadlineCell(deadlineIso, status) {
+  if (!deadlineIso) return '<span class="text-muted">—</span>';
+  const deadline = new Date(deadlineIso);
+  const dateStr  = deadline.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  const finished = ['DELIVERED', 'CANCELLED'].includes(status);
+  const daysLeft = Math.ceil((deadline - new Date()) / 86_400_000);
+
+  if (finished) return `<span class="text-muted">${dateStr}</span>`;
+  if (daysLeft < 0)  return `<span class="text-warm font-semibold">${dateStr} · ${-daysLeft}d overdue</span>`;
+  if (daysLeft === 0) return `<span class="text-warm font-semibold">${dateStr} · due today</span>`;
+  if (daysLeft <= 7)  return `<span class="text-yellow-400">${dateStr} · ${daysLeft}d left</span>`;
+  return `<span class="text-muted">${dateStr} · ${daysLeft}d left</span>`;
+}
+
 // CLIENT_TIER_LABEL, QUADRANT_LABEL, QUADRANT_CLS, STATUS_LABEL, PRI_CLS
 // moved to shared.js — 11 files across the app read them, so they need to
 // be available on every page, not just wherever projects.js happens to load.
@@ -327,12 +344,12 @@ function showProjectList() {
 async function showProjectDetail(id) {
   const p = await (await fetch('/api/projects/' + id)).json();
   // Hide all project views before showing detail
-  ['list', 'kanban', 'timeline'].forEach(v =>
+  ['list', 'kanban'].forEach(v =>
     document.getElementById(`p-${v}-view`)?.classList.add('hidden')
   );
   $('p-detail-view').classList.remove('hidden');
   msg($('p-detail-msg'), '', '');
-  const backLabels = { list: 'All projects', kanban: 'Kanban board', timeline: 'Timeline' };
+  const backLabels = { list: 'All projects', kanban: 'Kanban board' };
   const backEl = $('p-back-label');
   if (backEl) backEl.textContent = backLabels[_prevProjView] || 'All projects';
 
@@ -557,7 +574,7 @@ async function showProjectDetail(id) {
         msg($('p-detail-msg'), err, 'err');
       } else {
         p.status = chosen; // keep local copy in sync
-        // Also sync the list/kanban/timeline in-memory cache — otherwise
+        // Also sync the list/kanban in-memory cache — otherwise
         // going back shows the pre-edit status until the next full reload.
         const cached = _allProjects.find(x => x.id === id);
         if (cached) cached.status = chosen;
@@ -1259,7 +1276,6 @@ async function loadProjects() {
   if (addSidebar) addSidebar.classList.toggle('hidden', isStaff());
 
   _allProjects = await (await fetch('/api/projects')).json();
-  _tlProjects  = _allProjects; // timeline view cache
 
   // Populate the client datalist — lets the Client field suggest existing
   // Accounts (from the Sales Hub) while still accepting free-typed names.
@@ -1311,6 +1327,22 @@ async function loadProjects() {
 
 let _pendingOpenId = new URLSearchParams(location.search).get('open');
 
+// Deadline column sort — null deadlines always sort to the end regardless
+// of direction, since "no deadline" isn't meaningfully earlier or later
+// than a dated one.
+let _projSortBy  = null; // currently only 'deadline' is sortable
+let _projSortDir = 'asc';
+
+function sortProjectsBy(col) {
+  if (_projSortBy === col) {
+    _projSortDir = _projSortDir === 'asc' ? 'desc' : 'asc';
+  } else {
+    _projSortBy  = col;
+    _projSortDir = 'asc';
+  }
+  renderProjects();
+}
+
 function renderProjects() {
   const search   = ($('p-search')?.value   || '').toLowerCase();
   const status   = $('p-filter-status')?.value  || '';
@@ -1327,10 +1359,22 @@ function renderProjects() {
     return true;
   });
 
+  if (_projSortBy === 'deadline') {
+    const dir = _projSortDir === 'asc' ? 1 : -1;
+    projects.sort((a, b) => {
+      if (!a.deadline && !b.deadline) return 0;
+      if (!a.deadline) return 1;  // no deadline always last
+      if (!b.deadline) return -1;
+      return (new Date(a.deadline) - new Date(b.deadline)) * dir;
+    });
+  }
+  const sortBtn = $('p-sort-deadline');
+  if (sortBtn) sortBtn.textContent = 'Deadline' + (_projSortBy === 'deadline' ? (_projSortDir === 'asc' ? ' ↑' : ' ↓') : '');
+
   const rows = $('p-rows'); rows.innerHTML = '';
   $('p-empty').classList.toggle('hidden', projects.length > 0);
   for (const p of projects) {
-    const deadline  = p.deadline ? new Date(p.deadline).toLocaleDateString() : '—';
+    const deadline  = fmtDeadlineCell(p.deadline, p.status);
     const drainNote = p.quadrant === 'DRAIN'
       ? `<div class="text-[10px] text-warm mt-0.5">Exec: ${p.drainApprovedByExec ? '✓' : '✗'} · Producer: ${p.drainApprovedByProducer ? '✓' : '✗'}</div>`
       : '';
@@ -1378,7 +1422,7 @@ function renderProjects() {
         alert([].concat(e.message || 'Save failed').join(', '));
         return;
       }
-      // Keep the in-memory cache in sync so Kanban/Timeline reflect this
+      // Keep the in-memory cache in sync so Kanban reflects this
       // change without needing a full reload.
       const proj = _allProjects.find(p => p.id === sel.dataset.proj);
       if (proj) proj.status = chosen;
@@ -1452,67 +1496,10 @@ $('p-quadrant').addEventListener('change', () => {
 
 $('p-add').addEventListener('click', addProject);
 
-// ── Timeline (Gantt) view ─────────────────────────────────────
-
-let _tlProjects = [];   // cached from last loadProjects call
-// 'week' (default) or 'month' — which unit each timeline column represents.
-let _tlZoom     = localStorage.getItem('pop-os-tl-zoom') === 'month' ? 'month' : 'week';
-// units (weeks or months, per _tlZoom) from today's unit start
-let _tlOffset   = _tlZoom === 'month' ? -2 : -4;
-const TL_NAME_W = 180;  // px width of project name column
-// Per-zoom column count/width/pan-step — month columns are wider (need room
-// for a month+year label) and fewer are shown at once (12 ≈ a year of runway,
-// vs. 16 weeks ≈ a quarter) since the point of Month zoom is a longer-range
-// overview, not day-level scheduling precision.
-const TL_CONFIG = {
-  week:  { units: 16, colW: 38, shiftStep: 4 },
-  month: { units: 12, colW: 70, shiftStep: 3 },
-};
-
-// Returns the start (UTC midnight) of the timeline unit `offset` units from
-// today's unit — the Monday of that week, or the 1st of that month.
-function _tlUnitStart(offset = 0) {
-  if (_tlZoom === 'month') {
-    const d = new Date();
-    d.setUTCHours(0, 0, 0, 0);
-    d.setUTCDate(1);
-    d.setUTCMonth(d.getUTCMonth() + offset);
-    return d;
-  }
-  const d = new Date();
-  const day = d.getUTCDay();
-  d.setUTCDate(d.getUTCDate() + (day === 0 ? -6 : 1 - day) + offset * 7);
-  d.setUTCHours(0, 0, 0, 0);
-  return d;
-}
-
-// Continuous (fractional) offset of `date` from `startUnit`, measured in
-// timeline units. Week zoom: exact — a week is always 7 fixed days. Month
-// zoom: months vary in length, so this interpolates by day-within-month
-// rather than snapping to whole months — good enough for an overview, per
-// the explicit "loses day-level precision" tradeoff on this zoomed-out view.
-function _tlDateOffset(date, startUnit) {
-  if (_tlZoom === 'month') {
-    const wholeMonths = (date.getUTCFullYear() - startUnit.getUTCFullYear()) * 12
-                       + (date.getUTCMonth() - startUnit.getUTCMonth());
-    const daysInMonth = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
-    return wholeMonths + (date.getUTCDate() - 1) / daysInMonth;
-  }
-  return Math.round((date.getTime() - startUnit.getTime()) / (7 * 86_400_000));
-}
-
-function setTimelineZoom(zoom) {
-  if (zoom === _tlZoom) return;
-  _tlZoom = zoom;
-  localStorage.setItem('pop-os-tl-zoom', zoom);
-  _tlOffset = zoom === 'month' ? -2 : -4; // sensible default starting window per granularity
-  renderTimeline();
-}
-
 function switchProjView(view) {
   _prevProjView = view;
   $('p-detail-view')?.classList.add('hidden');
-  const views = ['list', 'kanban', 'timeline'];
+  const views = ['list', 'kanban'];
   views.forEach(v => {
     document.getElementById(`p-${v}-view`)?.classList.toggle('hidden', v !== view);
     const btn = document.getElementById(`proj-view-${v}`);
@@ -1522,8 +1509,7 @@ function switchProjView(view) {
       btn.classList.toggle('text-muted', v !== view);
     }
   });
-  if (view === 'kanban')   renderKanban();
-  if (view === 'timeline') renderTimeline();
+  if (view === 'kanban') renderKanban();
 }
 
 // ── Kanban view ──────────────────────────────────────────────
@@ -1753,169 +1739,3 @@ function renderKanbanCard(p, col) {
     </div>`;
 }
 
-function shiftTimeline(dir) {
-  _tlOffset += dir * TL_CONFIG[_tlZoom].shiftStep;
-  renderTimeline();
-}
-
-function renderTimeline() {
-  const canvas = document.getElementById('tl-canvas');
-  const label  = document.getElementById('tl-label');
-  if (!canvas) return;
-
-  const weekBtn  = document.getElementById('tl-zoom-week');
-  const monthBtn = document.getElementById('tl-zoom-month');
-  if (weekBtn && monthBtn) {
-    const on  = 'bg-accent text-bg font-semibold';
-    const off = 'text-muted hover:text-ink';
-    weekBtn.className  = 'px-2.5 py-1 rounded-md cursor-pointer transition-colors ' + (_tlZoom === 'week'  ? on : off);
-    monthBtn.className = 'px-2.5 py-1 rounded-md cursor-pointer transition-colors ' + (_tlZoom === 'month' ? on : off);
-  }
-
-  try {
-    renderTimelineInner(canvas, label);
-  } catch (err) {
-    // Whatever broke, don't leave the canvas silently blank — the header
-    // and legend around it are static HTML so they'd still look fine,
-    // making a failed render invisible otherwise.
-    console.error('renderTimeline failed:', err);
-    canvas.innerHTML = '<p class="text-center text-warm text-sm py-8">Couldn\'t render the timeline — check the browser console for details.</p>';
-  }
-}
-
-function renderTimelineInner(canvas, label) {
-  const { units: TL_UNITS, colW: TL_COL_W } = TL_CONFIG[_tlZoom];
-  const startUnit = _tlUnitStart(_tlOffset);
-  const endUnit   = _tlUnitStart(_tlOffset + TL_UNITS);
-
-  // Update header label
-  const fmt = _tlZoom === 'month'
-    ? (d => d.toLocaleDateString('en-GB', { month: 'short', year: 'numeric', timeZone: 'UTC' }))
-    : (d => d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }));
-  if (label) label.textContent = `${fmt(startUnit)} – ${fmt(endUnit)}`;
-
-  const activeProjects = _tlProjects.filter(p =>
-    !['DELIVERED', 'CANCELLED'].includes(p.status) ||
-    (p.deadline && new Date(p.deadline) >= startUnit)
-  );
-
-  if (!activeProjects.length) {
-    canvas.innerHTML = '<p class="text-center text-muted text-sm py-8">No projects to display.</p>';
-    return;
-  }
-
-  const totalW = TL_NAME_W + TL_UNITS * TL_COL_W;
-  const rowH   = 32;
-  const headH  = 28;
-  const totalH = headH + activeProjects.length * rowH;
-
-  // Column header labels — week zoom: day number, with the month name once
-  // per month (on its first visible week). Month zoom: "Mon 'YY" per column,
-  // since there's no day-level detail left to show at this zoom.
-  const colHeaders = Array.from({ length: TL_UNITS }, (_, i) => {
-    const d = _tlUnitStart(_tlOffset + i);
-    const x = TL_NAME_W + i * TL_COL_W;
-    const isToday = i === -_tlOffset; // the current week/month
-    const topLabel = _tlZoom === 'month'
-      ? d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit', timeZone: 'UTC' })
-      : d.getUTCDate();
-    const subLabel = _tlZoom === 'month'
-      ? ''
-      : (d.getUTCDate() <= 7 ? d.toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' }) : '');
-    return `
-      <rect x="${x}" y="0" width="${TL_COL_W}" height="${headH}"
-        fill="${isToday ? 'rgba(99,179,162,0.08)' : 'transparent'}"/>
-      <text x="${x + TL_COL_W / 2}" y="${subLabel ? 11 : 17}" text-anchor="middle"
-        font-size="9" fill="${isToday ? '#63b3a2' : '#6b7280'}">${topLabel}</text>
-      ${subLabel ? `<text x="${x + TL_COL_W / 2}" y="22" text-anchor="middle" font-size="8" fill="#4b5563">${subLabel}</text>` : ''}`;
-  }).join('');
-
-  // Grid lines
-  const gridLines = Array.from({ length: TL_UNITS + 1 }, (_, i) => {
-    const x = TL_NAME_W + i * TL_COL_W;
-    return `<line x1="${x}" y1="${headH}" x2="${x}" y2="${totalH}" stroke="#2d3748" stroke-width="1"/>`;
-  }).join('');
-
-  // "Today" highlight column
-  const todayX = TL_NAME_W + (-_tlOffset) * TL_COL_W;
-  const todayCol = `<rect x="${todayX}" y="${headH}" width="${TL_COL_W}" height="${totalH - headH}"
-    fill="rgba(99,179,162,0.05)"/>`;
-
-  // Project rows
-  const STATUS_COLOR = {
-    BRIEF:           '#4b5563',
-    IN_PROGRESS:     '#63b3a2',
-    INTERNAL_REVIEW: '#ecc94b',
-    DELIVERED:       '#48bb78',
-    ON_HOLD:         '#f6ad55',
-    CANCELLED:       '#fc8181',
-  };
-
-  const rows = activeProjects.map((p, i) => {
-    const y     = headH + i * rowH;
-    const rowBg = i % 2 === 0 ? 'rgba(255,255,255,0.01)' : 'transparent';
-
-    // Project bar: startDate → deadline
-    const pStart = p.startDate ? new Date(p.startDate) : new Date(p.createdAt);
-    const pEnd   = p.deadline  ? new Date(p.deadline)  : null;
-
-    const barColor = STATUS_COLOR[p.status] || '#4b5563';
-
-    let barSvg = '';
-    if (pEnd) {
-      // Convert dates to column offsets (fractional for month zoom, whole-week for week zoom)
-      const startOff = _tlDateOffset(pStart, startUnit);
-      const endOff   = _tlDateOffset(pEnd,   startUnit);
-
-      const clampedStart = Math.max(0, startOff);
-      const clampedEnd   = Math.min(TL_UNITS, endOff);
-
-      if (clampedEnd > clampedStart) {
-        const bx = TL_NAME_W + clampedStart * TL_COL_W + 2;
-        const bw = (clampedEnd - clampedStart) * TL_COL_W - 4;
-        barSvg = `<rect x="${bx}" y="${y + 8}" width="${bw}" height="${rowH - 16}"
-          rx="3" fill="${barColor}" opacity="0.75"/>`;
-      }
-    } else {
-      // No deadline — show a thin line from start extending to the right edge
-      const startOff = _tlDateOffset(pStart, startUnit);
-      const clamped  = Math.max(0, Math.min(TL_UNITS, startOff));
-      const bx = TL_NAME_W + clamped * TL_COL_W + 2;
-      const bw = (TL_NAME_W + TL_UNITS * TL_COL_W) - bx - 2;
-      barSvg = `<rect x="${bx}" y="${y + 12}" width="${bw}" height="${rowH - 24}"
-        rx="3" fill="${barColor}" opacity="0.4" stroke-dasharray="4 2"/>`;
-    }
-
-    return `
-      <rect x="0" y="${y}" width="${totalW}" height="${rowH}" fill="${rowBg}"/>
-      <text x="6" y="${y + rowH / 2 + 4}" font-size="11" fill="#e2e8f0">${esc(p.name.length > 22 ? p.name.slice(0, 21) + '…' : p.name)}</text>
-      ${barSvg}
-      <rect data-tl-id="${p.id}" x="0" y="${y}" width="${totalW}" height="${rowH}"
-        fill="transparent" class="cursor-pointer" style="cursor:pointer"/>`;
-  }).join('');
-
-  canvas.innerHTML = `
-    <svg width="${totalW}" height="${totalH}" xmlns="http://www.w3.org/2000/svg"
-      style="font-family:ui-monospace,monospace;display:block;">
-      <!-- Background -->
-      <rect width="${totalW}" height="${totalH}" fill="transparent"/>
-      <!-- Name column -->
-      <rect x="0" y="0" width="${TL_NAME_W}" height="${totalH}" fill="rgba(0,0,0,0.15)"/>
-      <line x1="${TL_NAME_W}" y1="0" x2="${TL_NAME_W}" y2="${totalH}" stroke="#2d3748" stroke-width="1"/>
-      <!-- Header -->
-      <rect x="0" y="0" width="${totalW}" height="${headH}" fill="rgba(0,0,0,0.2)"/>
-      <line x1="0" y1="${headH}" x2="${totalW}" y2="${headH}" stroke="#2d3748" stroke-width="1"/>
-      ${colHeaders}
-      <!-- Today highlight -->
-      ${_tlOffset <= 0 && -_tlOffset < TL_UNITS ? todayCol : ''}
-      <!-- Grid -->
-      ${gridLines}
-      <!-- Rows -->
-      ${rows}
-    </svg>`;
-
-  // Wire row clicks — transparent overlay rects sit on top so they catch the event
-  canvas.querySelectorAll('[data-tl-id]').forEach(el => {
-    el.addEventListener('click', () => showProjectDetail(el.dataset.tlId));
-  });
-}

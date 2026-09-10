@@ -300,9 +300,7 @@
         <button id="proj-view-list" onclick="switchProjView('list')"
           class="px-3 py-1.5 bg-panel text-ink transition cursor-pointer">List</button>
         <button id="proj-view-kanban" onclick="switchProjView('kanban')"
-          class="px-3 py-1.5 text-muted hover:text-ink transition cursor-pointer border-x border-line">Kanban</button>
-        <button id="proj-view-timeline" onclick="switchProjView('timeline')"
-          class="px-3 py-1.5 text-muted hover:text-ink transition cursor-pointer">Timeline</button>
+          class="px-3 py-1.5 text-muted hover:text-ink transition cursor-pointer">Kanban</button>
       </div>
       <a href="/api/reports/projects" download
         class="ml-auto px-3 py-1.5 rounded-lg border border-line text-xs text-muted
@@ -362,7 +360,10 @@
               <th data-col="quadrant"   class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Quadrant</th>
               <th data-col="priority"   class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Pri</th>
               <th class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Status</th>
-              <th data-col="deadline"   class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Deadline</th>
+              <th data-col="deadline"   class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">
+                <button onclick="sortProjectsBy('deadline')" id="p-sort-deadline"
+                  class="cursor-pointer hover:text-ink transition-colors uppercase tracking-wider">Deadline</button>
+              </th>
               <th data-col="producer"   class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Producer</th>
               <th data-col="pm"         class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">PM</th>
               <th data-col="value"      class="text-left pb-3 px-2 text-[11px] font-semibold uppercase tracking-wider text-muted">Est. Value</th>
@@ -397,37 +398,6 @@
     <!-- KANBAN VIEW (hidden by default) -->
     <div id="p-kanban-view" class="hidden">
       <div id="kanban-board"></div>
-    </div>
-
-    <!-- TIMELINE VIEW (hidden by default) -->
-    <div id="p-timeline-view" class="hidden bg-panel border border-line rounded-xl p-5">
-      <div class="flex items-center justify-between mb-4">
-        <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">Project Timeline</h2>
-        <div class="flex gap-3 items-center">
-          <div class="flex items-center bg-panel2 border border-line rounded-lg p-0.5 text-xs">
-            <button id="tl-zoom-week" onclick="setTimelineZoom('week')"
-              class="px-2.5 py-1 rounded-md cursor-pointer transition-colors">Week</button>
-            <button id="tl-zoom-month" onclick="setTimelineZoom('month')"
-              class="px-2.5 py-1 rounded-md cursor-pointer transition-colors">Month</button>
-          </div>
-          <div class="flex gap-2 items-center">
-            <button onclick="shiftTimeline(-1)" class="text-muted hover:text-ink text-lg cursor-pointer leading-none">‹</button>
-            <span id="tl-label" class="text-xs text-muted w-32 text-center"></span>
-            <button onclick="shiftTimeline(1)"  class="text-muted hover:text-ink text-lg cursor-pointer leading-none">›</button>
-          </div>
-        </div>
-      </div>
-      <div id="tl-canvas" class="overflow-x-auto"></div>
-      <!-- Legend -->
-      <div class="flex flex-wrap gap-x-5 gap-y-1.5 mt-4 pt-3 border-t border-line">
-        <span class="flex items-center gap-1.5 text-[11px] text-muted"><span class="w-3 h-3 rounded-sm shrink-0" style="background:#4b5563"></span>Brief</span>
-        <span class="flex items-center gap-1.5 text-[11px] text-muted"><span class="w-3 h-3 rounded-sm shrink-0" style="background:#63b3a2"></span>In Progress</span>
-        <span class="flex items-center gap-1.5 text-[11px] text-muted"><span class="w-3 h-3 rounded-sm shrink-0" style="background:#ecc94b"></span>Internal Review</span>
-        <span class="flex items-center gap-1.5 text-[11px] text-muted"><span class="w-3 h-3 rounded-sm shrink-0" style="background:#48bb78"></span>Delivered</span>
-        <span class="flex items-center gap-1.5 text-[11px] text-muted"><span class="w-3 h-3 rounded-sm shrink-0" style="background:#f6ad55"></span>On Hold</span>
-        <span class="flex items-center gap-1.5 text-[11px] text-muted"><span class="w-3 h-3 rounded-sm shrink-0" style="background:#fc8181"></span>Cancelled</span>
-        <span class="flex items-center gap-1.5 text-[11px] text-muted/50 ml-auto italic">Dashed bar = no deadline set</span>
-      </div>
     </div>
 
     </div><!-- end LIST/TIMELINE wrapper -->

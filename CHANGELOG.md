@@ -7,8 +7,9 @@ user menu (top right, after login) → **What's new**.
 
 ## 2026-09
 
-- **Projects:** added a Week / Month zoom toggle to the Project Timeline
-  view — Month zoom shows a full year at a glance instead of just 16 weeks.
+- **Projects:** removed the Timeline (Gantt) and Calendar views — List and
+  Kanban cover it better. List's Deadline column is now sortable and shows
+  days left / overdue on each row.
 - **Capacity:** fixed the editable allocation % input's "%" sign not
   matching the number's color.
 - **Capacity:** added a By person / By project toggle with collapsible
