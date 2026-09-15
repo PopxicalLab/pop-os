@@ -56,6 +56,7 @@ async function loadCapacityBoard() {
   // Cached separately from the dropdown — used to compute who has NO
   // allocation at all this week (the "Unallocated" strip below the board).
   _capAllPeople = people.filter(p => p.status === 'ACTIVE');
+  renderCapUtilization();
 
   // Person dropdown — active staff only (not warm pool).
   // 100% = full weekday schedule; 101–140 = includes approved weekend days.
@@ -270,6 +271,56 @@ function renderCapacityBoard(entries) {
     const anyExpanded = groupList.some(g => !_capCollapsed.has(g.key));
     toggleAllBtn.textContent = anyExpanded ? 'Collapse all' : 'Expand all';
   }
+}
+
+// Studio-wide average utilization for the selected week — average of each
+// active person's total %, not a sum (a sum would make "20 people at 50%"
+// look identical to "one person at 1000%", which isn't a useful signal).
+// Respects the header company filter; ignores the person/project text
+// search, since averaging over a text-matched subset isn't a meaningful
+// "studio" number.
+function renderCapUtilization() {
+  const el = $('cap-utilization');
+  if (!el) return;
+
+  const people = _capAllPeople.filter(p => matchesFilter(p.company));
+  if (!people.length) { el.innerHTML = '<span class="text-muted">No active staff.</span>'; return; }
+
+  const avgOf = (list) => list.length
+    ? Math.round(list.reduce((s, p) => s + (_weekTotals[p.id] || 0), 0) / list.length)
+    : null;
+  const barCls = (pct) => pct > 100 ? 'bg-warm' : pct >= 80 ? 'bg-accent' : 'bg-muted/50';
+  const numCls = (pct) => pct > 100 ? 'text-warm' : pct >= 80 ? 'text-accent' : 'text-ink';
+
+  // One metric = label + mini bar + number, same bar language as the
+  // per-person/per-project rows on this board — keeps one visual style
+  // instead of introducing a separate chart type for a single summary line.
+  const metric = (label, pct, count) => `
+    <div class="flex items-center gap-2">
+      <span class="text-ink font-semibold shrink-0">${label}</span>
+      <div class="w-20 h-1.5 bg-line rounded-full overflow-hidden shrink-0">
+        <div class="h-full ${barCls(pct)} rounded-full" style="width:${Math.min(pct, 100)}%"></div>
+      </div>
+      <span class="${numCls(pct)} font-bold shrink-0">${pct}%</span>
+      ${count != null ? `<span class="text-muted text-[11px] shrink-0">(${count} ${count === 1 ? 'person' : 'people'})</span>` : ''}
+    </div>`;
+
+  const overall = avgOf(people);
+  let html = `<div class="flex flex-wrap items-center gap-x-5 gap-y-2">` + metric('Studio', overall, people.length);
+
+  // Per-company breakdown only when viewing the combined (unfiltered) board —
+  // showing one company's own average again while that company is already
+  // the active filter would just repeat the overall number.
+  if (!window._company) {
+    for (const co of ['LPS', 'PXL']) {
+      const list = people.filter(p => p.company === co);
+      const avg  = avgOf(list);
+      if (avg != null) html += metric(co, avg, list.length);
+    }
+  }
+  html += `</div>`;
+
+  el.innerHTML = html;
 }
 
 // Anyone ACTIVE with no allocation at all this week (any company/project) —
