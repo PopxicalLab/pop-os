@@ -272,6 +272,24 @@
       letter-spacing: 0.01em;
     }
 
+    /* Forgot-password link + success message */
+    .forgot-link {
+      display: block;
+      text-align: center;
+      margin-top: 16px;
+      font-size: 0.72rem;
+      color: rgba(133,127,115,0.8);
+      text-decoration: none;
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-family: inherit;
+      width: 100%;
+    }
+    .forgot-link:hover { color: #e8e5de; }
+    .card-desc { font-size: 0.75rem; color: rgba(133,127,115,0.9); line-height: 1.5; margin-bottom: 22px; }
+    .ok { font-size: 0.7rem; color: #6bc98f; text-align: center; min-height: 18px; margin-top: 14px; letter-spacing: 0.01em; }
+
     /* Footer */
     .footer {
       text-align: center;
@@ -312,22 +330,40 @@
       </div>
 
       <div class="glass">
-        <p class="card-title">Sign in</p>
+        <div id="signin-view">
+          <p class="card-title">Sign in</p>
 
-        <div class="field">
-          <label>Email</label>
-          <input id="email" type="email" autofocus placeholder="you@pop.studio"
-            onkeydown="if(event.key==='Enter') document.getElementById('password').focus()" />
+          <div class="field">
+            <label>Email</label>
+            <input id="email" type="email" autofocus placeholder="you@pop.studio"
+              onkeydown="if(event.key==='Enter') document.getElementById('password').focus()" />
+          </div>
+
+          <div class="field" style="margin-bottom:24px;">
+            <label>Password</label>
+            <input id="password" type="password" placeholder="••••••••"
+              onkeydown="if(event.key==='Enter') login()" />
+          </div>
+
+          <button class="btn" onclick="login()">Sign in</button>
+          <div id="err" class="err"></div>
+          <button class="forgot-link" onclick="showForgotView()">Forgot password?</button>
         </div>
 
-        <div class="field" style="margin-bottom:24px;">
-          <label>Password</label>
-          <input id="password" type="password" placeholder="••••••••"
-            onkeydown="if(event.key==='Enter') login()" />
-        </div>
+        <div id="forgot-view" style="display:none;">
+          <p class="card-title">Reset your password</p>
+          <p class="card-desc">Enter your account email — if it exists, we'll send a link to reset your password.</p>
 
-        <button class="btn" onclick="login()">Sign in</button>
-        <div id="err" class="err"></div>
+          <div class="field" style="margin-bottom:24px;">
+            <label>Email</label>
+            <input id="forgot-email" type="email" placeholder="you@pop.studio"
+              onkeydown="if(event.key==='Enter') submitForgot()" />
+          </div>
+
+          <button class="btn" id="forgot-btn" onclick="submitForgot()">Send reset link</button>
+          <div id="forgot-msg" class="err"></div>
+          <button class="forgot-link" onclick="showSigninView()">← Back to sign in</button>
+        </div>
       </div>
 
       <p class="footer">POP GROUP STUDIO OPERATING SYSTEM</p>
@@ -408,6 +444,53 @@
   <script>
     if (localStorage.getItem('pop-os-token')) {
       window.location.replace('/');
+    }
+
+    function showForgotView() {
+      document.getElementById('signin-view').style.display = 'none';
+      document.getElementById('forgot-view').style.display = 'block';
+      document.getElementById('forgot-msg').className = 'err';
+      document.getElementById('forgot-msg').textContent = '';
+      document.getElementById('forgot-email').value = document.getElementById('email').value;
+      document.getElementById('forgot-email').focus();
+    }
+
+    function showSigninView() {
+      document.getElementById('forgot-view').style.display = 'none';
+      document.getElementById('signin-view').style.display = 'block';
+    }
+
+    async function submitForgot() {
+      const email = document.getElementById('forgot-email').value.trim();
+      const msgEl = document.getElementById('forgot-msg');
+      msgEl.className = 'err';
+      msgEl.textContent = '';
+
+      if (!email) { msgEl.textContent = 'Enter your email.'; return; }
+
+      const btn = document.getElementById('forgot-btn');
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+
+      try {
+        const res = await fetch('/api/auth/forgot-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email }),
+        });
+        const data = await res.json().catch(() => ({}));
+        btn.disabled = false;
+        btn.textContent = 'Send reset link';
+
+        // Always the same generic message, success or not — the backend
+        // never reveals whether the email actually has an account.
+        msgEl.className = res.ok ? 'ok' : 'err';
+        msgEl.textContent = data.message || 'If that email has an account, a reset link has been sent.';
+      } catch {
+        btn.disabled = false;
+        btn.textContent = 'Send reset link';
+        msgEl.textContent = 'Could not reach the server. Is Pop OS running?';
+      }
     }
 
     async function login() {

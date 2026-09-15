@@ -691,9 +691,48 @@ async function loadUserList() {
         <input type="checkbox" ${u.active ? 'checked' : ''} disabled class="accent-accent" />
       </td>
       <td class="py-2 px-3 text-right">
-        <button class="btn-del text-[11px]" onclick="deleteUser('${u.id}')">×</button>
+        <div class="flex items-center justify-end gap-1.5">
+          <button class="btn-edit text-[11px]" onclick="resetUserPassword('${u.id}','${esc(u.name)}')">Reset PW</button>
+          <button class="btn-del text-[11px]" onclick="deleteUser('${u.id}')">×</button>
+        </div>
       </td>
     </tr>`).join('');
+}
+
+// Admin-initiated reset — generates a random password client-side and PATCHes
+// it straight to the user record (the backend already bcrypt-hashes it, same
+// path as every other password write). Shown once in the modal so the admin
+// can copy it and relay it to the person — never emailed, never logged.
+function generateRandomPassword() {
+  // Excludes visually-ambiguous characters (0/O, 1/l/I) since an admin has
+  // to read this back accurately to relay it.
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  const bytes = new Uint32Array(12);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => chars[b % chars.length]).join('');
+}
+
+async function resetUserPassword(id, name) {
+  if (!confirm(`Reset password for ${name}?\n\nA new random password will be generated and their current password will stop working immediately.`)) return;
+
+  const newPw = generateRandomPassword();
+  const res = await fetch('/api/users/' + id, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: newPw }),
+  });
+
+  const msgEl = $('user-mgr-msg');
+  if (res.ok) {
+    // Deliberately not using msg() — it auto-clears after 4.5s, too short
+    // to reliably copy a password out of.
+    msgEl.className = 'text-xs mt-2 text-ink';
+    msgEl.innerHTML = `Password reset for <strong>${esc(name)}</strong>. New password: ` +
+      `<code class="bg-panel2 border border-line rounded px-1.5 py-0.5 font-mono text-accent select-all">${esc(newPw)}</code>` +
+      ` — copy this now, it won't be shown again.`;
+  } else {
+    const e = await res.json().catch(() => ({}));
+    msg(msgEl, [].concat(e.message || 'Failed').join(', '), 'err');
+  }
 }
 
 async function addUser() {

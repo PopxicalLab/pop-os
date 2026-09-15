@@ -3,6 +3,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { PrismaService } from '../prisma.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -11,6 +12,7 @@ import { PrismaService } from '../prisma.service';
       secret: process.env.JWT_SECRET || 'pop-os-dev-secret-change-in-production',
       signOptions: { expiresIn: '12h' },
     }),
+    NotificationsModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, PrismaService],

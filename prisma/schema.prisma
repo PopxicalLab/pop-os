@@ -555,6 +555,10 @@ model User {
   personId  String?  @unique
   person    Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
   auditLogs AuditLog[]
+  // Self-service "forgot password" — hash of the emailed token (never the raw
+  // token) plus its expiry. Both null once unused or after a successful reset.
+  resetTokenHash      String?
+  resetTokenExpiresAt DateTime?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

@@ -80,6 +80,65 @@ export class NotificationsService {
     return { sent, skipped: 0, details, smtpConfigured: true };
   }
 
+  // Send a password-reset link. Returns whether it was actually sent so the
+  // caller can decide what to tell the user — but callers should still show
+  // the same generic "if that email exists…" message either way, so a failed
+  // send here never becomes a way to fingerprint which emails have accounts.
+  async sendPasswordResetEmail(params: { name: string; email: string; resetUrl: string }): Promise<boolean> {
+    const transporter = this.makeTransporter();
+    if (!transporter) {
+      this.logger.warn('Password reset email skipped — SMTP not configured');
+      return false;
+    }
+    const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:system-ui,-apple-system,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.1);">
+        <tr><td style="background:#6366f1;padding:32px 40px;">
+          <p style="margin:0;font-size:22px;font-weight:700;color:#ffffff;">Pop OS</p>
+          <p style="margin:6px 0 0;font-size:14px;color:rgba(255,255,255,0.85);">Password reset requested</p>
+        </td></tr>
+        <tr><td style="padding:36px 40px;">
+          <p style="margin:0 0 8px;font-size:20px;font-weight:600;color:#111827;">Hi ${params.name} 👋</p>
+          <p style="margin:0 0 28px;font-size:15px;color:#6b7280;line-height:1.6;">
+            Someone requested a password reset for your Pop OS account. Click below to set a new password.
+            This link expires in <strong>1 hour</strong> and can only be used once.
+          </p>
+          <table cellpadding="0" cellspacing="0"><tr><td>
+            <a href="${params.resetUrl}"
+               style="display:inline-block;background:#6366f1;color:#ffffff;text-decoration:none;
+                      font-size:14px;font-weight:600;padding:12px 28px;border-radius:8px;">
+              Reset your password →
+            </a>
+          </td></tr></table>
+          <p style="margin:24px 0 0;font-size:13px;color:#9ca3af;line-height:1.6;">
+            If you didn't request this, you can safely ignore this email — your password won't change.
+          </p>
+        </td></tr>
+        <tr><td style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:20px 40px;">
+          <p style="margin:0;font-size:12px;color:#9ca3af;">Pop OS · Pop Group Studio</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+    try {
+      await transporter.sendMail({ from, to: params.email, subject: 'Reset your Pop OS password', html });
+      this.logger.log(`Password reset email sent to ${params.email}`);
+      return true;
+    } catch (err) {
+      this.logger.error(`Password reset email failed for ${params.email}: ${err.message}`);
+      return false;
+    }
+  }
+
   // Send a welcome email to a new joiner with their login credentials.
   // company drives branding: LPS = Lorrypop Studio (amber), PXL = Popxical Lab (teal), default = Pop Group (indigo).
   async sendWelcomeEmail(params: {
