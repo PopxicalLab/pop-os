@@ -194,6 +194,26 @@ function renderSalesPipeline() {
     };
   });
 
+  // Inline-editable title — contenteditable <p>, save on blur. Enter blurs
+  // instead of adding a newline (title is one field, not a text block).
+  $('sales-board').querySelectorAll('[data-lead-name]').forEach(el => {
+    el.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } };
+    el.onblur = async () => {
+      const id  = el.dataset.leadName;
+      const lead = _allLeads.find(l => l.id === id);
+      const name = el.textContent.trim();
+      if (!name) { el.textContent = lead.name; return; }
+      if (name === lead.name) return;
+      lead.name = name;
+      el.textContent = name;
+      el.title = name;
+      await fetch(`/api/leads/${id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+    };
+  });
+
   // Inline-editable estimated amount — PATCH on blur/enter, every change lands
   // in AuditLog (resource: Lead, action: UPDATE) via the controller.
   $('sales-board').querySelectorAll('[data-lead-value]').forEach(inp => {
@@ -279,18 +299,23 @@ function renderLeadCard(l) {
   return `<div class="bg-panel2 border border-line rounded-xl p-3 space-y-1.5 cursor-grab active:cursor-grabbing"
     draggable="true" data-lead-card="${l.id}">
     <div class="flex items-start justify-between gap-1">
-      <p class="text-xs font-semibold text-ink leading-snug flex-1">${esc(l.name)}</p>
+      <p class="text-xs font-semibold text-ink leading-snug flex-1 break-words outline-none
+                line-clamp-2 focus:line-clamp-none
+                focus:ring-1 focus:ring-accent/50 rounded px-0.5 -mx-0.5 cursor-text"
+         contenteditable="true" spellcheck="false" title="${esc(l.name)}"
+         data-lead-name="${l.id}">${esc(l.name)}</p>
       <button class="btn-del shrink-0 text-[11px]" data-lead-del="${l.id}">×</button>
     </div>
     <p class="text-[11px] text-muted">${accName}</p>
     <div class="flex items-center gap-1.5">
-      <span class="text-xs ${priCls}">${l.priority.replace('_', ' ')}</span>
-      <span class="text-line">·</span>
-      <span class="text-xs text-muted">RM</span>
+      <span class="text-xs text-muted shrink-0">RM</span>
       <input type="text" inputmode="decimal" data-lead-value="${l.id}" value="${l.estimatedValue ?? ''}"
         placeholder="—" title="Estimated amount"
-        class="w-20 bg-transparent border-b border-transparent hover:border-line focus:border-accent/70
+        class="min-w-0 flex-1 bg-transparent border-b border-transparent hover:border-line focus:border-accent/70
                text-xs text-ink font-semibold focus:outline-none px-0.5" />
+    </div>
+    <div class="flex items-center gap-1.5">
+      <span class="text-xs ${priCls}">${l.priority.replace('_', ' ')}</span>
     </div>
     ${payBadge}
     <select data-lead-status="${l.id}"
