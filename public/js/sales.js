@@ -61,8 +61,8 @@ function setSalesChartPeriod(mode) {
   renderSalesChart(_salesChartLeads);
 }
 
-function toggleSalesChartTable() {
-  _salesChartTable = !_salesChartTable;
+function setSalesChartView(view) {
+  _salesChartTable = view === 'table';
   renderSalesChart(_salesChartLeads);
 }
 
@@ -113,8 +113,11 @@ function renderSalesChart(leads) {
     monthBtn.className   = 'px-2.5 py-1 rounded-md cursor-pointer transition-colors ' + (_salesChartPeriod === 'month'   ? on : off);
     quarterBtn.className = 'px-2.5 py-1 rounded-md cursor-pointer transition-colors ' + (_salesChartPeriod === 'quarter' ? on : off);
   }
-  const tableToggle = $('sales-chart-table-toggle');
-  if (tableToggle) tableToggle.textContent = _salesChartTable ? 'Chart view' : 'Table view';
+  const chartViewBtn = $('sales-chart-view-chart'), tableViewBtn = $('sales-chart-view-table');
+  if (chartViewBtn && tableViewBtn) {
+    chartViewBtn.className = 'px-2.5 py-1 rounded-md cursor-pointer transition-colors ' + (!_salesChartTable ? on : off);
+    tableViewBtn.className = 'px-2.5 py-1 rounded-md cursor-pointer transition-colors ' + (_salesChartTable  ? on : off);
+  }
 
   legendEl.innerHTML = PIPELINE_STAGES.map(s => `
     <span class="flex items-center gap-1.5 text-muted">
@@ -147,9 +150,20 @@ function renderSalesChart(leads) {
       if (!buckets[k]) buckets[k] = { label: `Q${i + 1} '${String(y).slice(2)}`, counts: {} };
     });
   } else {
-    // Month view stays a rolling recent window — a full year-by-year history
-    // of months would run off the page.
-    keys = Object.keys(buckets).sort().slice(-12);
+    // Fixed trailing 12 months ending this month, always — same reasoning as
+    // quarter view: an empty month still gets its column instead of vanishing.
+    const now = new Date();
+    keys = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const y = d.getFullYear();
+      const key = `${y}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      keys.push(key);
+      if (!buckets[key]) {
+        const label = d.toLocaleDateString('en-GB', { month: 'short' }) + ` '${String(y).slice(2)}`;
+        buckets[key] = { label, counts: {} };
+      }
+    }
   }
 
   if (!keys.length) {

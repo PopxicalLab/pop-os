@@ -257,8 +257,12 @@
             <button id="sales-chart-quarter" onclick="setSalesChartPeriod('quarter')"
               class="px-2.5 py-1 rounded-md cursor-pointer transition-colors">Quarter</button>
           </div>
-          <button id="sales-chart-table-toggle" onclick="toggleSalesChartTable()"
-            class="text-xs text-muted hover:text-ink transition-colors cursor-pointer">Table view</button>
+          <div class="flex text-xs bg-panel2 border border-line rounded-lg p-0.5">
+            <button id="sales-chart-view-chart" onclick="setSalesChartView('chart')"
+              class="px-2.5 py-1 rounded-md cursor-pointer transition-colors">Chart</button>
+            <button id="sales-chart-view-table" onclick="setSalesChartView('table')"
+              class="px-2.5 py-1 rounded-md cursor-pointer transition-colors">Table</button>
+          </div>
         </div>
         <div id="sales-chart-legend" class="flex flex-wrap gap-x-5 gap-y-2 pb-4 mb-5 border-b border-line/60 text-[11px]"></div>
         <div id="sales-chart" class="pt-1"></div>
