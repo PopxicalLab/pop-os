@@ -192,6 +192,8 @@ All routes are prefixed `/api` and JWT-guarded unless marked public.
 |---|---|---|---|
 | Auth | POST | `/api/auth/login` | @Public — issue JWT token |
 | Auth | GET | `/api/auth/me` | Current user profile |
+| Auth | POST | `/api/auth/forgot-password` | @Public — email a reset link (generic response either way) |
+| Auth | POST | `/api/auth/reset-password` | @Public — verify token + expiry, set new password |
 | Me | GET | `/api/me/dashboard` | Personal dashboard (capacity, assets, sign-off queue) |
 | Me | PATCH | `/api/me/sign-off/:id` | CD approve asset from sign-off queue |
 | Me | PATCH | `/api/me/reject/:id` | CD reject asset — sends back to REVISION with note |
@@ -317,7 +319,7 @@ Company (enum: LPS / PXL)
 - **SalesTarget** — quarterly revenue target per producer. Unique on `(personId, year, quarter)`. Used to calculate attainment %.
 - **CommissionTier** — global rate schedule. Each row has a `threshold` (fraction of target, e.g. `0.75` = 75%) and a `rate` (commission fraction, e.g. `0.025` = 2.5%). Seeded with four tiers (50 / 75 / 100 / 150%). Admin-editable from the Performance settings panel.
 - **PersonTierRate** — per-person override for a specific CommissionTier row. Takes precedence over the global tier rate for that person × tier combination.
-- **User** — login credential. Fields: email, name, password (bcrypt), role (7 values: ADMIN / PRODUCER / PM / TEAM_LEAD / FINANCE / SALES / STAFF), active, `personId` (optional FK to Person).
+- **User** — login credential. Fields: email, name, password (bcrypt), role (7 values: ADMIN / PRODUCER / PM / TEAM_LEAD / FINANCE / SALES / STAFF), active, `personId` (optional FK to Person), `resetTokenHash` / `resetTokenExpiresAt` (self-service password reset — only the bcrypt hash of the token is stored, 1-hour expiry, cleared on use).
 
 ---
 
@@ -371,6 +373,7 @@ Company (enum: LPS / PXL)
 | Person ↔ User link — lock icon on People tab | Done |
 | canSignOff flag — per-person sign-off authority | Done |
 | Salary visibility restriction — ADMIN + FINANCE only | Done |
+| Password reset — self-service email flow + admin-initiated reset | Done |
 
 ### Growth & client layer (done)
 | # | Module | Status |

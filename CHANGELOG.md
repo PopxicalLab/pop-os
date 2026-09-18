@@ -7,6 +7,20 @@ user menu (top right, after login) → **What's new**.
 
 ## 2026-09
 
+- **Sales pipeline:** lead card titles are now editable inline — click,
+  type, click away to save; long titles clamp to 2 lines so cards stay a
+  consistent height. Fixed estimated value overflowing the card on long
+  numbers.
+- **Login:** added password reset — "Forgot password?" on the login page
+  emails a reset link (self-service); admins can also generate and hand
+  out a reset password directly from the User Manager.
+- **Guide:** expanded the user guide from 10 to 22 sections, adding full
+  coverage for Projects, Capacity, Assets, Production Lanes, Change
+  Requests, Clients, Sales Performance & Commissions, People & Skills,
+  Committees, Staffing Board, and Admin & Audit Log; fixed several role
+  access inaccuracies found while cross-checking it against the code.
+- **Capacity:** added a studio-wide average utilization strip (Studio /
+  LPS / PXL) above the board for the selected week.
 - **Projects:** removed the Timeline (Gantt) and Calendar views — List and
   Kanban cover it better. List's Deadline column is now sortable and shows
   days left / overdue on each row.
