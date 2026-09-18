@@ -11,11 +11,219 @@ const LEAD_PRI_CLS = {
 };
 const PIPELINE_STAGES = ['QUALIFICATION', 'PROPOSAL', 'NEGOTIATION', 'WON', 'COMPLETED', 'LOST'];
 
+// Solid fills for the "Leads over time" chart's stacked bars — distinct from
+// LEAD_STATUS_CLS (which is translucent badge backgrounds tuned for text
+// contrast). LOST reuses the app's own "warm" theme token since that color
+// already means "negative outcome" everywhere else in the app; the other five
+// are fixed hexes chosen to pass the dataviz skill's categorical-palette
+// checks (lightness band, chroma floor, CVD + normal-vision separation)
+// against both the dark and light chart surface.
+const SALES_CHART_COLOR = {
+  QUALIFICATION: { cls: 'bg-sky-600',     hex: '#0284c7' },
+  PROPOSAL:      { cls: 'bg-amber-600',   hex: '#d97706' },
+  NEGOTIATION:   { cls: 'bg-purple-500',  hex: '#a855f7' },
+  WON:           { cls: 'bg-emerald-600', hex: '#059669' },
+  COMPLETED:     { cls: 'bg-indigo-600',  hex: '#4f46e5' },
+  LOST:          { cls: 'bg-warm',        hex: null },
+};
+
 let _salesAccounts = [];
 let _salesPeople   = [];
 let _autocountDebtors = [];
 let _allLeads = []; // full cache — search filters client-side
 let _dragGhost = null; // placeholder bar shown at the drop position while dragging a lead card
+
+// 'chart' (default) or 'board' — which sub-tab of the right-hand panel is showing.
+let _salesSubTab = localStorage.getItem('pop-os-sales-subtab') === 'board' ? 'board' : 'chart';
+
+function setSalesSubTab(tab) {
+  _salesSubTab = tab;
+  localStorage.setItem('pop-os-sales-subtab', tab);
+  applySalesSubTab();
+}
+
+function applySalesSubTab() {
+  const on = 'bg-accent text-bg font-semibold', off = 'text-muted hover:text-ink';
+  $('sales-subtab-chart').className = 'px-2.5 py-1 rounded-md cursor-pointer transition-colors ' + (_salesSubTab === 'chart' ? on : off);
+  $('sales-subtab-board').className = 'px-2.5 py-1 rounded-md cursor-pointer transition-colors ' + (_salesSubTab === 'board' ? on : off);
+  $('sales-pane-chart').classList.toggle('hidden', _salesSubTab !== 'chart');
+  $('sales-pane-board').classList.toggle('hidden', _salesSubTab !== 'board');
+}
+
+// 'month' (default) or 'quarter' — which period the "Leads over time" chart buckets by.
+let _salesChartPeriod = localStorage.getItem('pop-os-sales-chart-period') === 'quarter' ? 'quarter' : 'month';
+let _salesChartTable  = false; // false = bar chart, true = accessible data table
+let _salesChartLeads  = [];    // last filtered lead set, cached so the toggles above can re-render without a refetch
+
+function setSalesChartPeriod(mode) {
+  _salesChartPeriod = mode;
+  localStorage.setItem('pop-os-sales-chart-period', mode);
+  renderSalesChart(_salesChartLeads);
+}
+
+function toggleSalesChartTable() {
+  _salesChartTable = !_salesChartTable;
+  renderSalesChart(_salesChartLeads);
+}
+
+// Buckets a date into the current chart period — 'YYYY-MM' / 'Jan '26' for
+// month, 'YYYY-Q#' / "Q1 '26" for quarter. Keys sort correctly as plain
+// strings (both formats are zero-padded / single-digit in year-major order),
+// so callers can just Object.keys(...).sort() instead of parsing them back.
+function salesChartBucket(dateStr, mode) {
+  const d = new Date(dateStr);
+  const y = d.getFullYear();
+  if (mode === 'quarter') {
+    const q = Math.floor(d.getMonth() / 3) + 1;
+    return { key: `${y}-Q${q}`, label: `Q${q} '${String(y).slice(2)}` };
+  }
+  const m = d.getMonth();
+  const key = `${y}-${String(m + 1).padStart(2, '0')}`;
+  const label = d.toLocaleDateString('en-GB', { month: 'short' }) + ` '${String(y).slice(2)}`;
+  return { key, label };
+}
+
+function showSalesChartTooltip(e, html) {
+  const tip = $('sales-chart-tooltip');
+  if (!tip) return;
+  tip.innerHTML = html;
+  tip.classList.remove('hidden');
+  const wrap = tip.parentElement.getBoundingClientRect();
+  tip.style.left = (e.clientX - wrap.left + 12) + 'px';
+  tip.style.top  = (e.clientY - wrap.top - 8) + 'px';
+}
+
+function hideSalesChartTooltip() {
+  $('sales-chart-tooltip')?.classList.add('hidden');
+}
+
+// Renders the "Leads over time" panel — a stacked bar per month/quarter,
+// bucketed on the lead's createdAt (Lead has no closed/lost date to bucket
+// by instead), one segment per pipeline status. Table view is the same data
+// as plain rows, for anyone who'd rather read numbers than bar heights.
+function renderSalesChart(leads) {
+  _salesChartLeads = leads;
+  const legendEl = $('sales-chart-legend');
+  const chartEl  = $('sales-chart');
+  if (!legendEl || !chartEl) return;
+
+  const monthBtn = $('sales-chart-month'), quarterBtn = $('sales-chart-quarter');
+  const on = 'bg-accent text-bg font-semibold', off = 'text-muted hover:text-ink';
+  if (monthBtn && quarterBtn) {
+    monthBtn.className   = 'px-2.5 py-1 rounded-md cursor-pointer transition-colors ' + (_salesChartPeriod === 'month'   ? on : off);
+    quarterBtn.className = 'px-2.5 py-1 rounded-md cursor-pointer transition-colors ' + (_salesChartPeriod === 'quarter' ? on : off);
+  }
+  const tableToggle = $('sales-chart-table-toggle');
+  if (tableToggle) tableToggle.textContent = _salesChartTable ? 'Chart view' : 'Table view';
+
+  legendEl.innerHTML = PIPELINE_STAGES.map(s => `
+    <span class="flex items-center gap-1.5 text-muted">
+      <span class="w-2.5 h-2.5 rounded-sm shrink-0 ${SALES_CHART_COLOR[s].cls}"></span>
+      ${LEAD_STATUS_LABEL[s]}
+    </span>`).join('');
+
+  if (!leads.length) {
+    chartEl.innerHTML = '<p class="text-xs text-muted text-center py-10">No leads yet.</p>';
+    return;
+  }
+
+  // Bucket every lead by created date, count per status.
+  const buckets = {}; // key -> { label, counts: { STATUS: n } }
+  for (const l of leads) {
+    if (!l.createdAt) continue;
+    const { key, label } = salesChartBucket(l.createdAt, _salesChartPeriod);
+    if (!buckets[key]) buckets[key] = { label, counts: {} };
+    buckets[key].counts[l.status] = (buckets[key].counts[l.status] || 0) + 1;
+  }
+
+  let keys;
+  if (_salesChartPeriod === 'quarter') {
+    // Fixed Q1–Q4 of the current year, always — a quarter with no leads still
+    // gets its column (an empty bar under its label) instead of vanishing and
+    // making the axis jump straight to whichever quarter has data next.
+    const y = new Date().getFullYear();
+    keys = [1, 2, 3, 4].map(q => `${y}-Q${q}`);
+    keys.forEach((k, i) => {
+      if (!buckets[k]) buckets[k] = { label: `Q${i + 1} '${String(y).slice(2)}`, counts: {} };
+    });
+  } else {
+    // Month view stays a rolling recent window — a full year-by-year history
+    // of months would run off the page.
+    keys = Object.keys(buckets).sort().slice(-12);
+  }
+
+  if (!keys.length) {
+    chartEl.innerHTML = '<p class="text-xs text-muted text-center py-10">No leads yet.</p>';
+    return;
+  }
+
+  if (_salesChartTable) {
+    chartEl.innerHTML = `<div class="overflow-x-auto">
+      <table class="w-full text-xs">
+        <thead><tr class="border-b border-line text-muted">
+          <th class="text-left py-1.5 pr-3 font-semibold">Period</th>
+          ${PIPELINE_STAGES.map(s => `<th class="text-right py-1.5 px-2 font-semibold">${LEAD_STATUS_LABEL[s]}</th>`).join('')}
+          <th class="text-right py-1.5 pl-2 font-semibold">Total</th>
+        </tr></thead>
+        <tbody>
+          ${keys.map(k => {
+            const b = buckets[k];
+            const total = PIPELINE_STAGES.reduce((s, st) => s + (b.counts[st] || 0), 0);
+            return `<tr class="border-b border-line/50 text-ink">
+              <td class="py-1.5 pr-3 text-muted">${b.label}</td>
+              ${PIPELINE_STAGES.map(s => `<td class="text-right py-1.5 px-2">${b.counts[s] || ''}</td>`).join('')}
+              <td class="text-right py-1.5 pl-2 font-semibold">${total}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+    return;
+  }
+
+  const maxTotal = Math.max(1, ...keys.map(k =>
+    PIPELINE_STAGES.reduce((s, st) => s + (buckets[k].counts[st] || 0), 0)));
+  const PLOT_H   = 160; // px — the bars' shared baseline height
+  const HEADROOM = 20;  // px reserved at the top so the tallest bar doesn't crowd the legend above it
+  const SCALE_H  = PLOT_H - HEADROOM;
+
+  // Faint 25/50/75% gridlines — recessive, just enough to read relative height by eye.
+  const gridlines = [25, 50, 75].map(pct =>
+    `<div class="absolute left-0 right-0 border-t border-line/40" style="bottom:${Math.round(pct / 100 * SCALE_H)}px"></div>`
+  ).join('');
+
+  chartEl.innerHTML = `<div class="relative flex items-end gap-3" style="height:${PLOT_H}px">
+    ${gridlines}
+    ${keys.map(k => {
+      const b = buckets[k];
+      const total = PIPELINE_STAGES.reduce((s, st) => s + (b.counts[st] || 0), 0);
+      const segs = PIPELINE_STAGES.filter(s => b.counts[s] > 0).map(s => {
+        const n = b.counts[s];
+        const h = Math.max(3, Math.round((n / maxTotal) * SCALE_H)); // 3px floor keeps a "1" visible/hoverable
+        const showLabel = h >= 16;
+        return `<div class="${SALES_CHART_COLOR[s].cls} w-full flex items-center justify-center"
+                     style="height:${h}px" data-chart-seg="${s}" data-chart-period="${k}"
+                     title="${LEAD_STATUS_LABEL[s]}: ${n}">
+                  ${showLabel ? `<span class="text-[10px] font-semibold text-white/90">${n}</span>` : ''}
+                </div>`;
+      }).join('<div class="h-0.5 bg-panel"></div>'); // 2px surface gap between stacked segments
+      return `<div class="relative flex-1 min-w-[28px] flex flex-col items-center gap-2">
+        <div class="w-full flex flex-col-reverse justify-start rounded-t-[4px] overflow-hidden bg-panel2/40" style="height:${PLOT_H}px" data-chart-bar="${k}">
+          ${segs || ''}
+        </div>
+        <span class="text-[10px] text-muted whitespace-nowrap">${b.label}</span>
+      </div>`;
+    }).join('')}
+  </div>`;
+
+  chartEl.querySelectorAll('[data-chart-seg]').forEach(seg => {
+    const status = seg.dataset.chartSeg, key = seg.dataset.chartPeriod;
+    const n = buckets[key].counts[status] || 0;
+    seg.addEventListener('mousemove', (e) => showSalesChartTooltip(e,
+      `<span class="font-semibold">${buckets[key].label}</span> — ${LEAD_STATUS_LABEL[status]}: <span class="font-semibold">${n}</span>`));
+    seg.addEventListener('mouseleave', hideSalesChartTooltip);
+  });
+}
 
 // Finds which card the dragged one should land before, based on cursor Y vs.
 // each card's vertical midpoint. Returns null when it belongs at the end.
@@ -83,6 +291,8 @@ function renderSalesPipeline() {
     `<span class="text-emerald-400 font-semibold">RM ${wonValue.toLocaleString('en-MY')}</span><span class="text-muted"> closed</span>` +
     ` <span class="text-line mx-2">·</span> ` +
     `<span class="text-slate-400 font-semibold">${completed.length}</span><span class="text-muted"> completed</span>`;
+
+  renderSalesChart(filtered);
 
   // Pipeline columns
   const byStage = {};

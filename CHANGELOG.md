@@ -7,6 +7,11 @@ user menu (top right, after login) → **What's new**.
 
 ## 2026-09
 
+- **Sales pipeline:** added a Leads over time view, alongside Pipeline
+  (opens by default) — a stacked bar per month or quarter showing how many
+  leads landed in each pipeline stage, with a table view as an alternative
+  to reading bar heights. Quarter view always shows Q1–Q4 of the current
+  year, even quarters with no leads yet.
 - **Sales pipeline:** producers can now access the Sales pipeline tab and
   manage leads alongside the Sales team.
 - **Sales pipeline:** lead card titles are now editable inline — click,

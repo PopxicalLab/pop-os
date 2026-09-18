@@ -226,17 +226,44 @@
       <div id="sales-msg" class="text-xs mt-2 min-h-[18px]"></div>
     </div>
 
-    <!-- Right: pipeline board -->
-    <div class="bg-panel border border-line rounded-xl p-5">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">Pipeline</h2>
+    <!-- Right: Leads over time / Pipeline — sub-tabs sharing one panel -->
+    <div class="bg-panel border border-line rounded-xl p-5 relative">
+      <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div class="flex text-xs bg-panel2 border border-line rounded-lg p-0.5">
+          <button id="sales-subtab-chart" onclick="setSalesSubTab('chart')"
+            class="px-2.5 py-1 rounded-md cursor-pointer transition-colors">Leads over time</button>
+          <button id="sales-subtab-board" onclick="setSalesSubTab('board')"
+            class="px-2.5 py-1 rounded-md cursor-pointer transition-colors">Pipeline</button>
+        </div>
         <div id="sales-stats" class="text-xs text-muted"></div>
       </div>
-      <input id="sales-search" type="text" placeholder="Search leads or accounts…" autocomplete="off"
-        class="w-full bg-panel2 border border-line text-ink text-xs px-3 py-1.5 rounded-lg mb-3
-               focus:outline-none focus:border-accent/60" />
-      <div id="sales-board">
-        <div class="text-center text-muted text-sm py-10">Loading…</div>
+
+      <!-- Pipeline pane -->
+      <div id="sales-pane-board" class="hidden">
+        <input id="sales-search" type="text" placeholder="Search leads or accounts…" autocomplete="off"
+          class="w-full bg-panel2 border border-line text-ink text-xs px-3 py-1.5 rounded-lg mb-3
+                 focus:outline-none focus:border-accent/60" />
+        <div id="sales-board">
+          <div class="text-center text-muted text-sm py-10">Loading…</div>
+        </div>
+      </div>
+
+      <!-- Leads over time pane — bucketed on the lead's created date -->
+      <div id="sales-pane-chart">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <div class="flex text-xs bg-panel2 border border-line rounded-lg p-0.5">
+            <button id="sales-chart-month" onclick="setSalesChartPeriod('month')"
+              class="px-2.5 py-1 rounded-md cursor-pointer transition-colors">Month</button>
+            <button id="sales-chart-quarter" onclick="setSalesChartPeriod('quarter')"
+              class="px-2.5 py-1 rounded-md cursor-pointer transition-colors">Quarter</button>
+          </div>
+          <button id="sales-chart-table-toggle" onclick="toggleSalesChartTable()"
+            class="text-xs text-muted hover:text-ink transition-colors cursor-pointer">Table view</button>
+        </div>
+        <div id="sales-chart-legend" class="flex flex-wrap gap-x-5 gap-y-2 pb-4 mb-5 border-b border-line/60 text-[11px]"></div>
+        <div id="sales-chart" class="pt-1"></div>
+        <div id="sales-chart-tooltip"
+          class="hidden absolute z-20 pointer-events-none bg-panel2 border border-line rounded-lg px-2.5 py-1.5 text-[11px] text-ink shadow-lg whitespace-nowrap"></div>
       </div>
     </div>
 
@@ -337,6 +364,7 @@
   <script>
     initUserUI();
     window._reloadCurrentTab = loadSales; // so the company filter buttons reload this page's data
+    applySalesSubTab();
     initSalesTab().then(loadSales);
   </script>
 </body>
