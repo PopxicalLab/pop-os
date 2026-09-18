@@ -140,7 +140,7 @@ visibility via `TAB_ACCESS` map in `index.html`):
 | Role | Access |
 |---|---|
 | ADMIN | Everything — users, all tabs, Autocount push, salary data |
-| PRODUCER | My Work, Dashboard, Projects, Change Requests, Capacity, Assets, Production, People, Staffing |
+| PRODUCER | My Work, Dashboard, Sales pipeline, Projects, Change Requests, Capacity, Assets, Production, People, Staffing |
 | PM | Same as PRODUCER; owns the Change Request process |
 | TEAM_LEAD | My Work, Dashboard, Projects (read), Assets, Production, Capacity, Change Requests, People (read) |
 | FINANCE | My Work, Financial tab, Projects (read), salary data |

@@ -554,7 +554,7 @@ function resetTheme() {
 const TAB_ACCESS = {
   dashboard:  ['ADMIN','PRODUCER','SALES','FINANCE','PM','TEAM_LEAD','STAFF'],
   mywork:     ['ADMIN','PRODUCER','SALES','FINANCE','PM','TEAM_LEAD','STAFF'],
-  sales:      ['ADMIN','SALES'],
+  sales:      ['ADMIN','SALES','PRODUCER'],
   clients:    ['ADMIN','SALES'],
   sp:         ['ADMIN'],
   projects:   ['ADMIN','PRODUCER','FINANCE','PM','TEAM_LEAD','STAFF'],

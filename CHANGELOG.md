@@ -7,6 +7,8 @@ user menu (top right, after login) → **What's new**.
 
 ## 2026-09
 
+- **Sales pipeline:** producers can now access the Sales pipeline tab and
+  manage leads alongside the Sales team.
 - **Sales pipeline:** lead card titles are now editable inline — click,
   type, click away to save; long titles clamp to 2 lines so cards stay a
   consistent height. Fixed estimated value overflowing the card on long
