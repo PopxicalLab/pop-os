@@ -22,6 +22,7 @@ export class MattermostService {
   // up once per server run saves an HTTP round trip on every scheduled send.
   private channelIds = new Map<string, string>();
   private userIds    = new Map<string, string>();
+  private usernames  = new Map<string, string>(); // email -> Mattermost username
   private botUserId: string | null = null;
 
   private get baseUrl() { return (process.env.MATTERMOST_URL || '').replace(/\/+$/, ''); }
@@ -92,6 +93,23 @@ export class MattermostService {
     }
     this.userIds.set(key, user.id);
     return user.id;
+  }
+
+  // Best-effort: the Mattermost @username for an email, or null. Used to @mention
+  // people in a message, where "couldn't find them" must never be an error —
+  // the caller just falls back to printing their plain name.
+  async findUsernameByEmail(email: string): Promise<string | null> {
+    if (!this.isConfigured() || !email) return null;
+    const cached = this.usernames.get(email.toLowerCase());
+    if (cached) return cached;
+    try {
+      const user = await this.api('GET', `/users/email/${encodeURIComponent(email)}`);
+      if (!user?.username) return null;
+      this.usernames.set(email.toLowerCase(), user.username);
+      return user.username;
+    } catch {
+      return null;
+    }
   }
 
   // Break long text on line boundaries so each post stays under Mattermost's limit.

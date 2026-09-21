@@ -1,7 +1,7 @@
 import { Type } from 'class-transformer';
-import { CAPACITY_SECTION_KEYS } from './notification-events';
+import { EVENT_KEYS } from './notification-events';
 import {
-  IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, Matches, Max, Min,
+  IsArray, IsBoolean, IsIn, IsInt, IsObject, IsOptional, IsString, Matches, Max, Min,
   MinLength, ValidateNested,
 } from 'class-validator';
 
@@ -18,19 +18,11 @@ export class TargetDto {
   @IsOptional() @IsString() mattermostUsername?: string;
 }
 
-// Settings for the CAPACITY_WEEKLY event.
-export class CapacityOptionsDto {
-  @IsArray() @IsIn(CAPACITY_SECTION_KEYS, { each: true }) sections: string[];
-  @IsIn(['CURRENT', 'NEXT']) week: 'CURRENT' | 'NEXT';
-  @IsArray() @IsString({ each: true }) departments: string[];
-  @IsBoolean() includeUnbooked: boolean;
-}
-
 export class CreateRuleDto {
   @IsString() @MinLength(1) name: string;
 
-  // Must match a key in EVENT_CATALOGUE (checked again in the service).
-  @IsIn(['CAPACITY_WEEKLY']) event: 'CAPACITY_WEEKLY';
+  // Must be a key in EVENT_CATALOGUE.
+  @IsIn(EVENT_KEYS) event: string;
 
   @IsOptional() @IsBoolean() enabled?: boolean;
 
@@ -43,9 +35,11 @@ export class CreateRuleDto {
   @IsOptional() @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { message: 'timeOfDay must be HH:mm (24-hour)' })
   timeOfDay?: string;
 
-  // Event-specific settings — see CapacityOptionsDto.
-  @IsOptional() @ValidateNested() @Type(() => CapacityOptionsDto)
-  options?: CapacityOptionsDto;
+  // Event-specific settings. Shape depends on the event (capacity sections,
+  // lead stages …) so it is checked and cleaned per event in the service
+  // (normalizeOptions), not here.
+  @IsOptional() @IsObject()
+  options?: Record<string, unknown>;
 
   @IsArray() @ValidateNested({ each: true }) @Type(() => TargetDto)
   targets: TargetDto[];
@@ -59,8 +53,8 @@ export class UpdateRuleDto {
   @IsOptional() @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { message: 'timeOfDay must be HH:mm (24-hour)' })
   timeOfDay?: string;
 
-  @IsOptional() @ValidateNested() @Type(() => CapacityOptionsDto)
-  options?: CapacityOptionsDto;
+  @IsOptional() @IsObject()
+  options?: Record<string, unknown>;
 
   // When present, REPLACES the whole target list.
   @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => TargetDto)

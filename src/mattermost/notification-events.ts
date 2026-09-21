@@ -9,14 +9,16 @@ import { PrismaService } from '../prisma.service';
 // change is needed for a plain event. An event with its own settings sets
 // `optionsForm` and the UI shows the matching options panel.
 
-export type EventKind = 'SCHEDULED'; // 'TRIGGERED' joins in phase 2 (lead events)
+// SCHEDULED events fire at a day/time (GMT+8); TRIGGERED events fire when app code
+// calls NotificationRulesService.emit(...) — e.g. leads.service.ts on a status change.
+export type EventKind = 'SCHEDULED' | 'TRIGGERED';
 
 export interface EventInfo {
   key: string;
   label: string;
   kind: EventKind;
   description: string;
-  optionsForm?: 'CAPACITY';
+  optionsForm?: 'CAPACITY' | 'LEAD';
 }
 
 export const EVENT_CATALOGUE: EventInfo[] = [
@@ -27,7 +29,23 @@ export const EVENT_CATALOGUE: EventInfo[] = [
     description: "Each person's allocation for a week. Choose which sections to include below.",
     optionsForm: 'CAPACITY',
   },
+  {
+    key: 'LEAD_CREATED',
+    label: 'Lead created',
+    kind: 'TRIGGERED',
+    description: 'Posts when a new lead is added to the Sales pipeline.',
+    optionsForm: 'LEAD',
+  },
+  {
+    key: 'LEAD_STATUS_CHANGED',
+    label: 'Lead status changed',
+    kind: 'TRIGGERED',
+    description: 'Posts when a lead moves to another pipeline stage. Choose which stages to be told about.',
+    optionsForm: 'LEAD',
+  },
 ];
+
+export const EVENT_KEYS = EVENT_CATALOGUE.map((e) => e.key);
 
 // ── Capacity board options (stored as JSON on the rule) ──────────
 export type CapacitySection = 'PER_PERSON' | 'PER_PROJECT' | 'AVAILABLE';
@@ -56,6 +74,25 @@ export function capacityOptions(raw: unknown): CapacityOptions {
     week: o.week === 'NEXT' ? 'NEXT' : 'CURRENT',
     departments: Array.isArray(o.departments) ? o.departments.filter((d) => typeof d === 'string' && d) : [],
     includeUnbooked: o.includeUnbooked === true,
+  };
+}
+
+// ── Lead event options (stored as JSON on the rule) ──────────────
+// Values mirror the LeadStatus enum in schema.prisma.
+export const LEAD_STATUSES = ['QUALIFICATION', 'PROPOSAL', 'NEGOTIATION', 'WON', 'COMPLETED', 'LOST'];
+
+export interface LeadOptions {
+  statuses: string[];       // LEAD_STATUS_CHANGED only: which NEW stages notify. Empty = all.
+  includeValue: boolean;    // show the estimated value (a channel may be wider than who should see deal sizes)
+  mentionCloser: boolean;   // @mention whoever closed the deal, when their Mattermost account can be found
+}
+
+export function leadOptions(raw: unknown): LeadOptions {
+  const o = (raw && typeof raw === 'object' ? raw : {}) as Partial<LeadOptions>;
+  return {
+    statuses: Array.isArray(o.statuses) ? o.statuses.filter((s) => LEAD_STATUSES.includes(s)) : [],
+    includeValue: o.includeValue !== false,     // default ON
+    mentionCloser: o.mentionCloser !== false,   // default ON
   };
 }
 
@@ -209,4 +246,81 @@ async function buildCapacityDigest(prisma: PrismaService, rule: RuleLike): Promi
   const appUrl = process.env.APP_URL || 'http://192.168.1.40:3000';
   out.push(`[Open the capacity board](${appUrl}/capacity.html)`);
   return out.join('\n');
+}
+
+// ── Triggered events: leads ──────────────────────────────────────
+// What leads.service.ts hands to NotificationRulesService.emit().
+export interface LeadEventPayload {
+  lead: {
+    name: string;
+    status: string;
+    company: string | null;
+    estimatedValue: number | null;
+    account: { name: string } | null;
+    closedById: string | null;
+  };
+  from?: string; // LEAD_STATUS_CHANGED: the stage it moved away from
+}
+
+// Does this rule want this event? Applies the rule's company scope and, for
+// status changes, its stage filter.
+export function leadRuleMatches(
+  rule: { company: string | null; options?: unknown },
+  event: string,
+  payload: LeadEventPayload,
+): boolean {
+  // Same rule as the header company filter: a Group-tagged or untagged lead
+  // matches every company scope.
+  const c = payload.lead.company;
+  if (rule.company && rule.company !== 'GROUP' && c && c !== 'GROUP' && c !== rule.company) return false;
+  if (event === 'LEAD_STATUS_CHANGED') {
+    const { statuses } = leadOptions(rule.options);
+    if (statuses.length && !statuses.includes(payload.lead.status)) return false;
+  }
+  return true;
+}
+
+// Escape Markdown characters so a lead called "Q3 *rush* [draft]" can't reformat the message.
+const MD_SPECIAL = /[\\`*_[\]<>~|]/g;
+const md = (s: string) => s.replace(MD_SPECIAL, (ch) => '\\' + ch);
+const stageLabel = (s: string) => s.charAt(0) + s.slice(1).toLowerCase();
+const STAGE_EMOJI: Record<string, string> = { WON: '🎉', COMPLETED: '✅', LOST: '❌' };
+
+// `closer` is what to print for "Closed by" (null = omit the line). The caller
+// picks "@username" (pings them) or a plain name, based on opts.mentionCloser.
+export function buildLeadMessage(
+  event: string,
+  payload: LeadEventPayload,
+  opts: LeadOptions,
+  closer: string | null,
+): string {
+  const { lead } = payload;
+  const appUrl = process.env.APP_URL || 'http://192.168.1.40:3000';
+  const account = lead.account?.name ? ` (${md(lead.account.name)})` : '';
+  const value = opts.includeValue && lead.estimatedValue ? `Est. value: RM ${lead.estimatedValue.toLocaleString('en-MY')}` : null;
+  const link = `[Open the sales pipeline](${appUrl}/sales.html)`;
+
+  if (event === 'LEAD_CREATED') {
+    return [`🆕 **New lead** — ${md(lead.name)}${account}`, `Stage: ${stageLabel(lead.status)}`, value, link]
+      .filter(Boolean).join('\n');
+  }
+  if (event === 'LEAD_STATUS_CHANGED') {
+    const emoji = STAGE_EMOJI[lead.status] ?? '📊';
+    return [
+      `${emoji} **Lead status changed** — ${md(lead.name)}${account}`,
+      `${stageLabel(payload.from ?? '?')} → **${stageLabel(lead.status)}**`,
+      value,
+      closer ? `Closed by: ${closer}` : null,
+      link,
+    ].filter(Boolean).join('\n');
+  }
+  throw new Error(`No lead formatter for event "${event}"`);
+}
+
+// Realistic-looking data for the "Send test" button on triggered rules.
+export function samplePayload(event: string): LeadEventPayload {
+  return {
+    lead: { name: 'Sample lead', status: event === 'LEAD_CREATED' ? 'QUALIFICATION' : 'WON', company: null, estimatedValue: 25000, account: { name: 'Sample Client' }, closedById: null },
+    from: 'NEGOTIATION',
+  };
 }

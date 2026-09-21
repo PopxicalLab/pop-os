@@ -43,7 +43,8 @@ async function loadNotifRules() {
 
 function renderNotifRule(r) {
   const ev = _notif.events.find(e => e.key === r.event);
-  const when = r.dayOfWeek && r.timeOfDay ? `${DAY_NAMES[r.dayOfWeek]} ${r.timeOfDay} GMT+8` : 'On event';
+  const triggered = ev?.kind === 'TRIGGERED';
+  const when = r.dayOfWeek && r.timeOfDay ? `${DAY_NAMES[r.dayOfWeek]} ${r.timeOfDay} GMT+8` : 'When it happens';
   const chips = r.targets.map(t => t.type === 'CHANNEL'
     ? `<span class="badge bg-accent/10 text-accent border border-accent/30">#${esc(t.channel)}</span>`
     : `<span class="badge bg-panel2 text-ink border border-line">@ ${esc(t.userName || t.mattermostUsername || 'unknown user')}</span>`
@@ -63,15 +64,15 @@ function renderNotifRule(r) {
       </div>
       <div class="flex gap-1.5 flex-wrap">
         <button class="btn-edit" onclick="testNotifRule('${r.id}', this)">Send test</button>
-        <button class="btn-edit" onclick="runNotifRule('${r.id}', this)">Run now</button>
+        ${triggered ? '' : `<button class="btn-edit" onclick="runNotifRule('${r.id}', this)">Run now</button>`}
         <button class="btn-edit" onclick="toggleNotifRule('${r.id}', ${!r.enabled})">${r.enabled ? 'Pause' : 'Resume'}</button>
         <button class="btn-edit" onclick="openNotifEditor('${r.id}')">Edit</button>
         <button class="btn-del"  onclick="deleteNotifRule('${r.id}')">Delete</button>
       </div>
     </div>
     <div class="flex gap-x-6 gap-y-1 flex-wrap mt-3 text-[11px] text-muted">
-      <span>Next: <span class="text-ink">${r.enabled && r.nextRunAt ? fmtKL(r.nextRunAt) : '—'}</span></span>
-      <span>Last: <span class="text-ink">${fmtKL(r.lastRunAt)}</span></span>
+      ${triggered ? '' : `<span>Next: <span class="text-ink">${r.enabled && r.nextRunAt ? fmtKL(r.nextRunAt) : '—'}</span></span>`}
+      <span>Last ${triggered ? 'sent' : 'run'}: <span class="text-ink">${fmtKL(r.lastRunAt)}</span></span>
       ${r.lastStatus ? `<span class="${statusCls}">${esc(r.lastStatus)}</span>` : ''}
     </div>
   </div>`;
@@ -80,6 +81,15 @@ function renderNotifRule(r) {
 // One-line description of a capacity rule's settings, e.g.
 // "This week · Per person, Available people · Depts: 3D, Motion".
 function optionsSummary(r) {
+  if (r.event === 'LEAD_CREATED' || r.event === 'LEAD_STATUS_CHANGED') {
+    const o = r.options || { statuses: [], includeValue: true, mentionCloser: true };
+    const parts = [
+      r.event === 'LEAD_STATUS_CHANGED' ? (o.statuses.length ? 'Moves to: ' + o.statuses.map(x => x.charAt(0) + x.slice(1).toLowerCase()).join(', ') : 'Any stage') : '',
+      o.includeValue ? 'shows value' : 'hides value',
+      o.mentionCloser ? '@mentions closer' : '',
+    ].filter(Boolean);
+    return `<p class="text-[11px] text-muted mt-0.5">${esc(parts.join(' · '))}</p>`;
+  }
   if (r.event !== 'CAPACITY_WEEKLY') return '';
   const o = r.options || { sections: ['PER_PERSON'], week: 'CURRENT', departments: [], includeUnbooked: false };
   const labels = (_notif.capacitySections || []).filter(s => o.sections.includes(s.key)).map(s => s.label);
@@ -151,6 +161,7 @@ function openNotifEditor(id) {
   onNotifEventChange();
   // A brand-new rule gets the defaults; an older rule saved before options
   // existed (options = null) keeps its original behaviour: per-person, booked people only.
+  fillLeadOptions(r?.options);
   fillCapacityOptions(r ? (r.options || { sections: ['PER_PERSON'], week: 'CURRENT', departments: [], includeUnbooked: false }) : undefined);
 
   _notifTargets = r
@@ -169,6 +180,37 @@ function onNotifEventChange() {
   $('nr-event-desc').textContent = ev?.description || '';
   $('nr-schedule').classList.toggle('hidden', ev?.kind !== 'SCHEDULED');
   $('nr-capacity-opts').classList.toggle('hidden', ev?.optionsForm !== 'CAPACITY');
+  $('nr-lead-opts').classList.toggle('hidden', ev?.optionsForm !== 'LEAD');
+  // "Which stages" only makes sense when a lead MOVES; a new lead has just one stage.
+  $('nr-lead-statuses-wrap').classList.toggle('hidden', $('nr-event').value !== 'LEAD_STATUS_CHANGED');
+
+  // The company filter means "people" for capacity but "leads" for lead events.
+  const leads = ev?.optionsForm === 'LEAD';
+  $('nr-company-label').textContent = leads ? 'Only include leads from' : 'Only include people from';
+  $('nr-company-all').textContent   = leads ? 'All companies' : 'Everyone';
+  $('nr-company-note').textContent  = leads
+    ? 'Leads tagged Group, or with no company, are always included.'
+    : 'People tagged Group, or with no company, are always included.';
+}
+
+// Lead event settings. `o` = the rule's saved options (undefined/null for a new
+// rule -> defaults: any stage, show value, @mention the closer).
+function fillLeadOptions(o) {
+  const cur = o || { statuses: [], includeValue: true, mentionCloser: true };
+  $('nr-lead-statuses').innerHTML = (_notif.leadStatuses || []).map(st => `
+    <label class="flex items-center gap-1.5 text-xs text-ink cursor-pointer">
+      <input type="checkbox" data-lead-status="${st}" ${cur.statuses.includes(st) ? 'checked' : ''} /> ${esc(st.charAt(0) + st.slice(1).toLowerCase())}
+    </label>`).join('');
+  $('nr-lead-value').checked   = cur.includeValue;
+  $('nr-lead-mention').checked = cur.mentionCloser;
+}
+
+function readLeadOptions() {
+  return {
+    statuses: [...document.querySelectorAll('#nr-lead-statuses [data-lead-status]:checked')].map(i => i.dataset.leadStatus),
+    includeValue: $('nr-lead-value').checked,
+    mentionCloser: $('nr-lead-mention').checked,
+  };
 }
 
 // Build the capacity options checkboxes. `o` is the rule's saved options, or
@@ -262,7 +304,7 @@ async function saveNotifRule() {
   if (!targets.length) { msg(msgEl, 'Add at least one recipient.', 'err'); return; }
 
   const capacity = ev?.optionsForm === 'CAPACITY';
-  const options = capacity ? readCapacityOptions() : null;
+  const options = capacity ? readCapacityOptions() : ev?.optionsForm === 'LEAD' ? readLeadOptions() : null;
   if (capacity && !options.sections.length) { msg(msgEl, 'Tick at least one section to include.', 'err'); return; }
 
   const scheduled = ev?.kind === 'SCHEDULED';

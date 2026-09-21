@@ -1,10 +1,14 @@
 import {
   BadRequestException, Injectable, Logger, NotFoundException, OnModuleDestroy, OnModuleInit,
 } from '@nestjs/common';
+import { NotificationEvent } from '@prisma/client';
 import { PrismaService } from '../prisma.service';
 import { MattermostService } from './mattermost.service';
 import { CreateRuleDto, TargetDto, UpdateRuleDto } from './notification-rules.dto';
-import { CAPACITY_SECTIONS, EVENT_CATALOGUE, KL_OFFSET_MS, buildMessage, toKL } from './notification-events';
+import {
+  CAPACITY_SECTIONS, EVENT_CATALOGUE, KL_OFFSET_MS, LEAD_STATUSES, LeadEventPayload,
+  buildLeadMessage, buildMessage, capacityOptions, leadOptions, leadRuleMatches, samplePayload, toKL,
+} from './notification-events';
 
 // How long after its scheduled minute a rule may still fire. This is what makes
 // a server restart at 09:00 harmless: when the server comes back at 09:04 it
@@ -103,8 +107,60 @@ export class NotificationRulesService implements OnModuleInit, OnModuleDestroy {
     return new Map(users.map((u) => [u.id, u.email]));
   }
 
+  private statusText(sent: number, total: number, errors: string[]) {
+    return errors.length ? `Sent to ${sent}/${total} — ${errors.join('; ')}` : `OK — sent to ${sent} target(s)`;
+  }
+
+  // ── Triggered events ───────────────────────────────────────────
+  // Called by app code when something happens (e.g. leads.service.ts after a
+  // lead is saved). Finds the rules listening for `event`, applies their
+  // filters, sends, and records the outcome on each rule. Never throws — the
+  // caller is in the middle of a user's request and must not be affected —
+  // and callers should not await it.
+  async emit(event: 'LEAD_CREATED' | 'LEAD_STATUS_CHANGED', payload: LeadEventPayload): Promise<void> {
+    if (!this.mattermost.isConfigured()) return;
+    try {
+      const rules = await this.prisma.notificationRule.findMany({
+        where: { event, enabled: true },
+        include: { targets: true },
+      });
+      const matching = rules.filter((r) => leadRuleMatches(r, event, payload));
+      if (!matching.length) return;
+
+      // Who closed the deal — looked up once, shared by every matching rule.
+      let closerName: string | null = null;
+      let closerUsername: string | null = null;
+      if (payload.lead.closedById) {
+        const person = await this.prisma.person.findUnique({
+          where: { id: payload.lead.closedById },
+          select: { name: true, user: { select: { email: true } } },
+        });
+        closerName = person?.name ?? null;
+        // Mattermost account found via login email; null (plain name) if not found.
+        if (person?.user?.email && matching.some((r) => leadOptions(r.options).mentionCloser)) {
+          closerUsername = await this.mattermost.findUsernameByEmail(person.user.email);
+        }
+      }
+
+      for (const rule of matching) {
+        const opts = leadOptions(rule.options);
+        const closer = closerName ? (opts.mentionCloser && closerUsername ? `@${closerUsername}` : closerName) : null;
+        const text = buildLeadMessage(event, payload, opts, closer);
+        const { sent, errors } = await this.deliver(rule, text, await this.userEmails(rule.targets));
+        const status = this.statusText(sent, rule.targets.length, errors);
+        if (errors.length) this.logger.warn(`Rule ${rule.id}: ${status}`);
+        await this.prisma.notificationRule.update({
+          where: { id: rule.id },
+          data: { lastRunAt: new Date(), lastStatus: status.slice(0, 500) },
+        });
+      }
+    } catch (err) {
+      this.logger.error(`emit ${event} failed: ${err.message}`);
+    }
+  }
+
   // Build the message, send it, and record the outcome on the rule.
-  // Used by both the scheduler and the "Run now" button.
+  // Used by both the scheduler and the "Run now" button (scheduled events only).
   async execute(rule: { id: string; event: string; company: string | null; options?: unknown; targets: any[] }) {
     this.running.add(rule.id);
     try {
@@ -114,9 +170,7 @@ export class NotificationRulesService implements OnModuleInit, OnModuleDestroy {
       try {
         const text = await buildMessage(this.prisma, rule);
         const { sent, errors } = await this.deliver(rule, text, await this.userEmails(rule.targets));
-        status = errors.length
-          ? `Sent to ${sent}/${rule.targets.length} — ${errors.join('; ')}`
-          : `OK — sent to ${sent} target(s)`;
+        status = this.statusText(sent, rule.targets.length, errors);
         if (errors.length) this.logger.warn(`Rule ${rule.id}: ${status}`);
       } catch (err) {
         status = `Error — ${err.message}`;
@@ -137,13 +191,22 @@ export class NotificationRulesService implements OnModuleInit, OnModuleDestroy {
   async sendTest(id: string) {
     const rule = await this.findRule(id);
     if (!this.mattermost.isConfigured()) throw new BadRequestException('Mattermost is not configured on the server (.env).');
-    const text = `🔔 **Pop OS test message** — rule "${rule.name}". If you can read this, notifications reach you.`;
+    const info = EVENT_CATALOGUE.find((e) => e.key === rule.event);
+    // A triggered rule has nothing to "run", so its test shows what a real
+    // message will look like, built from sample data (no real lead is touched).
+    const text = info?.kind === 'TRIGGERED'
+      ? `🧪 **Test — sample data, no real lead changed** (rule "${rule.name}")\n\n` +
+        buildLeadMessage(rule.event, samplePayload(rule.event), leadOptions(rule.options), 'Sample Person')
+      : `🔔 **Pop OS test message** — rule "${rule.name}". If you can read this, notifications reach you.`;
     const { sent, errors } = await this.deliver(rule, text, await this.userEmails(rule.targets));
     return { sent, total: rule.targets.length, errors };
   }
 
   async runNow(id: string) {
     const rule = await this.findRule(id);
+    if (EVENT_CATALOGUE.find((e) => e.key === rule.event)?.kind === 'TRIGGERED') {
+      throw new BadRequestException('This rule fires by itself when the event happens — use Send test to preview it.');
+    }
     if (!this.mattermost.isConfigured()) throw new BadRequestException('Mattermost is not configured on the server (.env).');
     return this.decorate(await this.execute(rule));
   }
@@ -176,6 +239,7 @@ export class NotificationRulesService implements OnModuleInit, OnModuleDestroy {
       configured: this.mattermost.isConfigured(),
       events: EVENT_CATALOGUE,
       capacitySections: CAPACITY_SECTIONS,
+      leadStatuses: LEAD_STATUSES,
       departments,
       rules: rules.map((r) => this.decorate(r, names)),
     };
@@ -208,6 +272,20 @@ export class NotificationRulesService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  // Clean an options object for its event: keeps only valid values and fills
+  // defaults, so a hand-crafted API call can't store junk.
+  private normalizeOptions(event: string, raw: Record<string, unknown> | undefined): object | undefined {
+    if (!raw) return undefined;
+    const form = EVENT_CATALOGUE.find((e) => e.key === event)?.optionsForm;
+    if (form === 'CAPACITY') return capacityOptions(raw);
+    if (form === 'LEAD') return leadOptions(raw);
+    return undefined;
+  }
+
+  private isScheduled(event: string) {
+    return EVENT_CATALOGUE.find((e) => e.key === event)?.kind === 'SCHEDULED';
+  }
+
   private targetRows(targets: TargetDto[]) {
     return targets.map((t) => ({
       type: t.type,
@@ -219,15 +297,17 @@ export class NotificationRulesService implements OnModuleInit, OnModuleDestroy {
 
   async create(dto: CreateRuleDto) {
     this.validate(dto.event, dto.dayOfWeek, dto.timeOfDay, dto.targets);
+    const scheduled = this.isScheduled(dto.event); // a triggered rule never has a schedule
+    const options = this.normalizeOptions(dto.event, dto.options);
     const rule = await this.prisma.notificationRule.create({
       data: {
         name: dto.name,
-        event: dto.event,
+        event: dto.event as NotificationEvent, // validated against EVENT_KEYS by the DTO
         enabled: dto.enabled ?? true,
         company: dto.company ?? null,
-        dayOfWeek: dto.dayOfWeek ?? null,
-        timeOfDay: dto.timeOfDay ?? null,
-        ...(dto.options ? { options: { ...dto.options } } : {}),
+        dayOfWeek: scheduled ? dto.dayOfWeek ?? null : null,
+        timeOfDay: scheduled ? dto.timeOfDay ?? null : null,
+        ...(options ? { options } : {}),
         targets: { create: this.targetRows(dto.targets) },
       },
       include: { targets: true },
@@ -243,6 +323,8 @@ export class NotificationRulesService implements OnModuleInit, OnModuleDestroy {
       dto.timeOfDay ?? existing.timeOfDay,
       dto.targets ?? existing.targets.map((t) => ({ type: t.type, channel: t.channel ?? undefined, userId: t.userId ?? undefined })),
     );
+    const scheduled = this.isScheduled(existing.event);
+    const options = this.normalizeOptions(existing.event, dto.options);
     // Nested deleteMany + create inside one update: Prisma runs it as a single
     // transaction, so the rule never ends up with half its targets.
     const rule = await this.prisma.notificationRule.update({
@@ -251,9 +333,9 @@ export class NotificationRulesService implements OnModuleInit, OnModuleDestroy {
         ...(dto.name !== undefined ? { name: dto.name } : {}),
         ...(dto.enabled !== undefined ? { enabled: dto.enabled } : {}),
         ...(dto.company !== undefined ? { company: dto.company } : {}),
-        ...(dto.dayOfWeek !== undefined ? { dayOfWeek: dto.dayOfWeek } : {}),
-        ...(dto.timeOfDay !== undefined ? { timeOfDay: dto.timeOfDay } : {}),
-        ...(dto.options ? { options: { ...dto.options } } : {}),
+        ...(scheduled && dto.dayOfWeek !== undefined ? { dayOfWeek: dto.dayOfWeek } : {}),
+        ...(scheduled && dto.timeOfDay !== undefined ? { timeOfDay: dto.timeOfDay } : {}),
+        ...(options ? { options } : {}),
         ...(dto.targets ? { targets: { deleteMany: {}, create: this.targetRows(dto.targets) } } : {}),
       },
       include: { targets: true },

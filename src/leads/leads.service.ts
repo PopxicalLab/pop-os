@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma.service';
 import { CreateLeadDto, UpdateLeadDto } from './lead.dto';
 import { companyWhere } from '../common/company-filter';
 import { WhatsappService } from '../whatsapp/whatsapp.service';
+import { NotificationRulesService } from '../mattermost/notification-rules.service';
 
 const WITH_RELATIONS = {
   account:  { select: { id: true, name: true, industry: true, autocountDebtorCode: true } },
@@ -21,6 +22,7 @@ export class LeadsService {
   constructor(
     private prisma: PrismaService,
     private whatsapp: WhatsappService,
+    private notifications: NotificationRulesService,
   ) {}
 
   findAll(company?: string | null) {
@@ -59,6 +61,9 @@ export class LeadsService {
     });
 
     this.whatsapp.notifyNewLead(created).catch((e) => console.error('WhatsApp notify failed', e));
+    // Mattermost rules (Admin > Mattermost Notifications). emit() never throws
+    // and is deliberately not awaited — the request must not wait on chat.
+    void this.notifications.emit('LEAD_CREATED', { lead: created });
 
     return created;
   }
@@ -83,6 +88,7 @@ export class LeadsService {
       this.whatsapp
         .notifyLeadStatusChange(updated, current.status, dto.status)
         .catch((e) => console.error('WhatsApp notify failed', e));
+      void this.notifications.emit('LEAD_STATUS_CHANGED', { lead: updated, from: current.status });
     }
 
     return updated;

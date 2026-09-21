@@ -224,14 +224,29 @@
       <select id="nr-event" class="form-input cursor-pointer" onchange="onNotifEventChange()"></select>
       <p id="nr-event-desc" class="text-[11px] text-muted mt-1"></p>
 
-      <label class="form-label">Only include people from</label>
+      <label id="nr-company-label" class="form-label">Only include people from</label>
       <select id="nr-company" class="form-input cursor-pointer">
-        <option value="">Everyone</option>
+        <option id="nr-company-all" value="">Everyone</option>
         <option value="LPS">LPS</option>
         <option value="PXL">PXL</option>
         <option value="GROUP">Group</option>
       </select>
-      <p class="text-[11px] text-muted mt-1">People tagged Group, or with no company, are always included.</p>
+      <p id="nr-company-note" class="text-[11px] text-muted mt-1">People tagged Group, or with no company, are always included.</p>
+
+      <!-- Lead event settings — shown for the lead created / status changed events. -->
+      <div id="nr-lead-opts" class="hidden mt-1">
+        <div id="nr-lead-statuses-wrap">
+          <label class="form-label">Tell me when a lead moves to <span class="text-muted/70">(none ticked = any stage)</span></label>
+          <div id="nr-lead-statuses" class="flex flex-wrap gap-x-4 gap-y-1.5"></div>
+        </div>
+        <label class="flex items-center gap-2 mt-3 text-xs text-ink cursor-pointer">
+          <input id="nr-lead-value" type="checkbox" checked /> Show the estimated value
+        </label>
+        <label class="flex items-start gap-2 mt-2 text-xs text-ink cursor-pointer">
+          <input id="nr-lead-mention" type="checkbox" class="mt-0.5" checked />
+          <span>@mention the person who closed the deal <span class="text-muted">(if their Mattermost account is found by login email; otherwise their name is shown)</span></span>
+        </label>
+      </div>
 
       <!-- Capacity board settings — shown only for the capacity event. -->
       <div id="nr-capacity-opts" class="hidden mt-1">

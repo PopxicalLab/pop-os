@@ -809,7 +809,9 @@ model AuditLog {
 // list of possible events lives in code (src/mattermost/notification-events.ts)
 // because each event needs a hand-written message formatter.
 enum NotificationEvent {
-  CAPACITY_WEEKLY // scheduled: weekly capacity board digest
+  CAPACITY_WEEKLY     // scheduled: weekly capacity board digest
+  LEAD_CREATED        // triggered: a new lead is added
+  LEAD_STATUS_CHANGED // triggered: a lead moves to another pipeline stage
 }
 
 enum NotificationTargetType {

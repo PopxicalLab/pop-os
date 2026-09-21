@@ -338,8 +338,20 @@ channels and DMs). Lives in `src/mattermost/`; UI in `public/js/admin-notificati
   last edit, and not already run (`lastRunAt`). Assumes ONE server process.
 - API (`/api/notification-rules`, ADMIN only): list, create, patch, delete,
   `:id/test`, `:id/run`.
-- Phase 2 (not built): triggered events (`LEAD_CREATED`, `LEAD_STATUS_CHANGED`)
-  called from `leads.service.ts` beside WhatsApp, so WhatsApp can be retired.
+- **Triggered events** (`kind: 'TRIGGERED'`, e.g. `LEAD_CREATED`,
+  `LEAD_STATUS_CHANGED`): app code calls `NotificationRulesService.emit(event,
+  payload)` — fire-and-forget (`void this.notifications.emit(...)`), it never
+  throws and does nothing if Mattermost isn't configured. `emit` loads enabled
+  rules for the event, filters with `leadRuleMatches()` (company scope, stage
+  list), builds the text, sends, and records `lastRunAt`/`lastStatus`. Triggered
+  rules never have a schedule (forced null) and "Run now" is refused; "Send
+  test" posts sample data. `LeadOptions`: `statuses[]` (empty = any),
+  `includeValue`, `mentionCloser` (looks up the closer's Mattermost username by
+  their login email, falls back to plain name). Hook points today:
+  `leads.service.ts` create() and update() (status change only), alongside the
+  WhatsApp calls, which are still live. To add an event: enum value + catalogue
+  entry + formatter + one `emit()` call at the place the change is saved. Do NOT
+  emit from bulk import scripts (would flood channels).
 
 ---
 

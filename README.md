@@ -153,7 +153,7 @@ Pop OS can post to Mattermost channels and send private messages, using one
 the feature stays off. Which messages go where is configured in the app
 (**Admin → Mattermost Notifications**), not in `.env`.
 
-Today's message: the **weekly capacity board**. Lead status changes are planned.
+Messages available: the **weekly capacity board** (scheduled), and **lead created** / **lead status changed** (sent the moment it happens).
 
 ### One-time setup (needs a Mattermost admin)
 
@@ -225,6 +225,21 @@ weekly capacity board you also choose what it contains:
 | Week shown | This week or next week (e.g. a Friday "next week" preview and a Monday recap as two rules) |
 | People from | Company (by the *person's* company; Group / untagged people always included) and/or specific departments |
 | Include people with nothing booked | Lists active people with 0% so gaps are visible |
+
+**Lead created / lead status changed** have no schedule — they post as soon as
+a lead is added or moves stage in the Sales pipeline:
+
+| Setting | Options |
+|---|---|
+| Stages (status changed only) | Only tell me when a lead moves *to* these stages, e.g. just Won and Lost. None ticked = every stage. |
+| Leads from | Company filter (Group / untagged leads always match) |
+| Show the estimated value | Untick if the channel is wider than who should see deal sizes |
+| @mention the closer | Pings whoever closed the deal, if their Mattermost account is found by their Pop OS login email; otherwise their name is shown without a ping |
+
+**Send test** on these rules posts a sample message (clearly marked as sample
+data) so you can see the layout; **Run now** doesn't apply because the rule
+fires by itself. Pop OS still sends WhatsApp lead messages alongside — the two
+are independent, so you can compare them before retiring WhatsApp.
 
 Recipients:
 
