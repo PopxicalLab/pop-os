@@ -148,7 +148,19 @@ SMTP_PASS=your-app-password
 SMTP_FROM="Pop OS <your@email.com>"
 ALERT_EMAIL_TO=finance@pop.studio,admin@pop.studio
 ALERT_DAYS=10
+
+# Mattermost notifications (optional — leave blank to disable)
+MATTERMOST_URL=https://mattermost.example.com
+MATTERMOST_BOT_TOKEN=...
+MATTERMOST_TEAM=your-team-slug   # the TEAM's URL slug: https://<host>/<team-slug>/channels/<channel>
 ```
+
+> Mattermost needs a bot account created first (bot must be in the team and in
+> each channel it posts to). Steps: **README.md → "Mattermost notifications"**.
+> After the server is running, log in as ADMIN → Admin → Mattermost
+> Notifications to create the rules. The server must be able to reach
+> `MATTERMOST_URL` over the network (test: `curl <MATTERMOST_URL>/api/v4/system/ping`
+> from the server).
 
 > Keep this file private. It is in `.gitignore` and must never be committed.
 

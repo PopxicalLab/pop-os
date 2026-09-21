@@ -24,6 +24,7 @@ The operating system for Pop Group (Lorrypop Studio + Popxical Lab). Replaces ad
 | People / ELC | Staff records — role, skills (rated 1–5 with full history), sign-off authority flag |
 | Staffing | Staffing recommendation engine — matches skill requirements to available people |
 | Users | Login accounts — email, role, optional link to a Person record (admin only) |
+| Notifications | Admin-configured Mattermost messages — pick the message, recipients (channels / DMs) and a GMT+8 schedule |
 
 ---
 
@@ -54,6 +55,7 @@ cp .env.example .env          # Mac / Linux
 
 # 3. Edit .env — fill in at minimum:
 #    DATABASE_URL, JWT_SECRET, SMTP_*, and the AUTOCOUNT_* vars
+#    (optional) MATTERMOST_* — see "Mattermost notifications" below
 
 # 4. Start the database
 docker compose up -d
@@ -141,6 +143,100 @@ ALERT_DAYS=10
 ```
 
 Trigger manually from the Financial tab ("✉ Send alert email"). Sends one digest email listing all active documents due within `ALERT_DAYS` days.
+
+---
+
+## Mattermost notifications
+
+Pop OS can post to Mattermost channels and send private messages, using one
+**bot account**. It is optional — leave the three `MATTERMOST_*` vars blank and
+the feature stays off. Which messages go where is configured in the app
+(**Admin → Mattermost Notifications**), not in `.env`.
+
+Today's message: the **weekly capacity board**. Lead status changes are planned.
+
+### One-time setup (needs a Mattermost admin)
+
+1. **Enable bot accounts:** System Console → Integrations → Bot Accounts →
+   *Enable Bot Account Creation* = true → Save.
+2. **Create the bot:** Integrations → Bot Accounts → *Add Bot Account*.
+   Username `pop-os`, display name `Pop OS`, role **Member** (not System Admin).
+3. **Copy the token** shown on the confirmation screen. It is shown once — if
+   lost, generate a new one from the bot's entry in the list.
+4. **Add the bot to the team:** open the team → team name → *Invite People* and
+   add `pop-os`. (A bot cannot join a channel until it is in the team. If the
+   search finds nothing: System Console → User Management → Teams → your team →
+   *Add Members*, or on the server `mmctl team users add <team-slug> pop-os`.)
+5. **Add the bot to each channel** it should post in (channel name → *Add
+   Members*). Private channels need this too. Direct messages need no invite.
+
+### Configure Pop OS
+
+Add to `.env` (local) and to the server's `.env`:
+
+```env
+MATTERMOST_URL=https://mattermost.example.com   # site root only, no /api/... path
+MATTERMOST_BOT_TOKEN=<token from step 3>        # a secret — never commit or paste in chat
+MATTERMOST_TEAM=your-team-slug                  # the TEAM's URL slug — see below
+```
+
+**Finding the team slug.** `MATTERMOST_TEAM` is the big **team** the bot was
+added to (not a channel), and it is the team's *URL name*, which can differ from
+its display name ("Pop Group" might be `pop-group`). Open any channel in that
+team and read the address bar:
+
+```
+https://mattermost.example.com/pop-group/channels/capacity
+                               └────────┘          └──────┘
+                               team slug           channel name
+                               (.env)              (used in Admin rules)
+```
+
+Check it with the bot token — this returns the team's details if the slug is right:
+
+```powershell
+curl.exe -H "Authorization: Bearer <token>" https://mattermost.example.com/api/v4/teams/name/pop-group
+```
+
+One Pop OS install posts to a single team: every channel in your rules must
+belong to `MATTERMOST_TEAM`. (Direct messages are not tied to a team.)
+
+Restart the server (`npm run start:dev` locally, `pm2 restart pop-os` on the
+server). The Admin page shows **● Mattermost connected** when the vars are set.
+
+Quick check that the token works (PowerShell):
+
+```powershell
+curl.exe https://mattermost.example.com/api/v4/system/ping
+curl.exe -H "Authorization: Bearer <token>" https://mattermost.example.com/api/v4/users/me
+```
+
+The second should return JSON containing `"username":"pop-os"` and `"is_bot":true`.
+
+### Create a rule
+
+Admin → Mattermost Notifications → **+ New rule**: choose the message, an
+optional company filter, day and time (**GMT+8**), and recipients. For the
+weekly capacity board you also choose what it contains:
+
+| Setting | Options |
+|---|---|
+| Sections | **Alerts** (over-allocated / unassigned people — if it is the only section and there is nothing to report, nothing is sent), **Per person**, **Per project**, **Available people** (under 90% booked) |
+| Week shown | This week or next week (e.g. a Friday "next week" preview and a Monday recap as two rules) |
+| People from | Company (by the *person's* company; Group / untagged people always included) and/or specific departments |
+| Include people with nothing booked | Lists active people with 0% so gaps are visible |
+
+Recipients:
+
+- **Channel** — the name in the channel's URL (`…/channels/`**`capacity`**), not
+  its display name.
+- **Person (DM)** — a Pop OS user. Their Mattermost account is matched by login
+  email; if Mattermost hides emails from the bot, type their `@username` instead.
+
+Use **Send test** to check delivery and **Run now** to post the real message
+immediately. The scheduler checks every minute and survives restarts (a slot
+missed by up to an hour is still sent, once). It assumes a single server
+process.
 
 ---
 

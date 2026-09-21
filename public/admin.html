@@ -184,6 +184,122 @@
   <!-- ════════════════════════════════════════════════════
        ADMIN — Audit Log viewer
   ════════════════════════════════════════════════════ -->
+  <!-- ════════════════════════════════════════════════════
+       ADMIN — Mattermost notification rules
+       Who gets which message, and when (schedules are GMT+8).
+  ════════════════════════════════════════════════════ -->
+  <div class="max-w-7xl mx-auto px-5 pt-6">
+    <div class="flex items-center justify-between mb-4 gap-3 flex-wrap">
+      <div>
+        <h2 class="text-lg font-bold text-ink">Mattermost Notifications</h2>
+        <p class="text-xs text-muted mt-0.5">Choose which messages Pop OS posts to Mattermost, who receives them, and when. All times are GMT+8.</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <span id="notif-status" class="text-[11px] px-2 py-1 rounded-full border border-line text-muted"></span>
+        <button onclick="openNotifEditor()"
+          class="bg-accent text-bg text-xs font-semibold px-3 py-2 rounded-lg hover:brightness-110 transition-all cursor-pointer">
+          + New rule
+        </button>
+      </div>
+    </div>
+    <div id="notif-rules" class="space-y-3">
+      <p class="text-xs text-muted">Loading…</p>
+    </div>
+    <div id="notif-msg" class="text-xs mt-2 min-h-[18px]"></div>
+  </div>
+
+  <!-- ── Notification rule editor modal ───────────────────────── -->
+  <div id="notif-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center">
+    <div class="absolute inset-0 bg-bg/80 backdrop-blur-sm" onclick="closeNotifEditor()"></div>
+    <div class="relative bg-panel border border-line rounded-2xl p-6 w-full max-w-lg mx-4 z-10 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-2">
+        <h2 id="notif-editor-title" class="text-sm font-semibold text-ink">New rule</h2>
+        <button onclick="closeNotifEditor()" class="text-muted hover:text-ink transition-colors cursor-pointer text-lg leading-none">×</button>
+      </div>
+
+      <label class="form-label">Name</label>
+      <input id="nr-name" class="form-input" placeholder="e.g. Weekly capacity → #capacity" autocomplete="off" />
+
+      <label class="form-label">Message</label>
+      <select id="nr-event" class="form-input cursor-pointer" onchange="onNotifEventChange()"></select>
+      <p id="nr-event-desc" class="text-[11px] text-muted mt-1"></p>
+
+      <label class="form-label">Only include people from</label>
+      <select id="nr-company" class="form-input cursor-pointer">
+        <option value="">Everyone</option>
+        <option value="LPS">LPS</option>
+        <option value="PXL">PXL</option>
+        <option value="GROUP">Group</option>
+      </select>
+      <p class="text-[11px] text-muted mt-1">People tagged Group, or with no company, are always included.</p>
+
+      <!-- Capacity board settings — shown only for the capacity event. -->
+      <div id="nr-capacity-opts" class="hidden mt-1">
+        <label class="form-label">Include these sections</label>
+        <div id="nr-sections" class="space-y-1.5"></div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="form-label">Week shown</label>
+            <select id="nr-week" class="form-input cursor-pointer">
+              <option value="CURRENT">This week</option>
+              <option value="NEXT">Next week</option>
+            </select>
+          </div>
+          <div class="flex items-end pb-2">
+            <label class="flex items-center gap-2 text-xs text-ink cursor-pointer">
+              <input id="nr-unbooked" type="checkbox" checked /> Include people with nothing booked
+            </label>
+          </div>
+        </div>
+
+        <label class="form-label">Departments <span class="text-muted/70">(none ticked = all)</span></label>
+        <div id="nr-departments" class="flex flex-wrap gap-x-4 gap-y-1.5"></div>
+      </div>
+
+      <div id="nr-schedule" class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="form-label">Send on</label>
+          <select id="nr-day" class="form-input cursor-pointer">
+            <option value="1">Monday</option><option value="2">Tuesday</option>
+            <option value="3">Wednesday</option><option value="4">Thursday</option>
+            <option value="5">Friday</option><option value="6">Saturday</option>
+            <option value="7">Sunday</option>
+          </select>
+        </div>
+        <div>
+          <label class="form-label">At (GMT+8)</label>
+          <input id="nr-time" type="time" class="form-input" value="09:00" />
+        </div>
+      </div>
+
+      <div class="flex items-center justify-between mt-4 mb-1">
+        <label class="form-label !m-0">Send to</label>
+        <div class="flex gap-2">
+          <button type="button" onclick="addNotifTarget('CHANNEL')" class="btn-edit">+ Channel</button>
+          <button type="button" onclick="addNotifTarget('USER')" class="btn-edit">+ Person (DM)</button>
+        </div>
+      </div>
+      <div id="nr-targets" class="space-y-2"></div>
+      <p class="text-[11px] text-muted mt-2">
+        Channel = the name in its URL (…/channels/<b>capacity</b>); the pop-os bot must be a member.
+        Person = a private message; their Mattermost account is matched by login email unless you type a username.
+      </p>
+
+      <label class="flex items-center gap-2 mt-4 text-xs text-ink cursor-pointer">
+        <input id="nr-enabled" type="checkbox" checked /> Enabled
+      </label>
+
+      <div class="flex gap-2 mt-5">
+        <button type="button" onclick="saveNotifRule()"
+          class="flex-1 bg-accent text-bg text-xs font-semibold py-2 rounded-lg hover:brightness-110 transition-all cursor-pointer">Save rule</button>
+        <button type="button" onclick="closeNotifEditor()"
+          class="px-4 text-xs text-muted border border-line rounded-lg hover:text-ink cursor-pointer">Cancel</button>
+      </div>
+      <div id="nr-msg" class="text-xs mt-2 min-h-[18px]"></div>
+    </div>
+  </div>
+
   <div class="max-w-7xl mx-auto px-5 py-6">
 
     <div class="flex items-center justify-between mb-5">
@@ -207,6 +323,7 @@
         <option value="Project">Project</option>
         <option value="Person">Person</option>
         <option value="User">User</option>
+        <option value="NotificationRule">Notification Rule</option>
         <option value="ChangeRequest">Change Request</option>
         <option value="AccountingDocument">Accounting Doc</option>
       </select>
@@ -317,9 +434,10 @@
   </div>
 
   <script src="/js/admin.js"></script>
+  <script src="/js/admin-notifications.js"></script>
   <script>
     initUserUI();
-    initAdminTab().then(() => loadAuditLog(1));
+    initAdminTab().then(() => { loadNotifRules(); loadAuditLog(1); });
   </script>
 </body>
 </html>

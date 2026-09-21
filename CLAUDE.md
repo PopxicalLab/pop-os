@@ -59,6 +59,7 @@ These work identically on Windows (PowerShell) and macOS (Terminal).
 2. `git clone https://github.com/popxicalLab/pop-os.git`
 3. Copy env file: `cp .env.example .env` (Mac) or `copy .env.example .env` (Windows)
 4. Fill in `.env` — at minimum `DATABASE_URL`, `JWT_SECRET`, Autocount vars, and `APP_URL` (used in welcome emails)
+   Optional: `MATTERMOST_URL`, `MATTERMOST_BOT_TOKEN`, `MATTERMOST_TEAM` (see "Mattermost notifications" below; bot setup steps are in `README.md`)
 5. `docker compose up -d`
 6. `npm install`
 7. `npx prisma migrate deploy`  ← use `deploy` (not `dev`) on a fresh clone
@@ -305,7 +306,41 @@ is its own mini-dashboard in context.
 - Production ▾ → Projects, Change Requests, Assets, Production engine, Capacity
 - Financial (direct — FINANCE + ADMIN only)
 - HR ▾ → People, Staffing
-- Admin (direct — ADMIN only) → Audit Log viewer
+- Admin (direct — ADMIN only) → Mattermost Notifications + Audit Log viewer
+
+---
+
+## Mattermost notifications
+
+Admin-configured rules post to Mattermost as a **bot account** (one token covers
+channels and DMs). Lives in `src/mattermost/`; UI in `public/js/admin-notifications.js`.
+
+- Env: `MATTERMOST_URL`, `MATTERMOST_BOT_TOKEN`, `MATTERMOST_TEAM` (the **team's** URL slug —
+  `https://<host>/<team-slug>/channels/<channel>` — not a channel; all rule channels must be in it).
+  Unset = feature off, scheduler doesn't start. The bot must be in the team and
+  in each channel it posts to (private channels included).
+  Full bot-creation walkthrough (enable bots, create `pop-os`, add to team, then
+  channels) is in `README.md` → "Mattermost notifications".
+- Models: `NotificationRule` (event, enabled, optional company scope, dayOfWeek +
+  timeOfDay in **GMT+8**, lastRunAt/lastStatus) → many `NotificationTarget`
+  (`CHANNEL` by URL name, or `USER` DM found by login email / username override).
+- `NotificationRule.options` (JSON) holds event-specific settings. For
+  `CAPACITY_WEEKLY` (`CapacityOptions` in `notification-events.ts`): `sections`
+  (ALERTS / PER_PERSON / PER_PROJECT / AVAILABLE), `week` (CURRENT / NEXT),
+  `departments[]`, `includeUnbooked`. `null` = legacy default (per-person, booked
+  people only). Company scope filters by the **person's** company, never the
+  project's, so cross-company work still counts toward a person's load.
+  `buildMessage()` may return `null` = "stay quiet" (alerts-only on a clean week).
+- Events are a **code catalogue** (`notification-events.ts`): enum value in
+  `schema.prisma` + `EVENT_CATALOGUE` entry + a case in `buildMessage()`. The
+  Admin UI reads the catalogue from the API — no UI change per event.
+- Scheduler: 1-minute `setInterval` in `NotificationRulesService` (no
+  `@nestjs/schedule`). Due = slot within a 60-min grace window, after the rule's
+  last edit, and not already run (`lastRunAt`). Assumes ONE server process.
+- API (`/api/notification-rules`, ADMIN only): list, create, patch, delete,
+  `:id/test`, `:id/run`.
+- Phase 2 (not built): triggered events (`LEAD_CREATED`, `LEAD_STATUS_CHANGED`)
+  called from `leads.service.ts` beside WhatsApp, so WhatsApp can be retired.
 
 ---
 
@@ -343,6 +378,9 @@ Always run `npm run build` after pulling changes that touch `src/`. If you skip 
 the server starts the old compiled code and new routes/modules won't be registered.
 
 Server `.env` must include all vars from `.env.example` plus Autocount credentials.
+Mattermost vars are optional; if set, the server must be able to reach `MATTERMOST_URL`.
+Rules are created afterwards in Admin → Mattermost Notifications (stored in the DB,
+so `migrate deploy` creates the tables — nothing else to seed).
 The server does NOT use Docker — PostgreSQL runs natively via the system package.
 
 ---
