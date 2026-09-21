@@ -2,7 +2,6 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma.service';
 import { CreateLeadDto, UpdateLeadDto } from './lead.dto';
 import { companyWhere } from '../common/company-filter';
-import { WhatsappService } from '../whatsapp/whatsapp.service';
 import { NotificationRulesService } from '../mattermost/notification-rules.service';
 
 const WITH_RELATIONS = {
@@ -21,7 +20,6 @@ const WITH_RELATIONS = {
 export class LeadsService {
   constructor(
     private prisma: PrismaService,
-    private whatsapp: WhatsappService,
     private notifications: NotificationRulesService,
   ) {}
 
@@ -60,7 +58,6 @@ export class LeadsService {
       include: WITH_RELATIONS,
     });
 
-    this.whatsapp.notifyNewLead(created).catch((e) => console.error('WhatsApp notify failed', e));
     // Mattermost rules (Admin > Mattermost Notifications). emit() never throws
     // and is deliberately not awaited — the request must not wait on chat.
     void this.notifications.emit('LEAD_CREATED', { lead: created });
@@ -82,12 +79,9 @@ export class LeadsService {
       include: WITH_RELATIONS,
     });
 
-    // Fire-and-forget WhatsApp notification on pipeline stage change — never
-    // block or fail the request if the WhatsApp bot is down/unconfigured.
+    // Announce a pipeline stage change to Mattermost (fire-and-forget: emit() never
+    // throws, and the request must not wait on chat).
     if (dto.status && dto.status !== current.status) {
-      this.whatsapp
-        .notifyLeadStatusChange(updated, current.status, dto.status)
-        .catch((e) => console.error('WhatsApp notify failed', e));
       void this.notifications.emit('LEAD_STATUS_CHANGED', { lead: updated, from: current.status });
     }
 

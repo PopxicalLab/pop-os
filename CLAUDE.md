@@ -349,8 +349,10 @@ channels and DMs). Lives in `src/mattermost/`; UI in `public/js/admin-notificati
   test" posts sample data. `LeadOptions`: `statuses[]` (empty = any),
   `includeValue`, `mentionCloser` (looks up the closer's Mattermost username by
   their login email, falls back to plain name). Hook points today:
-  `leads.service.ts` create() and update() (status change only), alongside the
-  WhatsApp calls, which are still live. To add an event: enum value + catalogue
+  `leads.service.ts` create() and update() (status change only). The old
+  WhatsApp lead messages were retired in Sept 2026 (module, `whatsapp-web.js` /
+  Puppeteer deps and `WHATSAPP_*` env vars all removed) — do not reintroduce
+  them; Mattermost replaces them. To add an event: enum value + catalogue
   entry + formatter + one `emit()` call at the place the change is saved. Do NOT
   emit from bulk import scripts (would flood channels).
 

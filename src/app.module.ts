@@ -24,7 +24,6 @@ import { MeModule } from './me/me.module';
 import { ChangeRequestsModule } from './change-requests/change-requests.module';
 import { ReportsModule } from './reports/reports.module';
 import { NotificationsModule } from './notifications/notifications.module';
-import { WhatsappModule } from './whatsapp/whatsapp.module';
 import { MattermostModule } from './mattermost/mattermost.module';
 import { ProjectCostsModule } from './project-costs/project-costs.module';
 import { CommissionTiersModule } from './commission-tiers/commission-tiers.module';
@@ -64,7 +63,6 @@ import { JwtAuthGuard } from './auth/jwt.guard';
     ChangeRequestsModule,
     ReportsModule,
     NotificationsModule,
-    WhatsappModule,
     MattermostModule,
     ProjectCostsModule,
     CommissionTiersModule,

@@ -238,8 +238,8 @@ a lead is added or moves stage in the Sales pipeline:
 
 **Send test** on these rules posts a sample message (clearly marked as sample
 data) so you can see the layout; **Run now** doesn't apply because the rule
-fires by itself. Pop OS still sends WhatsApp lead messages alongside — the two
-are independent, so you can compare them before retiring WhatsApp.
+fires by itself. These replace the old WhatsApp lead messages, which have been
+retired — Pop OS no longer needs WhatsApp, Puppeteer or Chromium.
 
 Recipients:
 

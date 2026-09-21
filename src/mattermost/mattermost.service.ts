@@ -8,9 +8,9 @@ import { Injectable } from '@nestjs/common';
 // If any is missing the service reports "not configured" and every send is a
 // harmless no-op, so dev machines without Mattermost keep working.
 //
-// Unlike WhatsappService.send(), the send methods here THROW on failure —
-// callers (the rule runner) record the error text on the rule so the admin
-// can see it in the UI. Fire-and-forget callers should add their own .catch().
+// The send methods here THROW on failure — callers (the rule runner) record the
+// error text on the rule so the admin can see it in the UI. Fire-and-forget
+// callers should add their own .catch().
 
 // Mattermost rejects posts over 16383 characters — stay safely under it.
 const MAX_POST_CHARS = 15_000;

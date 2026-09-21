@@ -114,9 +114,8 @@ pop-os/
 │   │
 │   ├── reports/               # CSV exports — projects, capacity, AR
 │   ├── notifications/         # Email alerts — payment due digest via nodemailer
-│   ├── mattermost/            # Mattermost bot client, notification rules, 1-min scheduler,
-│   │                          #   event catalogue + message formatters (capacity board, leads)
-│   └── whatsapp/              # WhatsApp lead messages (whatsapp-web.js) — to be retired
+│   └── mattermost/            # Mattermost bot client, notification rules, 1-min scheduler,
+│                              #   event catalogue + message formatters (capacity board, leads)
 │
 ├── docker-compose.yml         # Runs PostgreSQL locally (dev only)
 ├── .env                       # Secrets — DATABASE_URL, JWT_SECRET, SMTP_*, AUTOCOUNT_*, MATTERMOST_*
@@ -429,9 +428,9 @@ Company (enum: LPS / PXL / GROUP)
 | Scheduled event: weekly capacity board (sections, this/next week, company + department scope) | Done |
 | Triggered events: lead created, lead status changed (stage filter, value toggle, @mention closer) | Done |
 | Rule create / edit / delete recorded in the Audit Log | Done |
+| WhatsApp lead messages retired — module, `whatsapp-web.js` / Puppeteer deps and `WHATSAPP_*` env vars removed | Done |
 
 ### Deferred
-- Retire the WhatsApp lead messages once Mattermost has been proven in production
 - More triggered events: asset sent for sign-off (DM to sign-off holders), change request submitted / decided, invoice paid / overdue
 - Kakitangan.com sync (payroll + leave)
 - `changedBy` on SkillRatingChange linking to a real Person

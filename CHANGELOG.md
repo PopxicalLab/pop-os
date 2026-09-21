@@ -7,6 +7,10 @@ user menu (top right, after login) → **What's new**.
 
 ## 2026-09
 
+- **Sales pipeline:** the WhatsApp group messages for new leads and lead
+  stage changes have been switched off — the Mattermost notifications
+  replace them. Removes the WhatsApp linked-device dependency (and the
+  Chromium it needed) from the server.
 - **Admin:** added **Mattermost Notifications** — Pop OS can post to
   Mattermost channels and send private messages, via a single bot account.
   Admins create rules (Admin tab): which message, who receives it (channels
@@ -17,7 +21,7 @@ user menu (top right, after login) → **What's new**.
 - **Sales pipeline:** Mattermost can now announce **new leads** and **lead
   stage changes** as they happen — choose which stages notify (e.g. only Won
   and Lost), whether the estimated value shows, and whether the closer is
-  @mentioned. Runs alongside the existing WhatsApp messages.
+  @mentioned. Replaces the old WhatsApp lead messages.
 - **Admin:** creating, editing and deleting notification rules is recorded
   in the Audit Log (resource "Notification Rule").
 - **Projects:** company is now required on every project — LPS, PXL, or
@@ -257,7 +261,11 @@ every item below is done; kept for context on how the system grew.
   the person's company, not the project's.
 - **Triggered events: `LEAD_CREATED`, `LEAD_STATUS_CHANGED`** —
   `NotificationRulesService.emit()` is called fire-and-forget from
-  `leads.service.ts`; it never throws. WhatsApp stays live alongside.
+  `leads.service.ts`; it never throws.
+- **WhatsApp retired** — `src/whatsapp/`, `whatsapp-web.js`, `qrcode-terminal`
+  (and the Puppeteer / Chromium download they pulled in), the `WHATSAPP_*` and
+  `PUPPETEER_EXECUTABLE_PATH` env vars and the linked-device session data were
+  all removed once Mattermost had taken over lead announcements.
 
 ### Enterprise readiness
 - **Audit Log** — `src/audit/`. Immutable event log for all key mutations.
