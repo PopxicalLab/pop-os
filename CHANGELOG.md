@@ -7,6 +7,10 @@ user menu (top right, after login) → **What's new**.
 
 ## 2026-09
 
+- **Projects:** company is now required on every project — LPS, PXL, or
+  Group, never blank. Also fixed a bug where the company picked on the
+  Add Project form was silently ignored and the project saved with no
+  company at all.
 - **Projects:** added a Group company option — for projects that belong
   to the studio as a whole rather than LPS or PXL specifically. A Group
   project always shows regardless of the header's company filter, with

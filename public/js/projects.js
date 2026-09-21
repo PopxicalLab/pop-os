@@ -397,7 +397,7 @@ async function showProjectDetail(id) {
       ${lbl('Status',     selEl(`detail-status-${p.id}`,   Object.entries(STATUS_LABEL), p.status))}
       ${lbl('Quadrant',   selEl(`detail-quadrant-${p.id}`, Object.entries(QUADRANT_LABEL), p.quadrant))}
       ${lbl('Priority',   selEl(`detail-priority-${p.id}`, [['P1','P1 — High'],['P2','P2 — Med'],['P3','P3 — Low']], p.priority))}
-      ${lbl('Company',    selEl(`detail-company-${p.id}`,  [['','— any —'],['LPS','LPS'],['PXL','PXL'],['GROUP','Group']], p.company || ''))}
+      ${lbl('Company',    selEl(`detail-company-${p.id}`,  [['LPS','LPS'],['PXL','PXL'],['GROUP','Group']], p.company))}
       ${lbl('Start date', dateEl(`detail-start-${p.id}`,   p.startDate))}
       ${lbl('Deadline',   dateEl(`detail-deadline-${p.id}`, p.deadline))}
       <div>

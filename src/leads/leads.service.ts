@@ -112,7 +112,9 @@ export class LeadsService {
         priority:       'P2',
         status:         'BRIEF',
         estimatedValue: lead.estimatedValue ?? null,
-        company:        lead.company       ?? null,
+        // Project.company is required — a lead with no company set becomes a
+        // GROUP project rather than blocking the WON -> Production handoff.
+        company:        lead.company ?? 'GROUP',
       },
     });
 

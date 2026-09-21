@@ -45,6 +45,7 @@ export class ProjectsService {
       data: {
         name:        dto.name,
         client:      dto.client,
+        company:     dto.company,
         quadrant:    dto.quadrant,
         priority:    dto.priority    ?? 'P2',
         status:      dto.status      ?? 'BRIEF',

@@ -302,12 +302,12 @@ Company (enum: LPS / PXL / GROUP)
 
 ### Models
 
-- **Company** — enum `LPS` / `PXL` / `GROUP`. Optional on Person, Project, Account, Lead. Drives the global header filter; untagged and `GROUP` records always appear regardless of which company the filter is set to.
+- **Company** — enum `LPS` / `PXL` / `GROUP`. Required on Project; optional on Person, Account, Lead. Drives the global header filter; untagged and `GROUP` records always appear regardless of which company the filter is set to.
 - **Person** — one record per staff member. Fields: name, role, department, startDate, employmentType, warmPool, `canSignOff` (grants sign-off authority), `commissionRateOverride` (optional flat rate that bypasses the global tier table), company, salary (monthly RM — ADMIN + FINANCE only).
 - **Skill** — studio-wide master list. Shared records, not free text.
 - **PersonSkill** — live current rating (1–5) for a person × skill pair.
 - **SkillRatingChange** — every score movement. First entry (source = INTERVIEW) is the candidate score.
-- **Project** — the spine. PPM quadrant, priority, status, startDate, deadline, budget, producer/PM links, Drain approval gate. Has `company?` field.
+- **Project** — the spine. PPM quadrant, priority, status, startDate, deadline, budget, producer/PM links, Drain approval gate. Has a required `company` field (LPS/PXL/GROUP).
 - **ChangeRequest** — formal change request attached to a project. Status: PENDING / APPROVED / REJECTED. Includes budget impact and approval note.
 - **Capacity** — one row per person × project × week. Enforces ≤ 100% total per person per week. `weekStart` always Monday 00:00 UTC.
 - **Asset** — one deliverable inside a project. Stage: BRIEF / WIP / INTERNAL_REVIEW / REVISION / FINAL_DELIVERY. `reviewUrl` links to the actual work (Drive, Frame.io). `rejectionNote` stores CD feedback when rejected.

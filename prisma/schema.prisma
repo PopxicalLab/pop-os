@@ -348,7 +348,7 @@ model Project {
   producer    Person?         @relation("ProducerProjects", fields: [producerId], references: [id], onDelete: SetNull)
   pm          Person?         @relation("PMProjects",       fields: [pmId],       references: [id], onDelete: SetNull)
 
-  company     Company?        // which studio owns this project (optional)
+  company     Company         // always LPS, PXL, or GROUP — required, never unset
 
   // Drain approval gate — both must be true before a DRAIN project is accepted.
   // Only meaningful when quadrant = DRAIN; ignored otherwise.

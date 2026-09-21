@@ -56,8 +56,8 @@ export class CreateProjectDto {
   @IsOptional() @IsNumber() @Min(0) @Max(100)
   marginTarget?: number;
 
-  @IsOptional() @IsEnum(Company)
-  company?: Company;
+  @IsEnum(Company)
+  company: Company;
 }
 
 // For updates every field is optional — you might change just one thing.
