@@ -159,8 +159,13 @@ login. Click (admin only) to create a login or view the linked account.
 
 ## Data model (current state)
 
-- **Company** — enum: `LPS` / `PXL`. Optional on Person, Project, Account, Lead.
-  Global filter in the header filters all tabs simultaneously.
+- **Company** — enum: `LPS` / `PXL` / `GROUP`. Optional on Person, Project,
+  Account, Lead. Global filter in the header filters all tabs simultaneously.
+  `GROUP` means cross-company (work that belongs to the studio as a whole,
+  not one side) — a `GROUP`-tagged record always shows regardless of which
+  company the header filter is set to (`matchesFilter()` in `shared.js`),
+  same as an untagged (`null`) record. Gets its own badge color (`CO_CLS`
+  in `shared.js`), distinct from LPS/PXL.
 
 - **Person** — staff record. Fields: name, role, department, startDate,
   employmentType, warmPool, company, salary (monthly RM, optional — ADMIN +

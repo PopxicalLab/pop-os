@@ -91,10 +91,13 @@ function applyUserCompany() {
 }
 
 // Returns true if an item should appear under the current filter.
-// Untagged items (company = null) always show regardless of filter.
+// Untagged items (company = null) and GROUP items (cross-company —
+// projects/people that belong to the studio as a whole, not one side)
+// always show, whichever company the header filter is set to.
 function matchesFilter(company) {
   if (!window._company) return true;
   if (!company) return true;
+  if (company === 'GROUP') return true;
   return company === window._company;
 }
 

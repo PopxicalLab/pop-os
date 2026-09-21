@@ -274,7 +274,7 @@ All routes are prefixed `/api` and JWT-guarded unless marked public.
 ## Data Model
 
 ```
-Company (enum: LPS / PXL)
+Company (enum: LPS / PXL / GROUP)
      │
      ├── Person ──< PersonSkill >── Skill
      │     │              │
@@ -302,7 +302,7 @@ Company (enum: LPS / PXL)
 
 ### Models
 
-- **Company** — enum `LPS` / `PXL`. Optional on Person, Project, Account, Lead. Drives the global header filter; untagged records appear under both.
+- **Company** — enum `LPS` / `PXL` / `GROUP`. Optional on Person, Project, Account, Lead. Drives the global header filter; untagged and `GROUP` records always appear regardless of which company the filter is set to.
 - **Person** — one record per staff member. Fields: name, role, department, startDate, employmentType, warmPool, `canSignOff` (grants sign-off authority), `commissionRateOverride` (optional flat rate that bypasses the global tier table), company, salary (monthly RM — ADMIN + FINANCE only).
 - **Skill** — studio-wide master list. Shared records, not free text.
 - **PersonSkill** — live current rating (1–5) for a person × skill pair.

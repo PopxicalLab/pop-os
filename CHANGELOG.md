@@ -7,6 +7,10 @@ user menu (top right, after login) → **What's new**.
 
 ## 2026-09
 
+- **Projects:** added a Group company option — for projects that belong
+  to the studio as a whole rather than LPS or PXL specifically. A Group
+  project always shows regardless of the header's company filter, with
+  its own badge color to tell it apart.
 - **Sales pipeline:** added a Leads over time view, alongside Pipeline
   (opens by default) — a stacked bar per month or quarter showing how many
   leads landed in each pipeline stage, with a table view as an alternative
