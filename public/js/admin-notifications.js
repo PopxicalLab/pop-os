@@ -159,10 +159,19 @@ function openNotifEditor(id) {
   if (r) evSel.value = r.event;
   evSel.disabled = !!r;
   onNotifEventChange();
-  // A brand-new rule gets the defaults; an older rule saved before options
-  // existed (options = null) keeps its original behaviour: per-person, booked people only.
-  fillLeadOptions(r?.options);
-  fillCapacityOptions(r ? (r.options || { sections: ['PER_PERSON'], week: 'CURRENT', departments: [], includeUnbooked: false }) : undefined);
+  // Each rule's saved options belong to ITS event only: a capacity rule's options
+  // (sections, week …) mean nothing to the lead panel, and vice versa. So only the
+  // matching panel is given the saved values; the other gets defaults.
+  // A brand-new rule (r = null) gets defaults for both. An older capacity rule
+  // saved before options existed (options = null) keeps its original behaviour:
+  // per-person, booked people only.
+  const form = r ? _notif.events.find(e => e.key === r.event)?.optionsForm : null;
+  fillLeadOptions(form === 'LEAD' ? r.options : undefined);
+  fillCapacityOptions(
+    !r ? undefined
+    : form === 'CAPACITY' ? (r.options || { includeUnbooked: false })
+    : undefined,
+  );
 
   _notifTargets = r
     ? r.targets.map(t => ({ type: t.type, channel: t.channel || '', userId: t.userId || '', mattermostUsername: t.mattermostUsername || '' }))
@@ -196,7 +205,9 @@ function onNotifEventChange() {
 // Lead event settings. `o` = the rule's saved options (undefined/null for a new
 // rule -> defaults: any stage, show value, @mention the closer).
 function fillLeadOptions(o) {
-  const cur = o || { statuses: [], includeValue: true, mentionCloser: true };
+  // Merge over the defaults so a missing field can never crash the editor.
+  const cur = { statuses: [], includeValue: true, mentionCloser: true, ...(o || {}) };
+  if (!Array.isArray(cur.statuses)) cur.statuses = [];
   $('nr-lead-statuses').innerHTML = (_notif.leadStatuses || []).map(st => `
     <label class="flex items-center gap-1.5 text-xs text-ink cursor-pointer">
       <input type="checkbox" data-lead-status="${st}" ${cur.statuses.includes(st) ? 'checked' : ''} /> ${esc(st.charAt(0) + st.slice(1).toLowerCase())}
@@ -216,7 +227,12 @@ function readLeadOptions() {
 // Build the capacity options checkboxes. `o` is the rule's saved options, or
 // undefined for a new rule (sensible defaults: per-person table, this week).
 function fillCapacityOptions(o) {
-  const cur = o || { sections: ['PER_PERSON'], week: 'CURRENT', departments: [], includeUnbooked: !o };
+  // Merge over the defaults so a missing field can never crash the editor.
+  // includeUnbooked defaults ON for a new rule (o undefined) but OFF when editing
+  // a saved rule that doesn't have the field.
+  const cur = { sections: ['PER_PERSON'], week: 'CURRENT', departments: [], includeUnbooked: !o, ...(o || {}) };
+  if (!Array.isArray(cur.sections)) cur.sections = ['PER_PERSON'];
+  if (!Array.isArray(cur.departments)) cur.departments = [];
   $('nr-sections').innerHTML = (_notif.capacitySections || []).map(s => `
     <label class="flex items-start gap-2 text-xs text-ink cursor-pointer">
       <input type="checkbox" data-section="${s.key}" class="mt-0.5" ${cur.sections.includes(s.key) ? 'checked' : ''} />
