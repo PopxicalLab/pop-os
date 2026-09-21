@@ -236,7 +236,8 @@ login. Click (admin only) to create a login or view the linked account.
   `prisma/seed-users.js`. Has many AuditLog (back-relation).
 
 - **AuditLog** — immutable event record. Captures every CREATE/UPDATE/DELETE
-  across Leads, Projects, People, Users, ChangeRequests, and AccountingDocuments.
+  across Leads, Projects, People, Users, ChangeRequests, AccountingDocuments, and
+  NotificationRules.
   Fields: actorId (nullable FK to User), actorName (denormalized), actorRole,
   action (enum), resource (model name), resourceId, resourceLabel (human name),
   after (JSON result state), changes (JSON field-level diff for UPDATEs).

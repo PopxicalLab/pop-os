@@ -113,10 +113,13 @@ pop-os/
 │   ├── financial/             # Financial engine — man-day costing, AR, health RAG
 │   │
 │   ├── reports/               # CSV exports — projects, capacity, AR
-│   └── notifications/         # Email alerts — payment due digest via nodemailer
+│   ├── notifications/         # Email alerts — payment due digest via nodemailer
+│   ├── mattermost/            # Mattermost bot client, notification rules, 1-min scheduler,
+│   │                          #   event catalogue + message formatters (capacity board, leads)
+│   └── whatsapp/              # WhatsApp lead messages (whatsapp-web.js) — to be retired
 │
 ├── docker-compose.yml         # Runs PostgreSQL locally (dev only)
-├── .env                       # Secrets — DATABASE_URL, JWT_SECRET, SMTP_*, AUTOCOUNT_*
+├── .env                       # Secrets — DATABASE_URL, JWT_SECRET, SMTP_*, AUTOCOUNT_*, MATTERMOST_*
 ├── .env.example               # Template — copy to .env and fill in values
 ├── CLAUDE.md                  # Technical contract for Claude Code
 ├── ARCHITECTURE.md            # This file
@@ -268,6 +271,12 @@ All routes are prefixed `/api` and JWT-guarded unless marked public.
 | Reports | GET | `/api/reports/capacity` | CSV export — current week capacity |
 | Reports | GET | `/api/reports/ar` | CSV export — AR / accounting documents |
 | Notifications | POST | `/api/notifications/payment-alerts` | Send payment due alert email digest |
+| Notification Rules | GET | `/api/notification-rules` | ADMIN. Rules + event catalogue + option choices (`configured`, `events`, `capacitySections`, `leadStatuses`, `departments`, `rules`) |
+| Notification Rules | POST | `/api/notification-rules` | ADMIN. Create a rule (event, company scope, schedule for scheduled events, `options`, `targets`) |
+| Notification Rules | PATCH | `/api/notification-rules/:id` | ADMIN. Edit a rule (`targets`, when sent, replace the whole list) |
+| Notification Rules | DELETE | `/api/notification-rules/:id` | ADMIN. Delete a rule (targets cascade) |
+| Notification Rules | POST | `/api/notification-rules/:id/test` | ADMIN. Post a test message (sample data for triggered events) |
+| Notification Rules | POST | `/api/notification-rules/:id/run` | ADMIN. Send a scheduled rule now (refused for triggered rules) |
 
 ---
 
@@ -297,7 +306,9 @@ Company (enum: LPS / PXL / GROUP)
      │     └──< Lead ──< AccountingDocument (quotations)
      │           └── convertToProject → Project
      │
-     └── User ── Person? (optional link via personId)
+     ├── User ── Person? (optional link via personId)
+     │
+     └── NotificationRule ──< NotificationTarget   (CHANNEL by name | USER by userId)
 ```
 
 ### Models
@@ -319,6 +330,8 @@ Company (enum: LPS / PXL / GROUP)
 - **SalesTarget** — quarterly revenue target per producer. Unique on `(personId, year, quarter)`. Used to calculate attainment %.
 - **CommissionTier** — global rate schedule. Each row has a `threshold` (fraction of target, e.g. `0.75` = 75%) and a `rate` (commission fraction, e.g. `0.025` = 2.5%). Seeded with four tiers (50 / 75 / 100 / 150%). Admin-editable from the Performance settings panel.
 - **PersonTierRate** — per-person override for a specific CommissionTier row. Takes precedence over the global tier rate for that person × tier combination.
+- **NotificationRule** — one Mattermost message the admin has set up. `event` (`CAPACITY_WEEKLY` / `LEAD_CREATED` / `LEAD_STATUS_CHANGED`), `enabled`, optional `company` scope, `dayOfWeek` (1=Mon) + `timeOfDay` (`HH:mm`, always GMT+8) for scheduled events only, event-specific `options` (JSON), and `lastRunAt` / `lastStatus` shown in the Admin UI.
+- **NotificationTarget** — a recipient of a rule: `CHANNEL` (Mattermost channel URL name) or `USER` (a Pop OS `userId`, DM'd via their login email, optional `mattermostUsername` override). Deleted with its rule.
 - **User** — login credential. Fields: email, name, password (bcrypt), role (7 values: ADMIN / PRODUCER / PM / TEAM_LEAD / FINANCE / SALES / STAFF), active, `personId` (optional FK to Person), `resetTokenHash` / `resetTokenExpiresAt` (self-service password reset — only the bcrypt hash of the token is stored, 1-hour expiry, cleared on use).
 
 ---
@@ -408,6 +421,17 @@ Company (enum: LPS / PXL / GROUP)
 | Project Costs — add warm pool / supplier / additional costs per project | Done |
 | Commission calculation: `(revenue − costs) × rate`, bucketed by `wonAt` quarter | Done |
 
+### Notifications (done)
+| Feature | Status |
+|---|---|
+| Mattermost bot client — channel posts and DMs from one bot token | Done |
+| Admin-configured notification rules (Admin tab) with Send test / Run now | Done |
+| Scheduled event: weekly capacity board (sections, this/next week, company + department scope) | Done |
+| Triggered events: lead created, lead status changed (stage filter, value toggle, @mention closer) | Done |
+| Rule create / edit / delete recorded in the Audit Log | Done |
+
 ### Deferred
+- Retire the WhatsApp lead messages once Mattermost has been proven in production
+- More triggered events: asset sent for sign-off (DM to sign-off holders), change request submitted / decided, invoice paid / overdue
 - Kakitangan.com sync (payroll + leave)
 - `changedBy` on SkillRatingChange linking to a real Person

@@ -7,6 +7,19 @@ user menu (top right, after login) → **What's new**.
 
 ## 2026-09
 
+- **Admin:** added **Mattermost Notifications** — Pop OS can post to
+  Mattermost channels and send private messages, via a single bot account.
+  Admins create rules (Admin tab): which message, who receives it (channels
+  and/or people), and — for scheduled messages — the day and time in
+  GMT+8. First message: the **weekly capacity board**, with selectable
+  sections (per person, per project, available people), this/next week, and
+  company and department filters. Each rule has Send test and Run now.
+- **Sales pipeline:** Mattermost can now announce **new leads** and **lead
+  stage changes** as they happen — choose which stages notify (e.g. only Won
+  and Lost), whether the estimated value shows, and whether the closer is
+  @mentioned. Runs alongside the existing WhatsApp messages.
+- **Admin:** creating, editing and deleting notification rules is recorded
+  in the Audit Log (resource "Notification Rule").
 - **Projects:** company is now required on every project — LPS, PXL, or
   Group, never blank. Also fixed a bug where the company picked on the
   Add Project form was silently ignored and the project saved with no
@@ -225,6 +238,26 @@ every item below is done; kept for context on how the system grew.
   tab (⚖ Reconcile button).
 - **Autocount sync year filter** — `syncDocuments()` only pulls current calendar
   year documents. Prevents historical data bloat.
+
+### Notifications (Mattermost)
+- **Mattermost bot client** — `src/mattermost/mattermost.service.ts`. One bot
+  token (`MATTERMOST_URL`, `MATTERMOST_BOT_TOKEN`, `MATTERMOST_TEAM`) posts to
+  channels (by URL name) and DMs users (found by login email or a username
+  override). Feature is off if any env var is unset.
+- **Notification rules** — `NotificationRule` / `NotificationTarget` models;
+  ADMIN-only `/api/notification-rules`; Admin tab UI in
+  `public/js/admin-notifications.js`. Events live in a code catalogue
+  (`notification-events.ts`); per-event settings are stored as JSON
+  (`options`) and normalised per event.
+- **Scheduler** — 1-minute timer in `NotificationRulesService` (no new
+  dependency). "Due" is decided from DB state (`lastRunAt`, last edit, 60-min
+  grace), so it survives restarts and never double-sends a slot. Assumes one
+  server process.
+- **Scheduled event: `CAPACITY_WEEKLY`** — weekly capacity board. Scope is by
+  the person's company, not the project's.
+- **Triggered events: `LEAD_CREATED`, `LEAD_STATUS_CHANGED`** —
+  `NotificationRulesService.emit()` is called fire-and-forget from
+  `leads.service.ts`; it never throws. WhatsApp stays live alongside.
 
 ### Enterprise readiness
 - **Audit Log** — `src/audit/`. Immutable event log for all key mutations.
