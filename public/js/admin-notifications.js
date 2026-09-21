@@ -78,7 +78,7 @@ function renderNotifRule(r) {
 }
 
 // One-line description of a capacity rule's settings, e.g.
-// "This week · By person, Alerts · Depts: 3D, Motion".
+// "This week · Per person, Available people · Depts: 3D, Motion".
 function optionsSummary(r) {
   if (r.event !== 'CAPACITY_WEEKLY') return '';
   const o = r.options || { sections: ['PER_PERSON'], week: 'CURRENT', departments: [], includeUnbooked: false };

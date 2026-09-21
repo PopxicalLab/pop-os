@@ -113,16 +113,11 @@ export class NotificationRulesService implements OnModuleInit, OnModuleDestroy {
       let status: string;
       try {
         const text = await buildMessage(this.prisma, rule);
-        if (text === null) {
-          // The rule chose to stay quiet (e.g. alerts-only and nothing to alert on).
-          status = 'OK — nothing to report, no message sent';
-        } else {
-          const { sent, errors } = await this.deliver(rule, text, await this.userEmails(rule.targets));
-          status = errors.length
-            ? `Sent to ${sent}/${rule.targets.length} — ${errors.join('; ')}`
-            : `OK — sent to ${sent} target(s)`;
-          if (errors.length) this.logger.warn(`Rule ${rule.id}: ${status}`);
-        }
+        const { sent, errors } = await this.deliver(rule, text, await this.userEmails(rule.targets));
+        status = errors.length
+          ? `Sent to ${sent}/${rule.targets.length} — ${errors.join('; ')}`
+          : `OK — sent to ${sent} target(s)`;
+        if (errors.length) this.logger.warn(`Rule ${rule.id}: ${status}`);
       } catch (err) {
         status = `Error — ${err.message}`;
         this.logger.error(`Rule ${rule.id}: ${status}`);

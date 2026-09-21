@@ -30,10 +30,9 @@ export const EVENT_CATALOGUE: EventInfo[] = [
 ];
 
 // ── Capacity board options (stored as JSON on the rule) ──────────
-export type CapacitySection = 'ALERTS' | 'PER_PERSON' | 'PER_PROJECT' | 'AVAILABLE';
+export type CapacitySection = 'PER_PERSON' | 'PER_PROJECT' | 'AVAILABLE';
 
 export const CAPACITY_SECTIONS: { key: CapacitySection; label: string; description: string }[] = [
-  { key: 'ALERTS',      label: 'Alerts',           description: 'Over-allocated and unassigned people. If this is the only section and there is nothing to report, no message is sent.' },
   { key: 'PER_PERSON',  label: 'Per person',       description: "Each person's total % with their project split." },
   { key: 'PER_PROJECT', label: 'Per project',      description: 'Each project with who is on it and the total % committed.' },
   { key: 'AVAILABLE',   label: 'Available people', description: 'People with spare capacity (under 90% booked), most free first.' },
@@ -87,10 +86,8 @@ const cell = (s: string) => s.replace(/\|/g, '¦');
 
 interface RuleLike { event: string; company: string | null; options?: unknown; }
 
-// Turn a rule into the Markdown message to post. Returns null when the rule
-// decides there is nothing worth sending (e.g. an alerts-only rule on a quiet
-// week). Throws on unknown events.
-export async function buildMessage(prisma: PrismaService, rule: RuleLike): Promise<string | null> {
+// Turn a rule into the Markdown message to post. Throws on unknown events.
+export async function buildMessage(prisma: PrismaService, rule: RuleLike): Promise<string> {
   switch (rule.event) {
     case 'CAPACITY_WEEKLY': return buildCapacityDigest(prisma, rule);
     default: throw new Error(`No message formatter for event "${rule.event}"`);
@@ -106,7 +103,7 @@ interface PersonLoad {
   projects: { name: string; pct: number }[];
 }
 
-async function buildCapacityDigest(prisma: PrismaService, rule: RuleLike): Promise<string | null> {
+async function buildCapacityDigest(prisma: PrismaService, rule: RuleLike): Promise<string> {
   const opts = capacityOptions(rule.options);
 
   const weekStart = mondayOf(toKL(new Date()));
@@ -160,7 +157,6 @@ async function buildCapacityDigest(prisma: PrismaService, rule: RuleLike): Promi
   const people = [...loads.values()].sort((a, b) => a.name.localeCompare(b.name));
 
   const over       = people.filter((p) => p.total > 100);
-  const unassigned = people.filter((p) => p.total === 0);
   const free       = people.filter((p) => p.total < 90).sort((a, b) => a.total - b.total);
   const flag = (p: PersonLoad) =>
     p.total > 100 ? (p.weekend ? '🟠 weekend' : '🔴 over')
@@ -173,17 +169,7 @@ async function buildCapacityDigest(prisma: PrismaService, rule: RuleLike): Promi
   const title = `#### 📅 Capacity board — ${opts.week === 'NEXT' ? 'next week, ' : 'week '}of ${fmtDate(weekStart)}${scope ? ` (${scope})` : ''}`;
   const out: string[] = [title, ''];
 
-  const alertsOnly = opts.sections.length === 1 && has('ALERTS');
-  if (alertsOnly && !over.length && !unassigned.length) return null; // quiet week → send nothing
   if (!people.length) return `${title}\n\nNo allocations booked for this week.`;
-
-  if (has('ALERTS')) {
-    out.push('**Alerts**');
-    if (!over.length && !unassigned.length) out.push('✅ No over-allocated or unassigned people.');
-    for (const p of over) out.push(`- 🔴 ${cell(p.name)} — ${p.total}%${p.weekend ? ' (weekend approved)' : ''}`);
-    if (unassigned.length) out.push(`- ⚪ Unassigned: ${unassigned.map((p) => cell(p.name)).join(', ')}`);
-    out.push('');
-  }
 
   if (has('PER_PERSON')) {
     out.push('**By person**', '', '| Person | Total | Projects |', '|:--|:--|:--|');
@@ -218,10 +204,8 @@ async function buildCapacityDigest(prisma: PrismaService, rule: RuleLike): Promi
     out.push('');
   }
 
-  if (!alertsOnly) {
-    const avg = Math.round(people.reduce((s, p) => s + p.total, 0) / people.length);
-    out.push(`**${people.length} people** · avg ${avg}% · ${over.length} over-allocated · ${free.length} with free capacity`);
-  }
+  const avg = Math.round(people.reduce((s, p) => s + p.total, 0) / people.length);
+  out.push(`**${people.length} people** · avg ${avg}% · ${over.length} over-allocated · ${free.length} with free capacity`);
   const appUrl = process.env.APP_URL || 'http://192.168.1.40:3000';
   out.push(`[Open the capacity board](${appUrl}/capacity.html)`);
   return out.join('\n');

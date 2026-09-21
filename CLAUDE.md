@@ -326,11 +326,10 @@ channels and DMs). Lives in `src/mattermost/`; UI in `public/js/admin-notificati
   (`CHANNEL` by URL name, or `USER` DM found by login email / username override).
 - `NotificationRule.options` (JSON) holds event-specific settings. For
   `CAPACITY_WEEKLY` (`CapacityOptions` in `notification-events.ts`): `sections`
-  (ALERTS / PER_PERSON / PER_PROJECT / AVAILABLE), `week` (CURRENT / NEXT),
+  (PER_PERSON / PER_PROJECT / AVAILABLE), `week` (CURRENT / NEXT),
   `departments[]`, `includeUnbooked`. `null` = legacy default (per-person, booked
   people only). Company scope filters by the **person's** company, never the
   project's, so cross-company work still counts toward a person's load.
-  `buildMessage()` may return `null` = "stay quiet" (alerts-only on a clean week).
 - Events are a **code catalogue** (`notification-events.ts`): enum value in
   `schema.prisma` + `EVENT_CATALOGUE` entry + a case in `buildMessage()`. The
   Admin UI reads the catalogue from the API — no UI change per event.

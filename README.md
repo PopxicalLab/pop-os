@@ -221,7 +221,7 @@ weekly capacity board you also choose what it contains:
 
 | Setting | Options |
 |---|---|
-| Sections | **Alerts** (over-allocated / unassigned people — if it is the only section and there is nothing to report, nothing is sent), **Per person**, **Per project**, **Available people** (under 90% booked) |
+| Sections | **Per person** (total % with project split, over / free flags), **Per project** (who is on it, total % / FTE), **Available people** (under 90% booked, most free first) |
 | Week shown | This week or next week (e.g. a Friday "next week" preview and a Monday recap as two rules) |
 | People from | Company (by the *person's* company; Group / untagged people always included) and/or specific departments |
 | Include people with nothing booked | Lists active people with 0% so gaps are visible |
