@@ -312,7 +312,7 @@ The server runs Debian. PostgreSQL runs natively (no Docker). PM2 manages the No
 ```bash
 cd /opt/pop-os
 git pull
-npm install
+npm ci                      # exact lockfile install — not `npm install` (see below)
 npx prisma generate
 npx prisma migrate deploy
 node prisma/seed-users.js   # safe — skips existing accounts
@@ -321,6 +321,12 @@ pm2 restart pop-os
 ```
 
 Always run `npm run build` after any backend TypeScript changes — the server runs `dist/main.js`, not the source.
+
+Use **`npm ci`** on the server (it installs exactly what `package-lock.json` says and never
+rewrites it). `npm install` there modifies the lockfile and can block the next `git pull`.
+Only run `npm install <package>` / `npm uninstall <package>` on your dev machine, and commit
+the updated `package-lock.json` with the change. If a pull is ever blocked by a modified
+lockfile on the server: `git checkout -- package-lock.json`, then pull again.
 
 ---
 

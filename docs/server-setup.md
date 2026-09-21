@@ -170,7 +170,7 @@ MATTERMOST_TEAM=your-team-slug   # the TEAM's URL slug: https://<host>/<team-slu
 
 ```bash
 cd /opt/pop-os
-npm install
+npm ci                      # installs exactly what package-lock.json says
 
 # Generate Prisma client (must run after install)
 npx prisma generate
@@ -244,8 +244,9 @@ cd /opt/pop-os
 # Pull latest code
 git pull
 
-# Install any new packages
-npm install
+# Install packages exactly as locked (removes any that were dropped, e.g. after a
+# dependency was uninstalled). Use `npm ci`, NOT `npm install`, on the server.
+npm ci
 
 # Regenerate Prisma client (picks up schema changes)
 npx prisma generate
@@ -259,6 +260,13 @@ pm2 restart pop-os
 ```
 
 > Always run `npm run build` after any backend TypeScript changes. If you skip it, the server runs the old compiled code and new routes/modules will not be registered.
+
+> **Why `npm ci` and not `npm install`?** `npm ci` installs exactly what `package-lock.json` says
+> and never rewrites it. `npm install` on the server adjusts the lockfile (the server's npm differs
+> from the dev machine's), which leaves it locally modified and makes the next `git pull` fail with
+> "your local changes would be overwritten". To add or remove a package, do it on the dev machine
+> (`npm install <pkg>` / `npm uninstall <pkg>`) and commit `package-lock.json` with the change.
+> If a pull is ever blocked by a modified lockfile: `git checkout -- package-lock.json`, then pull again.
 
 ---
 

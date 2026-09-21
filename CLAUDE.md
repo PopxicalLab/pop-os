@@ -379,13 +379,23 @@ Server: `192.168.1.40` (Debian), user `yeo`, managed by PM2.
 # On the server
 cd /opt/pop-os
 git pull
-npm install
+npm ci                      # NOT `npm install` — see note below
 npx prisma generate
 npx prisma migrate deploy
 node prisma/seed-users.js   # safe: skips if users already exist
 npm run build               # REQUIRED — server runs dist/main.js (compiled JS)
 pm2 restart pop-os
 ```
+
+**Use `npm ci` on the server, `npm install` only on your dev machine.** `npm ci`
+installs exactly what `package-lock.json` says and never rewrites it. `npm install`
+on the server tweaks the lockfile (the server's npm differs from the dev machine's),
+which leaves `package-lock.json` locally modified and makes the next `git pull` fail
+with "your local changes would be overwritten" whenever a commit touches that file.
+When you add or remove a package: run `npm install <pkg>` / `npm uninstall <pkg>` on
+your dev machine and **commit the updated `package-lock.json`** with it. If a pull is
+ever blocked by a modified lockfile on the server: `git checkout -- package-lock.json`
+then pull again.
 
 **Important:** The server runs `dist/main.js`, not the TypeScript source directly.
 Always run `npm run build` after pulling changes that touch `src/`. If you skip it,
