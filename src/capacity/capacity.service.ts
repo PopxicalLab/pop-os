@@ -109,10 +109,30 @@ export class CapacityService {
 
   async update(id: string, dto: UpdateCapacityDto) {
     const entry = await this.findOne(id);
+    const newPct = dto.pctWeek ?? entry.pctWeek;
 
-    // Resolve the final weekendApproved state (incoming or existing).
-    const weekendApproved = dto.weekendApproved ?? entry.weekendApproved;
-    const newPct          = dto.pctWeek ?? entry.pctWeek;
+    // Fetch this person's OTHER allocations for the week once — needed both to
+    // auto-clear a stale weekend-approval flag (below) and to re-check the
+    // weekly cap.
+    const pctOrWeekendChanging = dto.pctWeek !== undefined || dto.weekendApproved !== undefined;
+    const othersTotal = pctOrWeekendChanging
+      ? (await this.prisma.capacity.findMany({
+          where: { personId: entry.personId, weekStart: entry.weekStart, NOT: { id } },
+          select: { pctWeek: true },
+        })).reduce((sum, e) => sum + e.pctWeek, 0)
+      : 0;
+
+    // Resolve the final weekendApproved flag. The %-cell editor on the board
+    // only ever sends { pctWeek } — it never says anything about weekend
+    // approval either way. So if the caller left it unspecified and dialling
+    // the % back down means this entry no longer needs it, clear it here.
+    // Without this, an entry that once hit >100% keeps the "weekend" badge
+    // stuck on forever, because nothing else ever un-ticks it.
+    let weekendApproved = dto.weekendApproved ?? entry.weekendApproved;
+    if (dto.pctWeek !== undefined && dto.weekendApproved === undefined
+        && weekendApproved && othersTotal + newPct <= 100) {
+      weekendApproved = false;
+    }
 
     // Guard: >100% requires weekend approval.
     if (newPct > 100 && !weekendApproved) {
@@ -122,13 +142,8 @@ export class CapacityService {
     }
 
     // Guard: re-check total excluding this entry.
-    if (dto.pctWeek !== undefined || dto.weekendApproved !== undefined) {
+    if (pctOrWeekendChanging) {
       const weekCap = weekendApproved ? 140 : 100;
-      const others = await this.prisma.capacity.findMany({
-        where: { personId: entry.personId, weekStart: entry.weekStart, NOT: { id } },
-        select: { pctWeek: true },
-      });
-      const othersTotal = others.reduce((sum, e) => sum + e.pctWeek, 0);
       if (othersTotal + newPct > weekCap) {
         throw new BadRequestException(
           `Changing to ${newPct}% would put this person at ${othersTotal + newPct}% this week (max ${weekCap}%).`,
@@ -138,7 +153,7 @@ export class CapacityService {
 
     return this.prisma.capacity.update({
       where: { id },
-      data: dto,
+      data: { ...dto, weekendApproved },
       include: WITH_DETAILS,
     });
   }
