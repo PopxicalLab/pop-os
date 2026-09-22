@@ -229,6 +229,26 @@
       box-shadow: 0 0 0 3px rgba(192,104,24,0.12);
     }
 
+    /* "Stay logged in" checkbox */
+    .remember-row {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin: -4px 0 20px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .remember-row input {
+      width: 15px;
+      height: 15px;
+      accent-color: #c06818;
+      cursor: pointer;
+    }
+    .remember-row span {
+      font-size: 0.8rem;
+      color: rgba(200,196,187,0.85);
+    }
+
     /* Sign in button — Lorrypop orange, the actual brand CTA colour */
     .btn {
       width: 100%;
@@ -344,6 +364,11 @@
             <input id="password" type="password" placeholder="••••••••"
               onkeydown="if(event.key==='Enter') login()" />
           </div>
+
+          <label class="remember-row">
+            <input id="remember-me" type="checkbox" checked />
+            <span>Stay logged in</span>
+          </label>
 
           <button class="btn" onclick="login()">Sign in</button>
           <div id="err" class="err"></div>
@@ -494,9 +519,10 @@
     }
 
     async function login() {
-      const email    = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value;
-      const errEl    = document.getElementById('err');
+      const email      = document.getElementById('email').value.trim();
+      const password   = document.getElementById('password').value;
+      const rememberMe = document.getElementById('remember-me').checked;
+      const errEl      = document.getElementById('err');
       errEl.textContent = '';
 
       if (!email || !password) { errEl.textContent = 'Enter your email and password.'; return; }
@@ -509,7 +535,7 @@
         const res = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
+          body: JSON.stringify({ email, password, rememberMe }),
         });
         const data = await res.json();
         if (!res.ok) {

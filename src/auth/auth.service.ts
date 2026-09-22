@@ -8,6 +8,13 @@ import { LoginDto, ForgotPasswordDto, ResetPasswordDto } from './auth.dto';
 
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 
+// Normal session length is 12h (set in AuthModule's JwtModule.register). When
+// "Stay logged in" is ticked, the token is issued with this longer expiry
+// instead, so people on their own machine don't get logged out mid-week.
+// Not literally forever — a token has to expire eventually — but long enough
+// that in practice no one hits it during normal use.
+const REMEMBER_ME_EXPIRY = '30d';
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -36,7 +43,9 @@ export class AuthService {
     // JWT payload — available on req.user in every guarded controller.
     const payload = { sub: user.id, email: user.email, name: user.name, role: user.role, personId: user.personId ?? null, company };
     return {
-      token: this.jwt.sign(payload),
+      // Overriding expiresIn per-call falls back to JwtModule's 12h default
+      // when rememberMe isn't set — see JwtModule.register in auth.module.ts.
+      token: this.jwt.sign(payload, dto.rememberMe ? { expiresIn: REMEMBER_ME_EXPIRY } : undefined),
       user:  { id: user.id, email: user.email, name: user.name, role: user.role, personId: user.personId ?? null, company },
     };
   }

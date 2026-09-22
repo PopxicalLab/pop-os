@@ -1,4 +1,4 @@
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import { IsBoolean, IsEmail, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class LoginDto {
   @IsEmail()
@@ -7,6 +7,12 @@ export class LoginDto {
   @IsString()
   @MinLength(6)
   password: string;
+
+  // "Stay logged in" checkbox on the login page. When true, issues a
+  // long-lived token instead of the normal 12h one — see auth.service.ts.
+  @IsOptional()
+  @IsBoolean()
+  rememberMe?: boolean;
 }
 
 export class ForgotPasswordDto {
