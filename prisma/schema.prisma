@@ -341,6 +341,11 @@ model Project {
   status      ProjectStatus   @default(BRIEF)
   startDate   DateTime?       // when production actually kicks off (used for timeline view)
   deadline    DateTime?
+  // PM's own detailed day-by-day schedule, kept in whatever tool they already use
+  // (Google Calendar, Goodday, a Gantt board, …) — Pop OS just links out to it.
+  // startDate/deadline above stay as the two dates PPM and the Gantt view read;
+  // this is a free-text URL, not validated against those.
+  timelineUrl String?
 
   // Who is running and managing this project.
   producerId  String?

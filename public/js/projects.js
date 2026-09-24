@@ -431,6 +431,24 @@ async function showProjectDetail(id) {
     </div>
 
     <div class="mt-5 pb-5 border-b border-line">
+      <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-1.5">Detailed timeline</p>
+      <div class="flex items-center gap-2">
+        <input id="detail-timeline-${p.id}" type="url" value="${esc(p.timelineUrl || '')}"
+          placeholder="Paste a link to the day-by-day schedule"
+          class="flex-1 bg-panel2 border border-line text-ink text-xs px-2 py-1.5 rounded-md
+                 focus:outline-none focus:border-accent/60 placeholder-muted/50" />
+        <a id="detail-timeline-open-${p.id}" href="${esc(p.timelineUrl || '#')}" target="_blank" rel="noopener"
+          class="text-[11px] text-accent hover:underline whitespace-nowrap ${p.timelineUrl ? '' : 'hidden'}">Open ↗</a>
+      </div>
+      <p class="text-[11px] text-muted/60 mt-1.5">
+        Tip: Start date / Deadline above are the two dates the rest of Pop OS reads (PPM, Gantt).
+        This is just a link to wherever you keep the real day-by-day plan — a
+        <strong class="text-muted">Google Calendar</strong>, a <strong class="text-muted">Goodday</strong>
+        project, a shared Gantt board — so the team can open it straight from here.
+      </p>
+    </div>
+
+    <div class="mt-5 pb-5 border-b border-line">
       <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">PPM inputs</p>
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
         ${lbl('Est. value (RM)',   numEl(`detail-est-value-${p.id}`, p.estimatedValue, 'min="0"'))}
@@ -646,6 +664,37 @@ async function showProjectDetail(id) {
   };
   wireText(`detail-name-${id}`,   'name',   true);
   wireText(`detail-client-${id}`, 'client', false);
+
+  // Timeline link — same patch-on-blur as wireText, plus keeping the "Open ↗"
+  // link's href and visibility in sync (it can't just rely on p.timelineUrl,
+  // since nothing else re-renders this panel after a plain text save).
+  const timelineInput = document.getElementById(`detail-timeline-${id}`);
+  const timelineOpen  = document.getElementById(`detail-timeline-open-${id}`);
+  if (timelineInput && timelineOpen) {
+    let saved = timelineInput.value;
+    timelineInput.onblur = async () => {
+      const v = timelineInput.value.trim();
+      const err = await patch({ timelineUrl: v || null });
+      if (err) {
+        timelineInput.value = saved; // revert on failure
+        msg($('p-detail-msg'), err, 'err');
+        return;
+      }
+      saved = v;
+      p.timelineUrl = v || null;
+      const cached = _allProjects.find(x => x.id === id);
+      if (cached) cached.timelineUrl = p.timelineUrl;
+      if (v) {
+        // People often paste "calendar.google.com/…" without a scheme — add
+        // one so the link actually opens instead of resolving as a relative path.
+        timelineOpen.href = /^https?:\/\//i.test(v) ? v : `https://${v}`;
+        timelineOpen.classList.remove('hidden');
+      } else {
+        timelineOpen.classList.add('hidden');
+      }
+      msg($('p-detail-msg'), '', '');
+    };
+  }
 
   // Number inputs — patch on blur.
   const wireNum = (fId, field) => {

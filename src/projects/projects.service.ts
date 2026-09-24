@@ -51,6 +51,7 @@ export class ProjectsService {
         status:      dto.status      ?? 'BRIEF',
         startDate:   dto.startDate   ? new Date(dto.startDate) : undefined,
         deadline:    dto.deadline    ? new Date(dto.deadline) : undefined,
+        timelineUrl: dto.timelineUrl ?? null,
         producerId:  dto.producerId  ?? null,
         pmId:        dto.pmId        ?? null,
         drainApprovedByExec:     dto.drainApprovedByExec     ?? false,

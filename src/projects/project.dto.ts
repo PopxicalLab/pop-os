@@ -28,6 +28,10 @@ export class CreateProjectDto {
   @IsOptional() @IsDateString()
   deadline?: string;
 
+  // PM's own detailed schedule link — Google Calendar, Goodday, a Gantt board, etc.
+  @IsOptional() @IsString()
+  timelineUrl?: string;
+
   @IsOptional() @IsString()
   producerId?: string;
 
@@ -70,6 +74,7 @@ export class UpdateProjectDto {
   @IsOptional() @IsEnum(ProjectStatus)    status?: ProjectStatus;
   @IsOptional() @IsDateString()           startDate?: string;
   @IsOptional() @IsDateString()           deadline?: string;
+  @IsOptional() @IsString()               timelineUrl?: string;
   @IsOptional() @IsString()               producerId?: string;
   @IsOptional() @IsString()               pmId?: string;
   @IsOptional() @IsBoolean()              drainApprovedByExec?: boolean;
