@@ -180,15 +180,8 @@ export class PeopleService {
       .filter(r => { if (seenProjects.has(r.projectId)) return false; seenProjects.add(r.projectId); return true; })
       .map(r => r.project);
 
-    // Assets
-    const assets = await this.prisma.asset.findMany({
-      where: { assignedToId: id },
-      include: { project: { select: { id: true, name: true } } },
-      orderBy: { updatedAt: 'desc' },
-    });
-
     // Computed badges
-    const badges = computeBadges(person, projects.length, assets.length);
+    const badges = computeBadges(person, projects.length);
 
     // Stats
     const skillRatings = person.skills.map(s => s.rating);
@@ -201,9 +194,8 @@ export class PeopleService {
     return {
       person,
       projects,
-      assets,
       badges,
-      stats: { tenureDays, projectCount: projects.length, assetCount: assets.length, avgRating, topSkill },
+      stats: { tenureDays, projectCount: projects.length, avgRating, topSkill },
     };
   }
 
@@ -228,7 +220,7 @@ export class PeopleService {
 }
 
 // Compute achievement badges from existing data — no extra DB queries.
-function computeBadges(person: any, projectCount: number, assetCount: number) {
+function computeBadges(person: any, projectCount: number) {
   const badges: { id: string; label: string; icon: string; earned: boolean }[] = [];
   const tenureDays = Math.floor((Date.now() - new Date(person.startDate).getTime()) / 86_400_000);
 
@@ -254,13 +246,6 @@ function computeBadges(person: any, projectCount: number, assetCount: number) {
   add('proj-first', 'First Project',  '🚀', projectCount >= 1);
   add('proj-five',  '5 Projects',     '📦', projectCount >= 5);
   add('proj-ten',   '10 Projects',    '🎬', projectCount >= 10);
-
-  // Assets
-  add('asset-first',  'First Asset',   '🎨', assetCount >= 1);
-  add('asset-twenty', '20 Assets',     '🖼️',  assetCount >= 20);
-
-  // Special
-  add('sign-off', 'Sign-off Authority', '✅', person.canSignOff);
 
   return badges;
 }

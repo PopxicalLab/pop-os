@@ -77,7 +77,6 @@ export class UpdatePersonDto {
   @IsDateString() @IsOptional() startDate?: string;
   @IsEnum(EmploymentType) @IsOptional() employmentType?: EmploymentType;
   @IsEnum(PersonStatus) @IsOptional() status?: PersonStatus;
-  @IsBoolean() @IsOptional() canSignOff?: boolean;
   @IsEnum(Company) @IsOptional() company?: Company;
   @IsNumber() @Min(0) @IsOptional() salary?: number;
 }

@@ -11,7 +11,6 @@ import { CapacityModule } from './capacity/capacity.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { PpmModule } from './ppm/ppm.module';
 import { StaffingModule } from './staffing/staffing.module';
-import { AssetsModule } from './assets/assets.module';
 import { ProductionModule } from './production/production.module';
 import { FinancialModule } from './financial/financial.module';
 import { AccountsModule } from './accounts/accounts.module';
@@ -21,7 +20,6 @@ import { AutocountModule } from './autocount/autocount.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { MeModule } from './me/me.module';
-import { ChangeRequestsModule } from './change-requests/change-requests.module';
 import { ReportsModule } from './reports/reports.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { MattermostModule } from './mattermost/mattermost.module';
@@ -52,7 +50,6 @@ import { JwtAuthGuard } from './auth/jwt.guard';
     DashboardModule,
     PpmModule,
     StaffingModule,
-    AssetsModule,
     ProductionModule,
     FinancialModule,
     AccountsModule,
@@ -60,7 +57,6 @@ import { JwtAuthGuard } from './auth/jwt.guard';
     LeadsModule,
     AutocountModule,
     MeModule,
-    ChangeRequestsModule,
     ReportsModule,
     NotificationsModule,
     MattermostModule,

@@ -7,7 +7,7 @@
 // Usage on a model with a direct company field:
 //   where: { ...companyWhere(company), ...otherFilters }
 //
-// Usage when filtering via a relation (e.g. asset → project.company):
+// Usage when filtering via a relation (e.g. capacity → project.company):
 //   where: { project: companyWhere(company) ?? {} }
 
 export function companyWhere(company?: string | null): object | undefined {

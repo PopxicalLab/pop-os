@@ -63,14 +63,13 @@ export class ProductionService {
   async getLanes(personId?: string, company?: string | null) {
     const co = companyWhere(company);
     const where: any = { status: { notIn: ['DELIVERED', 'CANCELLED'] }, ...(co ?? {}) };
-    if (personId) where.assets = { some: { assignedToId: personId } };
+    if (personId) where.capacityEntries = { some: { personId } };
 
     const projects = await this.prisma.project.findMany({
       where,
       include: {
         producer: { select: { id: true, name: true } },
         pm:       { select: { id: true, name: true } },
-        assets:   { select: { id: true, stage: true } },
       },
       orderBy: [{ priority: 'asc' }, { createdAt: 'desc' }],
     });

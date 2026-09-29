@@ -172,22 +172,6 @@ const PRI_CLS = {
   P3: 'font-medium text-muted',
 };
 
-// Asset stage display constants — used by Assets, Projects (detail view) and My Work.
-const STAGE_LABEL = {
-  BRIEF:            'Brief',
-  WIP:              'WIP',
-  INTERNAL_REVIEW:  'Internal Review',
-  REVISION:         'Revision',
-  FINAL_DELIVERY:   'Final Delivery',
-};
-const STAGE_CLS = {
-  BRIEF:            'bg-panel2 border-line text-muted',
-  WIP:              'bg-sky-500/15 border-sky-500/30 text-sky-400',
-  INTERNAL_REVIEW:  'bg-yellow-500/15 border-yellow-500/30 text-yellow-400',
-  REVISION:         'bg-warm/15 border-warm/30 text-warm',
-  FINAL_DELIVERY:   'bg-emerald-500/15 border-emerald-500/30 text-emerald-400',
-};
-
 // Lead status display constants — used by Sales and Clients tabs.
 const LEAD_STATUS_LABEL = {
   QUALIFICATION: 'Qualification',
@@ -207,13 +191,13 @@ const LEAD_STATUS_CLS = {
 };
 
 // ── tab switching (SPA shell only — no-op on a standalone tab page) ──
-const ALL_TABS = ['dashboard','mywork','sales','clients','sp','projects','assets','production','capacity','cr','financial','people','staffing','committees','admin'];
+const ALL_TABS = ['dashboard','mywork','sales','clients','sp','projects','production','capacity','financial','people','staffing','committees','admin'];
 
 // Which group each tab belongs to (for highlighting the group button)
 const TAB_GROUP = {
   dashboard: null, mywork: null,
   sales: 'sales', clients: 'sales', sp: 'sales',
-  projects: 'production', assets: 'production', production: 'production', capacity: 'production', cr: 'production',
+  projects: 'production', production: 'production', capacity: 'production',
   financial: null,
   people: 'hr', staffing: 'hr', committees: 'hr',
   admin: null,
@@ -227,12 +211,10 @@ const TAB_PAGE = {
   dashboard:  '/index.html',
   projects:   '/projects.html',
   capacity:   '/capacity.html',
-  assets:     '/assets.html',
   production: '/production.html',
   sales:      '/sales.html',
   clients:    '/clients.html',
   sp:         '/sp.html',
-  cr:         '/cr.html',
   financial:  '/financial.html',
   people:     '/people.html',
   staffing:   '/staffing.html',
@@ -310,10 +292,8 @@ function renderHeader(activeTab) {
           </button>
           <div id="grp-drop-production" class="hidden absolute left-0 top-full mt-1 w-36 bg-panel border border-line rounded-xl shadow-lg z-50 py-1">
             <a id="tab-btn-projects"   href="${hrefForTab('projects')}"   class="${subCls('projects')}">Projects</a>
-            <a id="tab-btn-assets"     href="${hrefForTab('assets')}"     class="${subCls('assets')}">Assets</a>
             <a id="tab-btn-production" href="${hrefForTab('production')}" class="${subCls('production')}">Lanes</a>
             <a id="tab-btn-capacity"   href="${hrefForTab('capacity')}"   class="${subCls('capacity')}">Capacity</a>
-            <a id="tab-btn-cr"         href="${hrefForTab('cr')}"         class="${subCls('cr')}">Change Requests</a>
           </div>
         </div>
 
@@ -561,10 +541,8 @@ const TAB_ACCESS = {
   clients:    ['ADMIN','SALES'],
   sp:         ['ADMIN'],
   projects:   ['ADMIN','PRODUCER','FINANCE','PM','TEAM_LEAD','STAFF'],
-  assets:     ['ADMIN','PRODUCER','PM','TEAM_LEAD','STAFF'],
   production: ['ADMIN','PRODUCER','PM','TEAM_LEAD','STAFF'],
   capacity:   ['ADMIN','PRODUCER','PM','TEAM_LEAD','STAFF'],
-  cr:         ['ADMIN','PRODUCER','PM','TEAM_LEAD','FINANCE'],
   financial:  ['ADMIN','FINANCE'],
   people:      ['ADMIN','PRODUCER','PM','TEAM_LEAD'],
   staffing:    ['ADMIN','PRODUCER','PM','TEAM_LEAD'],
@@ -619,7 +597,7 @@ function applyRoleVisibility(role) {
   // Hide the group button if all its tabs are hidden for this role
   const GROUP_TABS = {
     sales:      ['sales','clients','sp'],
-    production: ['projects','assets','production','capacity','cr'],
+    production: ['projects','production','capacity'],
     hr:         ['people','staffing','committees'],
   };
   GROUPS.forEach(g => {

@@ -52,17 +52,11 @@ async function main() {
   const d10 = await prisma.salaryHistory.deleteMany();
   console.log(`  Deleted ${d10.count} salary history entries`);
 
-  const d11 = await prisma.changeRequest.deleteMany();
-  console.log(`  Deleted ${d11.count} change requests`);
-
   const d12 = await prisma.projectCost.deleteMany();
   console.log(`  Deleted ${d12.count} project costs`);
 
   const d13 = await prisma.accountingDocument.deleteMany();
   console.log(`  Deleted ${d13.count} accounting documents`);
-
-  const d14 = await prisma.asset.deleteMany();
-  console.log(`  Deleted ${d14.count} assets`);
 
   const d15 = await prisma.capacity.deleteMany();
   console.log(`  Deleted ${d15.count} capacity entries`);

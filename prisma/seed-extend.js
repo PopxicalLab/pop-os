@@ -5,7 +5,6 @@
 //
 // Adds:
 //   • User accounts for PM / TEAM_LEAD roles with Person links (My Work tab)
-//   • assignedToId on existing assets (so "Assigned to Me" populates)
 //   • Next-week capacity entries (so "My Capacity" shows future weeks)
 //   • AccountingDocuments (Finance dashboard, payment alerts)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -72,49 +71,7 @@ async function main() {
   }
   console.log(`  ${usersAdded} new accounts\n`);
 
-  // ── 2. ASSIGN ASSETS to people ───────────────────────────────────────────
-  // Uses name-matching so it's safe to re-run (update is idempotent).
-  console.log('Assigning assets to people…');
-  const assignments = [
-    // Nike
-    ['Hero Shot Render',       'Maya'],
-    ['Product Turntable',      'Maya'],
-    ['Social Cut 15s',         'Priya'],
-    ['Key Art Still',          'Lucas'],
-    // Uniqlo
-    ['Brand Film Draft v1',    'Tom'],
-    ['VFX Breakdown Sequence', 'Kai'],
-    ['Title Sequence',         'Lucas'],
-    // H&M
-    ['Instagram Story Set',    'Priya'],
-    ['Product Showcase Loop',  'Priya'],
-    // Shopee
-    ['Main KV Animation',      'Priya'],
-    ['Product Grid Banner',    'Kai'],
-    // Digi
-    ['Brand Identity Reel',    'Kai'],
-    ['Icon Animation Set',     'Kai'],
-    ['Campaign Launch Film',   'Tom'],
-    // Astro
-    ['CNY Hero Film 30s',      'Mei'],
-    ['Social Cutdown 15s',     'Priya'],
-  ];
-
-  let assigned = 0;
-  for (const [assetName, personName] of assignments) {
-    const asset = await prisma.asset.findFirst({ where: { name: assetName } });
-    if (!asset) { console.log(`  skip  asset not found: ${assetName}`); continue; }
-    if (asset.assignedToId) { console.log(`  skip  ${assetName} (already assigned)`); continue; }
-    await prisma.asset.update({
-      where: { id: asset.id },
-      data:  { assignedToId: P[personName].id },
-    });
-    console.log(`  + ${assetName} → ${personName}`);
-    assigned++;
-  }
-  console.log(`  ${assigned} assets assigned\n`);
-
-  // ── 3. NEXT-WEEK CAPACITY (so My Work shows future allocation) ───────────
+  // ── 2. NEXT-WEEK CAPACITY (so My Work shows future allocation) ───────────
   console.log('Adding next-week capacity…');
   const nextWeek = weeksAhead(1);
 
@@ -142,7 +99,7 @@ async function main() {
   }
   console.log(`  ${capAdded} next-week allocations\n`);
 
-  // ── 4. ACCOUNTING DOCUMENTS ──────────────────────────────────────────────
+  // ── 3. ACCOUNTING DOCUMENTS ──────────────────────────────────────────────
   console.log('Adding accounting documents…');
   const existingDocs = await prisma.accountingDocument.count();
   if (existingDocs > 0) {

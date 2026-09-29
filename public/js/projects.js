@@ -1,6 +1,6 @@
 // ══════════════════════════════════════════════════════════════
 // PROJECTS
-// Depends on: $, msg, esc, STAGE_LABEL, STAGE_CLS  (shared.js)
+// Depends on: $, msg, esc  (shared.js)
 // Fetches its own People list (_peopleCache) rather than relying on
 // people.js's PEOPLE global — this tab is its own page (projects.html).
 // ══════════════════════════════════════════════════════════════
@@ -488,15 +488,6 @@ async function showProjectDetail(id) {
 
     <div class="mt-5 pb-5 border-b border-line">
       <div class="flex items-center justify-between mb-2">
-        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted">Assets</p>
-        <a href="/assets.html?project=${p.id}"
-          class="text-[11px] text-accent hover:underline cursor-pointer">Manage in Assets tab →</a>
-      </div>
-      <div id="proj-assets-${p.id}" class="text-xs text-muted">Loading…</div>
-    </div>
-
-    <div class="mt-5 pb-5 border-b border-line">
-      <div class="flex items-center justify-between mb-2">
         <p class="text-[11px] font-semibold uppercase tracking-widest text-muted">Capacity</p>
         <a href="/capacity.html?project=${encodeURIComponent(p.name)}"
           class="text-[11px] text-accent hover:underline cursor-pointer">Manage in Capacity tab →</a>
@@ -581,7 +572,7 @@ async function showProjectDetail(id) {
     };
   };
 
-  // Status needs error handling — server rejects DELIVERED when assets are incomplete.
+  // Status needs error handling — the server can still reject a change (e.g. validation).
   const statusEl = document.getElementById(`detail-status-${id}`);
   if (statusEl) {
     statusEl.onchange = async () => {
@@ -731,35 +722,8 @@ async function showProjectDetail(id) {
   // Load async sections.
   loadProjectSkills(id);
   loadProjectCapacity(id);
-  loadProjectAssets(id);
   loadProjectCosts(id);
   loadProjectDocs(id);
-}
-
-async function loadProjectAssets(projectId) {
-  const assets = await fetch('/api/assets?projectId=' + projectId).then(r => r.json()).catch(() => null);
-  const el = document.getElementById('proj-assets-' + projectId);
-  if (!el) return;
-
-  if (!assets || !assets.length) {
-    el.innerHTML = '<span class="text-muted">No assets yet. Add them in the Assets tab.</span>';
-    return;
-  }
-
-  el.innerHTML = assets.map(a => {
-    const stageCls   = (typeof STAGE_CLS   !== 'undefined' ? STAGE_CLS   : {})[a.stage] || 'bg-panel2 border-line text-muted';
-    const stageLabel = (typeof STAGE_LABEL !== 'undefined' ? STAGE_LABEL : {})[a.stage] || a.stage;
-    const cdBadge    = a.stage === 'INTERNAL_REVIEW'
-      ? (a.cdSignedOff
-          ? '<span class="text-[10px] text-accent font-semibold ml-1.5">CD ✓</span>'
-          : '<span class="text-[10px] text-warm font-semibold ml-1.5">CD pending</span>')
-      : '';
-    return `<div class="flex items-center gap-2 py-1.5 border-b border-line/40 last:border-0">
-      <span class="badge border ${stageCls} text-[10px] shrink-0">${stageLabel}</span>
-      <span class="text-xs text-ink flex-1">${esc(a.name)}</span>
-      ${cdBadge}
-    </div>`;
-  }).join('');
 }
 
 async function loadProjectCapacity(projectId) {
@@ -1340,7 +1304,7 @@ async function loadProjects() {
 
   // Own People fetch — self-contained rather than relying on People tab's
   // PEOPLE global, now that Projects is its own page (same pattern
-  // Capacity/Assets use). Feeds both the Add-a-project form and the detail
+  // Capacity uses). Feeds both the Add-a-project form and the detail
   // view's Producer/PM pickers (peopleOpts(), below).
   _peopleCache = await fetch('/api/people').then(r => r.json()).catch(() => []);
   const prodPick = $('p-producer'), pmPick = $('p-pm');
@@ -1668,7 +1632,7 @@ function renderKanban() {
 }
 
 // PATCHes a project's status and keeps the in-memory cache + board in sync.
-// Server can reject (e.g. DELIVERED with incomplete assets) — on failure we
+// Server can reject the change (e.g. validation) — on failure we
 // re-render so the card snaps back to its real status instead of drifting
 // out of sync with what's actually saved.
 async function setKanbanStatus(id, newStatus) {

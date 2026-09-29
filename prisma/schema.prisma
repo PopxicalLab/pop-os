@@ -65,13 +65,6 @@ enum ProjectStatus {
   CANCELLED
 }
 
-// Change Request status — lifecycle of a formal client scope-change request.
-enum CRStatus {
-  PENDING   // logged, awaiting Producer/PM decision
-  APPROVED  // accepted; budget impact confirmed
-  REJECTED  // declined; reason in note field
-}
-
 // Employment type — restricted to a fixed set of values.
 // (This is the Prisma way of doing a dropdown / "enum".)
 enum EmploymentType {
@@ -123,7 +116,7 @@ enum AssessmentStatus {
 
 // ── PEOPLE / ELC ────────────────────────────────────────────────
 // One record per person. This is the foundation of the whole system:
-// Projects, Capacity, and Assets will all link back to a Person.
+// Projects and Capacity link back to a Person.
 model Person {
   id             String         @id @default(cuid())
   name           String
@@ -132,7 +125,6 @@ model Person {
   startDate      DateTime
   employmentType EmploymentType @default(FULL_TIME)
   status         PersonStatus   @default(ACTIVE) // ACTIVE / WARM_POOL / RESIGNED / TERMINATED
-  canSignOff             Boolean  @default(false) // true = this person can approve/reject assets in the sign-off queue
   company        Company?       // LPS or PXL — optional so existing records are unaffected
   salary         Float?         // monthly salary in RM — used by the Financial Engine for man-day costing
 
@@ -149,8 +141,6 @@ model Person {
   // Leads this person closed (as the winning or losing salesperson).
   leadsWon           Lead[]      @relation("LeadClosedBy")
   salesTargets       SalesTarget[]
-  // Assets assigned to this person for production work.
-  assignedAssets     Asset[]     @relation("AssetAssignments")
   // Per-person commission tier rate overrides (replaces the old flat commissionRateOverride).
   tierRates          PersonTierRate[]
   user               User?       // login account, if this person has one
@@ -330,8 +320,10 @@ model SelfAssessmentRating {
 }
 
 // ── PROJECT ──────────────────────────────────────────────────────
-// The spine of the production system. Every piece of capacity and
-// every deliverable (Asset) will eventually link back to a Project.
+// The spine of the production system. Every capacity booking, cost
+// line and accounting document links back to a Project.
+// (Deliverables and change requests are tracked in the studio's
+// external project-management tool, not here.)
 model Project {
   id          String          @id @default(cuid())
   name        String
@@ -376,14 +368,10 @@ model Project {
   // Weekly capacity allocations for this project.
   capacityEntries Capacity[]
 
-  // Deliverables tracked through the SOP pipeline.
-  assets          Asset[]
-
   // The lead that originated this project (set when a won lead is converted).
   lead            Lead?
 
   accountingDocuments AccountingDocument[] // quotations and invoices tied to this project
-  changeRequests      ChangeRequest[]      // formal client scope-change requests
   costs               ProjectCost[]        // deductible costs used in commission calculation
   requiredSkills      ProjectSkill[]       // skills the producer has tagged as needed
 
@@ -499,17 +487,6 @@ model Lead {
   updatedAt DateTime @updatedAt
 }
 
-// ── ASSET STAGE ──────────────────────────────────────────────────
-// The SOP pipeline for a single deliverable. Stages are flexible —
-// a producer can move an asset to any stage at any time.
-enum AssetStage {
-  BRIEF            // just created, work not started
-  WIP              // in active production
-  INTERNAL_REVIEW  // done, awaiting CD / director sign-off
-  REVISION         // feedback received, back into production
-  FINAL_DELIVERY   // approved and delivered
-}
-
 // ── CAPACITY ─────────────────────────────────────────────────────
 // One row per person × project × week. This IS the Capacity Board.
 // "If it's not here, it doesn't exist."
@@ -537,12 +514,12 @@ model Capacity {
 // Controls what each user can see and do in Pop OS.
 enum Role {
   ADMIN     // full access to everything
-  PRODUCER  // projects, capacity, assets, production, people, staffing, dashboard
+  PRODUCER  // projects, capacity, production, people, staffing, dashboard
   SALES     // sales pipeline and clients only
   FINANCE   // financial tab + read-only projects
   PM        // project manager: all production tabs + project-level costs (no AR)
-  TEAM_LEAD // creative/3D leads: dashboard, projects, assets, production, capacity, people (read)
-  STAFF     // normal staff: my work, own projects/assets/capacity, read-only people
+  TEAM_LEAD // creative/3D leads: dashboard, projects, production, capacity, people (read)
+  STAFF     // normal staff: my work, own projects/capacity, read-only people
 }
 
 // ── USER ─────────────────────────────────────────────────────────
@@ -568,55 +545,11 @@ model User {
   updatedAt DateTime @updatedAt
 }
 
-// ── ASSET ─────────────────────────────────────────────────────────
-// One deliverable inside a project. Moves through SOP stages freely
-// (no enforced sequence). CD sign-off is a soft gate at INTERNAL_REVIEW.
-model Asset {
-  id          String     @id @default(cuid())
-  name        String                         // e.g. "Hero shot render", "Social cut 15s"
-  description String?                        // optional notes / brief summary
-  projectId   String
-  stage       AssetStage @default(BRIEF)
-  cdSignedOff    Boolean @default(false)  // CD must acknowledge at INTERNAL_REVIEW
-  changedBy      String?                  // free text for now; links to Person later
-  reviewUrl      String?                  // link to work for CD review (Drive, Frame.io, etc.)
-  rejectionNote  String?                  // CD's feedback when sending back to Revision
-
-  // Who is doing the work on this asset. Drives the "My Work" personal dashboard.
-  assignedToId String?
-  assignedTo   Person?  @relation("AssetAssignments", fields: [assignedToId], references: [id], onDelete: SetNull)
-
-  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-}
-
 // ── ACCOUNTING DOCUMENT ───────────────────────────────────────────
 // One Autocount document (quotation, invoice, purchase invoice) tied
 // to a project. Multiple documents per project are normal — milestone
 // billing, revised quotes, partial invoices all create separate rows.
 // The dueDate drives the payment alert system in the Dashboard.
-// ── CHANGE REQUEST ───────────────────────────────────────────────
-// A formal record of a client-requested scope change on a live project.
-// PM creates it; Producer or Admin approves or rejects.
-// Budget impact accumulates on the project's real cost baseline.
-model ChangeRequest {
-  id           String   @id @default(cuid())
-  title        String                          // short name of the change
-  description  String                          // what the client wants changed
-  budgetImpact Float    @default(0)            // additional cost in RM (0 = scope-only)
-  status       CRStatus @default(PENDING)
-  requestedBy  String?                         // client-side name (free text)
-  note         String?                         // approval/rejection reason
-
-  projectId    String
-  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-}
-
 model AccountingDocument {
   id           String    @id @default(cuid())
   projectId    String?   // null only if created from a lead before conversion
@@ -798,7 +731,7 @@ model AuditLog {
   actorName     String      // denormalized copy — survives user deletion
   actorRole     String
   action        AuditAction
-  resource      String      // "Lead" | "Project" | "User" | "Person" | "ChangeRequest" | "AccountingDocument"
+  resource      String      // "Lead" | "Project" | "User" | "Person" | "AccountingDocument" ("ChangeRequest" in old rows only)
   resourceId    String
   resourceLabel String?     // human-readable name of the record (project name, lead name, etc.)
   after         Json?       // resulting record state — what it looks like now

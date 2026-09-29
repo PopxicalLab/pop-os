@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateProjectDto, UpdateProjectDto } from './project.dto';
 import { companyWhere } from '../common/company-filter';
@@ -16,12 +16,9 @@ export class ProjectsService {
 
   findAll(personId?: string, company?: string | null) {
     const co = companyWhere(company);
-    // STAFF only see projects where they have a capacity allocation or an assigned asset.
+    // STAFF only see projects where they have a capacity allocation.
     const staffFilter = personId
-      ? { OR: [
-          { capacityEntries: { some: { personId } } },
-          { assets:          { some: { assignedToId: personId } } },
-        ] }
+      ? { capacityEntries: { some: { personId } } }
       : undefined;
     const where = { ...(co ?? {}), ...(staffFilter ?? {}) };
     return this.prisma.project.findMany({
@@ -68,20 +65,6 @@ export class ProjectsService {
 
   async update(id: string, dto: UpdateProjectDto) {
     await this.findOne(id);
-
-    if (dto.status === 'DELIVERED') {
-      const blocking = await this.prisma.asset.findMany({
-        where: { projectId: id, stage: { not: 'FINAL_DELIVERY' } },
-        select: { name: true },
-      });
-      if (blocking.length) {
-        const names = blocking.map(a => a.name).join(', ');
-        throw new BadRequestException(
-          `Cannot deliver project — ${blocking.length} asset(s) not at Final Delivery: ${names}`,
-        );
-      }
-    }
-
     return this.prisma.project.update({
       where: { id },
       data: {

@@ -63,11 +63,6 @@ function renderLaneCard(p, borderCls) {
   const priCls   = (typeof PRI_CLS     !== 'undefined' ? PRI_CLS     : {})[p.priority] || 'text-muted';
   const statLbl  = (typeof STATUS_LABEL !== 'undefined' ? STATUS_LABEL : {})[p.status]  || p.status;
 
-  // Asset progress summary
-  const assetSummary = p.assets && p.assets.length
-    ? `<p class="text-[11px] text-muted mt-1">${p.assets.length} asset${p.assets.length > 1 ? 's' : ''} · ${p.assets.filter(a => a.stage === 'FINAL_DELIVERY').length} delivered</p>`
-    : '';
-
   return `<div class="bg-panel2 border ${borderCls} rounded-xl p-3">
     <div class="flex items-start justify-between gap-1 mb-1">
       <p class="text-xs font-semibold text-ink leading-snug flex-1">${esc(p.name)}</p>
@@ -79,7 +74,6 @@ function renderLaneCard(p, borderCls) {
       ${deadline ? `<span class="text-[11px] ${overdue ? 'text-warm font-semibold' : 'text-muted'}">${deadline}${overdue ? ' ⚠' : ''}</span>` : ''}
     </div>
     ${p.producer ? `<p class="text-[11px] text-muted mt-1">Producer: ${esc(p.producer.name)}</p>` : ''}
-    ${assetSummary}
     ${p.quadrant === 'DRAIN' ? `<div class="mt-1.5 text-[10px] font-semibold text-warm">Gate: Exec ${p.drainApprovedByExec ? '✓' : '✗'} · Producer ${p.drainApprovedByProducer ? '✓' : '✗'}</div>` : ''}
   </div>`;
 }

@@ -4,7 +4,7 @@
 //   npx prisma migrate deploy
 //   node prisma/seed.js
 //
-// Covers: People, Skills, Projects, Capacity, Assets (with assignments),
+// Covers: People, Skills, Projects, Capacity,
 //         Accounts, Contacts, Leads, AccountingDocuments, Users (all 6 roles)
 //         with User ↔ Person links so the My Work tab shows live data.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -330,39 +330,7 @@ async function main() {
   }
   console.log(`✓ ${capData.length} capacity allocations`);
 
-  // ── 8. ASSETS (with assignments) ──────────────────────────────────────────────
-  // assignedToId drives the "Assigned to Me" section on the My Work tab.
-  const assetData = [
-    // Nike — Maya owns rendering; Priya owns motion cuts; Lucas owns key art
-    { name: 'Hero Shot Render',       projectId: proj.nike.id,   stage: 'INTERNAL_REVIEW', cdSignedOff: true,  assignedToId: P.Maya.id,  description: 'Final render — CD approved' },
-    { name: 'Product Turntable',      projectId: proj.nike.id,   stage: 'WIP',             cdSignedOff: false, assignedToId: P.Maya.id },
-    { name: 'Social Cut 15s',         projectId: proj.nike.id,   stage: 'REVISION',        cdSignedOff: false, assignedToId: P.Priya.id, description: 'Client requested tighter edit' },
-    { name: 'Key Art Still',          projectId: proj.nike.id,   stage: 'INTERNAL_REVIEW', cdSignedOff: false, assignedToId: P.Lucas.id, description: 'Awaiting Calvin sign-off before client delivery' },
-    // Uniqlo — Tom + Kai + Lucas
-    { name: 'Brand Film Draft v1',    projectId: proj.uniqlo.id, stage: 'INTERNAL_REVIEW', cdSignedOff: false, assignedToId: P.Tom.id,   description: 'First assembly — needs director review' },
-    { name: 'VFX Breakdown Sequence', projectId: proj.uniqlo.id, stage: 'WIP',             cdSignedOff: false, assignedToId: P.Kai.id },
-    { name: 'Title Sequence',         projectId: proj.uniqlo.id, stage: 'BRIEF',           cdSignedOff: false, assignedToId: P.Lucas.id },
-    // H&M — Priya owns all motion
-    { name: 'Instagram Story Set',    projectId: proj.hm.id,     stage: 'WIP',             cdSignedOff: false, assignedToId: P.Priya.id },
-    { name: 'Product Showcase Loop',  projectId: proj.hm.id,     stage: 'REVISION',        cdSignedOff: false, assignedToId: P.Priya.id, description: 'Client requested longer loop duration' },
-    // Shopee
-    { name: 'Main KV Animation',      projectId: proj.shopee.id, stage: 'REVISION',        cdSignedOff: false, assignedToId: P.Priya.id, description: 'Client requested 3rd revision round' },
-    { name: 'Product Grid Banner',    projectId: proj.shopee.id, stage: 'WIP',             cdSignedOff: false, assignedToId: P.Kai.id },
-    // Digi — needs sign-off (appears in Calvin + Tom queue)
-    { name: 'Brand Identity Reel',    projectId: proj.digi.id,   stage: 'INTERNAL_REVIEW', cdSignedOff: false, assignedToId: P.Kai.id,   description: 'Awaiting CD sign-off — 2nd review round' },
-    { name: 'Icon Animation Set',     projectId: proj.digi.id,   stage: 'WIP',             cdSignedOff: false, assignedToId: P.Kai.id },
-    { name: 'Campaign Launch Film',   projectId: proj.digi.id,   stage: 'REVISION',        cdSignedOff: false, assignedToId: P.Tom.id,   description: 'Scope expanded — now includes 3 cutdowns' },
-    // Astro — delivered
-    { name: 'CNY Hero Film 30s',      projectId: proj.astro.id,  stage: 'FINAL_DELIVERY',  cdSignedOff: true,  assignedToId: P.Mei.id },
-    { name: 'Social Cutdown 15s',     projectId: proj.astro.id,  stage: 'FINAL_DELIVERY',  cdSignedOff: true,  assignedToId: P.Priya.id },
-  ];
-
-  for (const a of assetData) {
-    await prisma.asset.create({ data: a });
-  }
-  console.log(`✓ ${assetData.length} assets`);
-
-  // ── 9. LEADS ──────────────────────────────────────────────────────────────────
+  // ── 8. LEADS ──────────────────────────────────────────────────────────────────
   // A mix of stages to populate the Sales pipeline board.
   const leads = {
     raya: await prisma.lead.create({ data: {
@@ -406,7 +374,7 @@ async function main() {
   };
   console.log(`✓ ${Object.keys(leads).length} leads`);
 
-  // ── 10. ACCOUNTING DOCUMENTS ─────────────────────────────────────────────────
+  // ── 9. ACCOUNTING DOCUMENTS ─────────────────────────────────────────────────
   // Spread across active, overdue, and paid to populate the Finance dashboard.
   const docData = [
     // Quotation from Petronas lead (status: ACTIVE — submitted)
@@ -472,7 +440,7 @@ async function main() {
   }
   console.log(`✓ ${docData.length} accounting documents`);
 
-  // ── 11. USERS (all 6 roles, with person links where appropriate) ──────────────
+  // ── 10. USERS (all 6 roles, with person links where appropriate) ──────────────
   // Password for everyone except admin: popOS@1234
   const PW_STAFF = await bcrypt.hash('popOS@1234', 12);
   const PW_ADMIN = await bcrypt.hash('popOS@admin1', 12);

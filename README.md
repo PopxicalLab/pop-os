@@ -10,18 +10,16 @@ The operating system for Pop Group (Lorrypop Studio + Popxical Lab). Replaces ad
 
 | Module | What it does |
 |---|---|
-| My Work | Personal dashboard — capacity, assigned assets, sign-off queue, payment alerts per role |
+| My Work | Personal dashboard — capacity, my projects, payment alerts per role |
 | Dashboard | Cross-module command centre — active projects, capacity alerts, payment due alerts |
 | Sales | Lead pipeline (Qualification → Proposal → Negotiation → Won/Lost), lead-to-project conversion |
 | Clients | Account + contact management; linked leads and projects per client |
 | Performance | Sales commission tracker — quarterly attainment, tier-based rates, per-person overrides |
 | Projects (PPM) | Project spine — priority, budget, Drain gate, producer/PM links, Gantt timeline, project costs |
-| Change Requests | Formal change request tracking per project — PENDING / APPROVED / REJECTED |
-| Assets | Deliverables tracked through SOP stages with CD sign-off gate and review link |
-| Production Engine | Lane routing — asset assignment, status, throughput view |
+| Production Engine | Lane routing — projects grouped by PPM quadrant with lane rules |
 | Capacity | Weekly board — person × project × week allocation (100% cap enforced) |
 | Financial | Man-day costing, AR position, overdue invoices, pipeline by stage, project health |
-| People / ELC | Staff records — role, skills (rated 1–5 with full history), sign-off authority flag |
+| People / ELC | Staff records — role, skills (rated 1–5 with full history) |
 | Staffing | Staffing recommendation engine — matches skill requirements to available people |
 | Users | Login accounts — email, role, optional link to a Person record (admin only) |
 | Notifications | Admin-configured Mattermost messages — pick the message, recipients (channels / DMs) and a GMT+8 schedule |
@@ -101,14 +99,14 @@ Change these passwords after first login. PM and TEAM_LEAD accounts must be crea
 | Role | Access |
 |---|---|
 | ADMIN | Everything — users, all tabs, Autocount push, salary data |
-| PRODUCER | My Work, Dashboard, Projects, Change Requests, Capacity, Assets, Production, People, Staffing |
-| PM | Same as PRODUCER; owns the Change Request process |
-| TEAM_LEAD | My Work, Dashboard, Projects (read), Assets, Production, Capacity, Change Requests, People (read) |
+| PRODUCER | My Work, Dashboard, Projects, Capacity, Production, People, Staffing |
+| PM | Same as PRODUCER |
+| TEAM_LEAD | My Work, Dashboard, Projects (read), Production, Capacity, People (read) |
 | FINANCE | My Work, Financial tab, Projects (read), salary data |
 | SALES | My Work, Sales pipeline + Clients only |
-| STAFF | My Work, Dashboard, Projects (read), Assets, Production, Capacity, People (read) |
+| STAFF | My Work, Dashboard, Projects (read), Production, Capacity, People (read) |
 
-**Sign-off authority** is not tied to role — it is a per-person flag (`canSignOff`) set by an admin on the People tab. Only people with this flag enabled see the sign-off queue on My Work. Currently granted to: Calvin, Frankie, Tom.
+Deliverables, creative sign-off and client change requests are tracked in the studio's external project-management tool, not in Pop OS.
 
 **Salary visibility** is restricted to ADMIN and FINANCE. All other roles see `—` in the salary column and the salary field is hidden on the add-person form.
 

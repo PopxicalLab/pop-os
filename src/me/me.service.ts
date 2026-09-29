@@ -22,7 +22,7 @@ export class MeService {
   async getDashboard(userId: string) {
     const user = await this.prisma.user.findUnique({
       where:   { id: userId },
-      include: { person: { select: { id: true, name: true, canSignOff: true } } },
+      include: { person: { select: { id: true, name: true } } },
     });
 
     const personId = user?.person?.id ?? null;
@@ -40,15 +40,6 @@ export class MeService {
         })
       : [];
 
-    // ── assets assigned to me (anything not final) ───────────────
-    const assignedAssets = personId
-      ? await this.prisma.asset.findMany({
-          where:   { assignedToId: personId, stage: { not: 'FINAL_DELIVERY' } },
-          include: { project: { select: { id: true, name: true, status: true } } },
-          orderBy: { updatedAt: 'desc' },
-        })
-      : [];
-
     // ── my projects (PM / PRODUCER / TEAM_LEAD / ADMIN) ─────────────
     let myProjects: any[] = [];
     if (personId && ['PM', 'PRODUCER', 'TEAM_LEAD', 'ADMIN'].includes(role)) {
@@ -62,10 +53,6 @@ export class MeService {
         include: {
           producer: { select: { id: true, name: true } },
           pm:       { select: { id: true, name: true } },
-          assets: {
-            where:  { stage: { in: ['INTERNAL_REVIEW', 'REVISION'] } },
-            select: { id: true, name: true, stage: true, cdSignedOff: true },
-          },
           // Who's on this project this week
           capacityEntries: {
             where:   { weekStart: { gte: monday, lt: nextWeek } },
@@ -79,24 +66,6 @@ export class MeService {
           },
         },
         orderBy: [{ priority: 'asc' }, { deadline: 'asc' }],
-      });
-    }
-
-    // ── sign-off queue (INTERNAL_REVIEW + not signed off) ────────
-    // Only shown to people with canSignOff=true on their Person record, or ADMIN.
-    let signOffQueue: any[] = [];
-    const canSeeQueue = role === 'ADMIN' || !!user?.person?.canSignOff;
-    if (canSeeQueue) {
-      const whereClause: any = { stage: 'INTERNAL_REVIEW', cdSignedOff: false };
-      signOffQueue = await this.prisma.asset.findMany({
-        where:   whereClause,
-        select: {
-          id: true, name: true, stage: true, description: true,
-          reviewUrl: true, rejectionNote: true,
-          project:    { select: { id: true, name: true, priority: true } },
-          assignedTo: { select: { id: true, name: true } },
-        },
-        orderBy: { updatedAt: 'asc' },
       });
     }
 
@@ -152,29 +121,9 @@ export class MeService {
         personName:    user?.person?.name ?? null,
       },
       myCapacity,
-      assignedAssets,
       myProjects,
-      signOffQueue,
       activeLeads,
       paymentAlerts,
     };
-  }
-
-  // Quick sign-off from the My Work tab — same as the Assets tab checkbox.
-  async signOff(assetId: string) {
-    return this.prisma.asset.update({
-      where: { id: assetId },
-      // Clear any prior rejection note when approving
-      data:  { cdSignedOff: true, rejectionNote: null },
-      select: { id: true, cdSignedOff: true },
-    });
-  }
-
-  async reject(assetId: string, note?: string) {
-    return this.prisma.asset.update({
-      where: { id: assetId },
-      data:  { stage: 'REVISION', cdSignedOff: false, rejectionNote: note ?? null },
-      select: { id: true, stage: true, rejectionNote: true },
-    });
   }
 }

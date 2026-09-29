@@ -25,7 +25,7 @@ not just describe.
   tab switching, auth check, global fetch wrapper). Each tab's logic lives in its
   own file under `public/js/`:
   `mywork.js`, `dashboard.js`, `sales.js`, `clients.js`, `sales-performance.js`,
-  `projects.js`, `change-requests.js`, `assets.js`, `production.js`,
+  `projects.js`, `production.js`,
   `capacity.js`, `financial.js`, `people.js`, `staffing.js`, `admin.js`.
   Adding a new tab = new file + one `<script src>` line in `index.html`.
   Keep it framework-free.
@@ -141,17 +141,17 @@ visibility via `TAB_ACCESS` map in `index.html`):
 | Role | Access |
 |---|---|
 | ADMIN | Everything — users, all tabs, Autocount push, salary data |
-| PRODUCER | My Work, Dashboard, Sales pipeline, Projects, Change Requests, Capacity, Assets, Production, People, Staffing |
-| PM | Same as PRODUCER; owns the Change Request process |
-| TEAM_LEAD | My Work, Dashboard, Projects (read), Assets, Production, Capacity, Change Requests, People (read) |
+| PRODUCER | My Work, Dashboard, Sales pipeline, Projects, Capacity, Production, People, Staffing |
+| PM | Same as PRODUCER |
+| TEAM_LEAD | My Work, Dashboard, Projects (read), Production, Capacity, People (read) |
 | FINANCE | My Work, Financial tab, Projects (read), salary data |
 | SALES | My Work, Sales pipeline, Clients only |
-| STAFF | My Work, Dashboard, Projects (read), Assets, Production, Capacity, People (read) |
+| STAFF | My Work, Dashboard, Projects (read), Production, Capacity, People (read) |
 
 **User vs Person distinction:** `User` = login credential. `Person` = production
 staff record (ELC). They are separate models. A `User` optionally links to a
 `Person` via `personId` FK — set via the lock icon on People tab (admin only).
-This link powers the My Work personal dashboard and sign-off queue.
+This link powers the My Work personal dashboard.
 
 **Lock icon on People tab:** Filled green = person has a login. Outline grey = no
 login. Click (admin only) to create a login or view the linked account.
@@ -171,8 +171,7 @@ login. Click (admin only) to create a login or view the linked account.
 
 - **Person** — staff record. Fields: name, role, department, startDate,
   employmentType, warmPool, company, salary (monthly RM, optional — ADMIN +
-  FINANCE only), `canSignOff` (grants CD/3D sign-off authority — per-person
-  flag, not tied to role), `commissionRateOverride` (optional flat rate that
+  FINANCE only), `commissionRateOverride` (optional flat rate that
   bypasses the global CommissionTier table). Has many PersonSkill, Capacity,
   PersonTierRate, and optionally one User.
 
@@ -183,12 +182,8 @@ login. Click (admin only) to create a login or view the linked account.
   reads these to rank staff by skill rating + free capacity.
 
 - **Project** — spine of the system. PPM fields, producer/PM links, Drain gate,
-  accountId (optional link to Account). Has many ChangeRequest, ProjectSkill,
-  ProjectCost, AccountingDocument.
-
-- **ChangeRequest** — formal change request per project. Status: PENDING →
-  APPROVED / REJECTED. Includes budget impact and approval note. PM owns the
-  process; producers and team leads can view.
+  accountId (optional link to Account). Has many ProjectSkill, ProjectCost,
+  AccountingDocument.
 
 - **ProjectCost** — cost line item on a project. Type: `WARM_POOL` / `SUPPLIER`
   / `ADDITIONAL`. Added from project detail view. Summed to calculate net profit
@@ -197,8 +192,13 @@ login. Click (admin only) to create a login or view the linked account.
 - **Capacity** — weekly board. One row per person × project × week. 100% cap
   enforced in service. weekStart always Monday 00:00 UTC.
 
-- **Asset** — deliverable through SOP stages. CD sign-off soft gate at
-  INTERNAL_REVIEW.
+- **Removed (Sept 2026): Asset, ChangeRequest, `Person.canSignOff`.** Deliverables,
+  creative sign-off and client change requests are managed in the studio's
+  external project-management tool, not in Pop OS. The Assets / Change Requests
+  tabs, the My Work sign-off queue and "assigned to me" panel, and the rule
+  blocking DELIVERED while assets were unfinished all went with them. Do not
+  reintroduce them without asking. Old AuditLog rows with resource
+  `ChangeRequest` remain as history.
 
 - **Account** — client company. Has `autocountDebtorCode` (Autocount debtor
   account code — set once, reused for all quotes/invoices for that client).
@@ -236,7 +236,7 @@ login. Click (admin only) to create a login or view the linked account.
   `prisma/seed-users.js`. Has many AuditLog (back-relation).
 
 - **AuditLog** — immutable event record. Captures every CREATE/UPDATE/DELETE
-  across Leads, Projects, People, Users, ChangeRequests, AccountingDocuments, and
+  across Leads, Projects, People, Users, AccountingDocuments, and
   NotificationRules.
   Fields: actorId (nullable FK to User), actorName (denormalized), actorRole,
   action (enum), resource (model name), resourceId, resourceLabel (human name),
@@ -304,7 +304,7 @@ is its own mini-dashboard in context.
 - My Work (direct — personal dashboard for all roles)
 - Dashboard (direct — cross-module command centre)
 - Sales ▾ → Sales pipeline, Clients, Sales Performance (admin only)
-- Production ▾ → Projects, Change Requests, Assets, Production engine, Capacity
+- Production ▾ → Projects, Production engine, Capacity
 - Financial (direct — FINANCE + ADMIN only)
 - HR ▾ → People, Staffing
 - Admin (direct — ADMIN only) → Mattermost Notifications + Audit Log viewer
@@ -412,10 +412,11 @@ The server does NOT use Docker — PostgreSQL runs natively via the system packa
 ## Ownership / domain rules
 
 - Only Producers (YJ, Huey) set/change project priority.
-- PM (Emily) owns delivery, workflow compliance, Change Request process.
+- PM (Emily) owns delivery and workflow compliance.
 - Creative Director (Calvin) signs off creative; 3D Director (Tom) signs off 3D.
 - A "Drain" = low budget / high complexity → two-signature approval.
-- Client changes go through a formal Change Request, not silently absorbed.
+- Client changes go through a formal change request (tracked in the external
+  PM tool), not silently absorbed.
 
 ---
 

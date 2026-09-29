@@ -55,7 +55,7 @@ pop-os/
 ├── prisma/
 │   ├── schema.prisma          # Single source of truth for the DB shape
 │   ├── migrations/            # SQL migration files — never edit manually
-│   ├── seed.js                # Demo seed: people, projects, capacity, assets
+│   ├── seed.js                # Demo seed: people, projects, capacity, leads
 │   └── seed-users.js          # Default login accounts (4 roles)
 │
 ├── public/
@@ -69,8 +69,6 @@ pop-os/
 │       ├── clients.js              # Accounts + contacts
 │       ├── sales-performance.js    # Commission tracker — tiers, attainment, overrides
 │       ├── projects.js             # Projects (PPM) + Gantt timeline + project costs
-│       ├── change-requests.js      # Change request tracking
-│       ├── assets.js               # Assets kanban board
 │       ├── production.js           # Production lane board
 │       ├── capacity.js             # Weekly capacity board
 │       ├── financial.js            # Financial engine + AR dashboard
@@ -84,16 +82,14 @@ pop-os/
 │   │
 │   ├── auth/                  # JWT auth — login, token issuance, @Public() decorator
 │   ├── users/                 # User accounts (admin only) — email, role, personId link
-│   ├── me/                    # Personal dashboard — capacity, assets, sign-off queue
+│   ├── me/                    # Personal dashboard — capacity, projects, payment alerts
 │   │
-│   ├── people/                # People / ELC — staff records, canSignOff flag
+│   ├── people/                # People / ELC — staff records, skills, profile
 │   ├── skills/                # Skill master list + PersonSkill ratings + audit trail
 │   │
 │   ├── projects/              # Projects (PPM) — priority, budget, Drain gate, startDate
-│   ├── change-requests/       # Change Requests per project — PENDING/APPROVED/REJECTED
 │   │
 │   ├── capacity/              # Weekly allocation board (person × project × week)
-│   ├── assets/                # Deliverables — SOP stages, reviewUrl, rejectionNote
 │   ├── production/            # Production lane routing
 │   │
 │   ├── accounts/              # Client companies (Autocount debtors)
@@ -196,9 +192,7 @@ All routes are prefixed `/api` and JWT-guarded unless marked public.
 | Auth | GET | `/api/auth/me` | Current user profile |
 | Auth | POST | `/api/auth/forgot-password` | @Public — email a reset link (generic response either way) |
 | Auth | POST | `/api/auth/reset-password` | @Public — verify token + expiry, set new password |
-| Me | GET | `/api/me/dashboard` | Personal dashboard (capacity, assets, sign-off queue) |
-| Me | PATCH | `/api/me/sign-off/:id` | CD approve asset from sign-off queue |
-| Me | PATCH | `/api/me/reject/:id` | CD reject asset — sends back to REVISION with note |
+| Me | GET | `/api/me/dashboard` | Personal dashboard (capacity, projects, payment alerts) |
 | Users | GET | `/api/users` | List all users (admin only) |
 | Users | POST | `/api/users` | Create a user account |
 | Users | PATCH | `/api/users/:id` | Update user (role, active, personId link) |
@@ -206,7 +200,7 @@ All routes are prefixed `/api` and JWT-guarded unless marked public.
 | People | GET | `/api/people` | List all people |
 | People | GET | `/api/people/:id` | Get one person (with skill ratings) |
 | People | POST | `/api/people` | Create a person |
-| People | PATCH | `/api/people/:id` | Update a person (incl. canSignOff flag) |
+| People | PATCH | `/api/people/:id` | Update a person |
 | People | DELETE | `/api/people/:id` | Remove a person |
 | Skills | GET | `/api/skills` | List all skills |
 | Skills | POST | `/api/skills` | Create a skill |
@@ -217,19 +211,10 @@ All routes are prefixed `/api` and JWT-guarded unless marked public.
 | Projects | POST | `/api/projects` | Create a project |
 | Projects | PATCH | `/api/projects/:id` | Update a project |
 | Projects | DELETE | `/api/projects/:id` | Remove a project |
-| Change Requests | GET | `/api/change-requests?projectId=&status=` | List CRs (filterable) |
-| Change Requests | POST | `/api/change-requests` | Create a CR |
-| Change Requests | PATCH | `/api/change-requests/:id` | Update CR (approve / reject + note) |
-| Change Requests | DELETE | `/api/change-requests/:id` | Remove a CR |
 | Capacity | GET | `/api/capacity?week=` | Board for a week (defaults: this week) |
 | Capacity | POST | `/api/capacity` | Add an allocation |
 | Capacity | PATCH | `/api/capacity/:id` | Update role or % |
 | Capacity | DELETE | `/api/capacity/:id` | Remove an allocation |
-| Assets | GET | `/api/assets?projectId=` | List assets (optionally filtered) |
-| Assets | GET | `/api/assets/:id` | Get one asset |
-| Assets | POST | `/api/assets` | Create an asset |
-| Assets | PATCH | `/api/assets/:id` | Update stage / sign-off / reviewUrl / name |
-| Assets | DELETE | `/api/assets/:id` | Remove an asset |
 | Production | GET | `/api/production/lanes` | Projects grouped by workflow lane |
 | Accounts | GET | `/api/accounts` | List client accounts |
 | Accounts | POST | `/api/accounts` | Create an account |
@@ -289,13 +274,10 @@ Company (enum: LPS / PXL / GROUP)
      │     │         SkillRatingChange (audit trail)
      │     │
      │     ├──< Capacity >── Project
-     │     ├──< Asset (assignedTo)
      │     └── User? (login account)
      │
-     ├── Project ──< Asset ──< SOP stages
-     │     │           └── reviewUrl, rejectionNote
+     ├── Project
      │     ├──< Capacity
-     │     ├──< ChangeRequest
      │     ├──< ProjectSkill >── Skill
      │     ├──< ProjectCost
      │     ├──< AccountingDocument
@@ -313,14 +295,12 @@ Company (enum: LPS / PXL / GROUP)
 ### Models
 
 - **Company** — enum `LPS` / `PXL` / `GROUP`. Required on Project; optional on Person, Account, Lead. Drives the global header filter; untagged and `GROUP` records always appear regardless of which company the filter is set to.
-- **Person** — one record per staff member. Fields: name, role, department, startDate, employmentType, warmPool, `canSignOff` (grants sign-off authority), `commissionRateOverride` (optional flat rate that bypasses the global tier table), company, salary (monthly RM — ADMIN + FINANCE only).
+- **Person** — one record per staff member. Fields: name, role, department, startDate, employmentType, warmPool, `commissionRateOverride` (optional flat rate that bypasses the global tier table), company, salary (monthly RM — ADMIN + FINANCE only).
 - **Skill** — studio-wide master list. Shared records, not free text.
 - **PersonSkill** — live current rating (1–5) for a person × skill pair.
 - **SkillRatingChange** — every score movement. First entry (source = INTERVIEW) is the candidate score.
 - **Project** — the spine. PPM quadrant, priority, status, startDate, deadline, budget, producer/PM links, Drain approval gate. Has a required `company` field (LPS/PXL/GROUP).
-- **ChangeRequest** — formal change request attached to a project. Status: PENDING / APPROVED / REJECTED. Includes budget impact and approval note.
 - **Capacity** — one row per person × project × week. Enforces ≤ 100% total per person per week. `weekStart` always Monday 00:00 UTC.
-- **Asset** — one deliverable inside a project. Stage: BRIEF / WIP / INTERNAL_REVIEW / REVISION / FINAL_DELIVERY. `reviewUrl` links to the actual work (Drive, Frame.io). `rejectionNote` stores CD feedback when rejected.
 - **Account** — client company. Has `autocountDebtorCode` for Autocount integration.
 - **Contact** — person at a client company. Linked to Account.
 - **Lead** — sales opportunity. Status: QUALIFICATION → PROPOSAL → NEGOTIATION → WON / LOST. `wonAt` is set automatically when status changes to WON — used to bucket deals into quarters for the commission report. `convertToProject` creates a Project from a WON lead.
@@ -346,7 +326,6 @@ Company (enum: LPS / PXL / GROUP)
 - **Module summary strips** — every module tab opens with a compact stats bar above the main content.
 - **Frontend modules** — each tab's JS lives in `public/js/<name>.js`. Adding a tab = new JS file + one `<script src>` line + tab button + panel div in `index.html`.
 - **Salary visibility** — `canSeeSalary()` in `people.js` gates salary column, column toggle, and add-form field to ADMIN and FINANCE only.
-- **Sign-off authority** — gated by `Person.canSignOff`, not by role. Admin toggles it per person on the People tab.
 
 ---
 
@@ -369,7 +348,7 @@ Company (enum: LPS / PXL / GROUP)
 ### Production layer (done)
 | # | Module | Status |
 |---|---|---|
-| 7 | Assets | Done |
+| 7 | Assets | Removed Sept 2026 — moved to external PM tool |
 | 8 | Production Engine / Lane Routing | Done |
 
 ### Financial layer (done)
@@ -383,7 +362,7 @@ Company (enum: LPS / PXL / GROUP)
 | JWT auth — login page, 6 roles, global guard | Done |
 | Users module — admin CRUD | Done |
 | Person ↔ User link — lock icon on People tab | Done |
-| canSignOff flag — per-person sign-off authority | Done |
+| canSignOff flag — per-person sign-off authority | Removed Sept 2026 |
 | Salary visibility restriction — ADMIN + FINANCE only | Done |
 | Password reset — self-service email flow + admin-initiated reset | Done |
 
@@ -403,8 +382,8 @@ Company (enum: LPS / PXL / GROUP)
 ### Workflow & productivity (done)
 | Feature | Status |
 |---|---|
-| Change Requests — per project, PENDING/APPROVED/REJECTED | Done |
-| CD review flow — Approve/Reject on sign-off queue with notes | Done |
+| Change Requests — per project, PENDING/APPROVED/REJECTED | Removed Sept 2026 — moved to external PM tool |
+| CD review flow — Approve/Reject on sign-off queue with notes | Removed Sept 2026 |
 | My Work tab — personal dashboard per role | Done |
 | CSV exports — projects, capacity, AR | Done |
 | Email payment alerts — nodemailer digest | Done |
@@ -431,6 +410,6 @@ Company (enum: LPS / PXL / GROUP)
 | WhatsApp lead messages retired — module, `whatsapp-web.js` / Puppeteer deps and `WHATSAPP_*` env vars removed | Done |
 
 ### Deferred
-- More triggered events: asset sent for sign-off (DM to sign-off holders), change request submitted / decided, invoice paid / overdue
+- More triggered events: invoice paid / overdue
 - Kakitangan.com sync (payroll + leave)
 - `changedBy` on SkillRatingChange linking to a real Person

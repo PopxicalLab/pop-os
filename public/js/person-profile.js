@@ -67,7 +67,7 @@ function closePersonProfile() {
 // ── render ────────────────────────────────────────────────────
 
 function renderProfile(modal, data, personId, committees = []) {
-  const { person, projects, assets, badges, stats } = data;
+  const { person, projects, badges, stats } = data;
   const admin = typeof isAdmin === 'function' && isAdmin();
 
   const earnedBadges  = badges.filter(b => b.earned);
@@ -123,9 +123,8 @@ function renderProfile(modal, data, personId, committees = []) {
       </div>
 
       <!-- stat cards -->
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+      <div class="grid grid-cols-3 gap-3 mb-6">
         ${statCard('Projects', stats.projectCount, '📁')}
-        ${statCard('Assets', stats.assetCount, '🎨')}
         ${statCard('Skills', person.skills.length, '🧠')}
         ${statCard('Avg rating', stats.avgRating ?? '—', '⭐')}
       </div>
@@ -276,7 +275,7 @@ function statCard(label, value, icon) {
 }
 
 function renderTimeline(data, admin, personId) {
-  const { person, assets } = data;
+  const { person } = data;
 
   // Build unified timeline entries from all sources
   const entries = [];
