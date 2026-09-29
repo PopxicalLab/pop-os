@@ -6,13 +6,20 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, Req } from '@nestjs/common';
 import { AccountsService } from './accounts.service';
 import { CreateAccountDto, UpdateAccountDto } from './account.dto';
+import { JOB_ROLES, requireRole } from '../common/roles';
 
 @Controller('api/accounts')
 export class AccountsController {
   constructor(private readonly accounts: AccountsService) {}
 
+  // The list (names + counts) feeds client pickers on several tabs — open to all.
   @Get()    findAll(@Req() req: any)                       { return this.accounts.findAll(req.user?.company); }
-  @Get(':id') findOne(@Param('id') id: string)             { return this.accounts.findOne(id); }
+
+  // One account carries its leads (deal values) — job roles only (Clients tab).
+  @Get(':id') findOne(@Param('id') id: string, @Req() req: any) {
+    requireRole(req, JOB_ROLES);
+    return this.accounts.findOne(id);
+  }
   @Post()   create(@Body() dto: CreateAccountDto)          { return this.accounts.create(dto); }
   @Patch(':id') update(@Param('id') id: string, @Body() dto: UpdateAccountDto) {
     return this.accounts.update(id, dto);

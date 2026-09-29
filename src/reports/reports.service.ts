@@ -14,20 +14,23 @@ function csvRow(cells: (string | number | null | undefined)[]): string {
 export class ReportsService {
   constructor(private prisma: PrismaService) {}
 
-  async projectsCsv(): Promise<string> {
+  // withMoney = the caller is a job role. Otherwise the job's money / PPM
+  // columns are left out entirely (project-only roles never see money).
+  async projectsCsv(withMoney: boolean): Promise<string> {
     const rows = await this.prisma.project.findMany({
       include: {
         producer: { select: { name: true } },
         pm:       { select: { name: true } },
         account:  { select: { name: true } },
-        ...JOB_FIELDS,   // value + margin target live on the job
+        ...JOB_FIELDS,   // value / margin / PPM live on the job
       },
       orderBy: [{ priority: 'asc' }, { deadline: 'asc' }],
     });
 
     const header = csvRow(['Name','Client','Account','Status','Priority','Quadrant',
-      'Producer','PM','Start Date','Deadline','Est. Value (RM)','Est. Duration (wk)',
-      'Complexity','Margin Target (%)','Company']);
+      'Producer','PM','Start Date','Deadline',
+      ...(withMoney ? ['Est. Value (RM)','Est. Duration (wk)','Complexity','Margin Target (%)'] : []),
+      'Company']);
 
     const lines = rows.map(p => csvRow([
       p.name,
@@ -40,10 +43,12 @@ export class ReportsService {
       p.pm?.name,
       p.startDate  ? new Date(p.startDate).toISOString().slice(0,10)  : '',
       p.deadline   ? new Date(p.deadline).toISOString().slice(0,10)   : '',
-      p.lead?.estimatedValue,
-      p.lead?.estimatedDuration,
-      p.lead?.complexityScore,
-      p.lead?.marginTarget,
+      ...(withMoney ? [
+        p.lead?.estimatedValue,
+        p.lead?.estimatedDuration,
+        p.lead?.complexityScore,
+        p.lead?.marginTarget,
+      ] : []),
       p.company,
     ]));
 

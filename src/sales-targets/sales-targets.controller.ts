@@ -1,7 +1,10 @@
-import { Controller, Get, Post, Delete, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { SalesTargetsService } from './sales-targets.service';
 import { UpsertSalesTargetDto } from './sales-target.dto';
+import { ADMIN_ONLY, onlyRoles } from '../common/roles';
 
+// Revenue targets feed commission — managed on the admin-only Sales Performance tab.
+@UseGuards(onlyRoles(ADMIN_ONLY))
 @Controller('api/sales-targets')
 export class SalesTargetsController {
   constructor(private readonly svc: SalesTargetsService) {}

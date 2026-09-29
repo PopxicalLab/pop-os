@@ -37,8 +37,9 @@ type JobFields = {
 } | null;
 
 // Replace a project's (stale) money + PPM fields with its job's values, and
-// add `jobId` so the UI can link across. Keeps the response shape the
-// frontend already reads, so screens keep working unchanged.
+// add `jobId`. For SERVER-SIDE money work only (PPM scoring, Financial,
+// reports) — the projects API itself never returns these (see
+// ProjectsService: projects are production-only, readable by STAFF).
 // (quadrant isn't overlaid: Project.quadrant is kept in sync with the job.)
 export function withJobFields<T extends { lead?: JobFields }>(project: T) {
   const { lead, ...rest } = project;
@@ -54,15 +55,6 @@ export function withJobFields<T extends { lead?: JobFields }>(project: T) {
     drainApprovedByProducer: lead?.drainApprovedByProducer ?? false,
   };
 }
-
-// Fields the job owns that the old project form / API may still send.
-// ProjectsService routes these to the job instead of the project.
-export const JOB_OWNED_FIELDS = [
-  'estimatedValue', 'marginTarget', 'clientTier',
-  'quadrant', 'complexityScore', 'estimatedDuration',
-  'drainApprovedByExec', 'drainApprovedByProducer',
-] as const;
-
 // Jobs created for a project that had no sale behind it (made on the
 // Projects tab, or back-filled by the migration) use this id pattern.
 // That's how we tell them apart from real sales leads — e.g. deleting the

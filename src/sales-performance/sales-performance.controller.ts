@@ -1,6 +1,7 @@
-import { Controller, Get, Post, Delete, Query, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Query, Body, Param, UseGuards } from '@nestjs/common';
 import { IsString, IsNumber, Min, Max } from 'class-validator';
 import { SalesPerformanceService } from './sales-performance.service';
+import { ADMIN_ONLY, onlyRoles } from '../common/roles';
 
 class UpsertPersonTierRateDto {
   @IsString() personId: string;
@@ -8,6 +9,8 @@ class UpsertPersonTierRateDto {
   @IsNumber() @Min(0) @Max(1) rate: number; // commission fraction 0–1
 }
 
+// Commission / revenue per producer — Sales Performance tab is admin only.
+@UseGuards(onlyRoles(ADMIN_ONLY))
 @Controller('api/sales-performance')
 export class SalesPerformanceController {
   constructor(private readonly svc: SalesPerformanceService) {}

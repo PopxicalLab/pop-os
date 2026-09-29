@@ -2,29 +2,35 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateProjectDto, UpdateProjectDto } from './project.dto';
 import { companyWhere } from '../common/company-filter';
-import { JOB_FIELDS, JOB_OWNED_FIELDS, withJobFields, autoJobId, isAutoJob, ensureJobForProject } from '../common/job';
+import { autoJobId, isAutoJob } from '../common/job';
+import { stripJobColumns } from '../common/roles';
 
-// Fields we always include when returning a project — producer and PM names,
-// plus the job's money + PPM fields (they live on the job, not the project —
-// see src/common/job.ts). Results go through withJobFields().
+// ── Projects = production only ─────────────────────────────────────
+// Everyone who works on a project (incl. TEAM_LEAD / STAFF) can read it, so
+// a project response carries NO money and no PPM scores — those live on the
+// job and are only served by the job-role-locked /api/jobs + /api/leads.
+// What a project does carry from its job: the job's id (for an "Open job"
+// link, shown to job roles only) and the Drain gate status (a production
+// go / no-go signal, not money).
 const WITH_PEOPLE = {
   producer: { select: { id: true, name: true, role: true } },
   pm:       { select: { id: true, name: true, role: true } },
   account:  { select: { id: true, name: true, industry: true } },
-  ...JOB_FIELDS,
+  lead:     { select: { id: true, drainApprovedByExec: true, drainApprovedByProducer: true } },
 } as const;
 
-// Split incoming project-form data into what the job owns and what the
-// project owns. `quadrant` is both: decided on the job, mirrored onto the
-// project for the production lanes.
-function splitJobFields<T extends Record<string, any>>(dto: T) {
-  const job: Record<string, any> = {};
-  const project: Record<string, any> = { ...dto };
-  for (const f of JOB_OWNED_FIELDS) {
-    if (dto[f] !== undefined) job[f] = dto[f];
-    if (f !== 'quadrant') delete project[f];
-  }
-  return { job, project };
+type JobLink = { id: string; drainApprovedByExec: boolean; drainApprovedByProducer: boolean } | null;
+
+// Shape a project for the API: drop the stale money / PPM columns still on
+// the Project table, and flatten the job link.
+function toProjectView<T extends { lead: JobLink }>(row: T) {
+  const { lead, ...rest } = row;
+  return {
+    ...stripJobColumns(rest),
+    jobId:                   lead?.id ?? null,
+    drainApprovedByExec:     lead?.drainApprovedByExec     ?? false,
+    drainApprovedByProducer: lead?.drainApprovedByProducer ?? false,
+  };
 }
 
 @Injectable()
@@ -43,7 +49,7 @@ export class ProjectsService {
       orderBy: { createdAt: 'desc' },
       include: WITH_PEOPLE,
     });
-    return projects.map(withJobFields);
+    return projects.map(toProjectView);
   }
 
   async findOne(id: string) {
@@ -52,12 +58,13 @@ export class ProjectsService {
       include: WITH_PEOPLE,
     });
     if (!project) throw new NotFoundException(`Project ${id} not found`);
-    return withJobFields(project);
+    return toProjectView(project);
   }
 
   // A project made on the Projects tab has no sale behind it, so it gets an
-  // auto job to hold its money. (Won leads get their project via
-  // LeadsService.convertToProject instead — there the lead is the job.)
+  // auto job to hold its money + PPM. Money is filled in on that job's page.
+  // (Won leads get their project via LeadsService.convertToProject instead —
+  // there the lead is the job.)
   async create(dto: CreateProjectDto) {
     const project = await this.prisma.$transaction(async (tx) => {
       const p = await tx.project.create({
@@ -65,7 +72,7 @@ export class ProjectsService {
           name:        dto.name,
           client:      dto.client,
           company:     dto.company,
-          quadrant:    dto.quadrant,
+          quadrant:    dto.quadrant,   // starting lane; the job owns it from here on
           priority:    dto.priority    ?? 'P2',
           status:      dto.status      ?? 'BRIEF',
           startDate:   dto.startDate   ? new Date(dto.startDate) : undefined,
@@ -75,24 +82,16 @@ export class ProjectsService {
           pmId:        dto.pmId        ?? null,
         },
       });
-      // The auto job holds the money + PPM assessment from the form.
       await tx.lead.create({
         data: {
-          id:             autoJobId(p.id),
-          name:           p.name,
-          accountId:      p.accountId,
-          company:        p.company,
-          status:         'WON',   // no closer / wonAt → never counted in commission
-          notes:          'Auto-created for a project with no sale logged behind it.',
-          projectId:      p.id,
-          estimatedValue: dto.estimatedValue ?? null,
-          marginTarget:   dto.marginTarget   ?? null,
-          clientTier:     dto.clientTier     ?? null,
-          quadrant:          dto.quadrant,
-          complexityScore:   dto.complexityScore   ?? null,
-          estimatedDuration: dto.estimatedDuration ?? null,
-          drainApprovedByExec:     dto.drainApprovedByExec     ?? false,
-          drainApprovedByProducer: dto.drainApprovedByProducer ?? false,
+          id:        autoJobId(p.id),
+          name:      p.name,
+          accountId: p.accountId,
+          company:   p.company,
+          status:    'WON',   // no closer / wonAt → never counted in commission
+          notes:     'Auto-created for a project with no sale logged behind it.',
+          projectId: p.id,
+          quadrant:  dto.quadrant,
         },
       });
       return p;
@@ -100,30 +99,21 @@ export class ProjectsService {
     return this.findOne(project.id);
   }
 
+  // Production fields only — UpdateProjectDto has no money / PPM fields
+  // (those are edited on the job), so the DTO whitelist already drops them.
   async update(id: string, dto: UpdateProjectDto) {
     await this.findOne(id);
-
-    // Split the form data: money + PPM fields go to the job, the rest to the
-    // project (quadrant goes to both — the project copy is the lane mirror).
-    const { job, project: projectFields } = splitJobFields(dto);
-
-    await this.prisma.$transaction(async (tx) => {
-      await tx.project.update({
-        where: { id },
-        data: {
-          ...projectFields,
-          startDate: dto.startDate !== undefined
-            ? (dto.startDate ? new Date(dto.startDate) : null)
-            : undefined,
-          deadline: dto.deadline !== undefined
-            ? (dto.deadline ? new Date(dto.deadline) : null)
-            : undefined,
-        },
-      });
-      if (Object.keys(job).length) {
-        const jobId = await ensureJobForProject(tx, id);
-        await tx.lead.update({ where: { id: jobId }, data: job });
-      }
+    await this.prisma.project.update({
+      where: { id },
+      data: {
+        ...dto,
+        startDate: dto.startDate !== undefined
+          ? (dto.startDate ? new Date(dto.startDate) : null)
+          : undefined,
+        deadline: dto.deadline !== undefined
+          ? (dto.deadline ? new Date(dto.deadline) : null)
+          : undefined,
+      },
     });
     return this.findOne(id);
   }

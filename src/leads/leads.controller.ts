@@ -4,11 +4,14 @@
 // PATCH  /api/leads/:id          → update
 // DELETE /api/leads/:id          → remove
 // POST   /api/leads/:id/convert  → convert WON lead to Project
-import { Controller, Get, Post, Patch, Delete, Param, Body, Req } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Req, UseGuards } from '@nestjs/common';
 import { LeadsService } from './leads.service';
 import { CreateLeadDto, UpdateLeadDto } from './lead.dto';
 import { AuditService } from '../audit/audit.service';
+import { JOB_ROLES, onlyRoles } from '../common/roles';
 
+// Leads are jobs — values, money, PPM. Job roles only (src/common/roles.ts).
+@UseGuards(onlyRoles(JOB_ROLES))
 @Controller('api/leads')
 export class LeadsController {
   constructor(

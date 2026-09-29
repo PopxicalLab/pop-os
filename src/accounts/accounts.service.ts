@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { PrismaService } from '../prisma.service';
 import { CreateAccountDto, UpdateAccountDto } from './account.dto';
 import { companyWhere } from '../common/company-filter';
+import { stripJobColumns } from '../common/roles';
 
 @Injectable()
 export class AccountsService {
@@ -29,7 +30,9 @@ export class AccountsService {
       },
     });
     if (!account) throw new NotFoundException(`Account ${id} not found`);
-    return account;
+    // Project rows still hold stale money / PPM columns — the leads above
+    // carry the real values, so drop the project copies.
+    return { ...account, projects: account.projects.map(stripJobColumns) };
   }
 
   async create(dto: CreateAccountDto) {

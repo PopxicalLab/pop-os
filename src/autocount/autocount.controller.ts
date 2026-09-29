@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Patch, Param, Body, Query, Req } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, Query, Req, UseGuards } from '@nestjs/common';
 import { IsString, IsOptional, IsIn } from 'class-validator';
 import { AutocountService } from './autocount.service';
 import { AuditService } from '../audit/audit.service';
+import { JOB_ROLES, onlyRoles } from '../common/roles';
 
 class PushQuotationDto {
   @IsString() debtorCode: string;
@@ -17,6 +18,8 @@ class UpdateStatusDto {
   @IsIn(['PAID', 'VOID']) status: 'PAID' | 'VOID';
 }
 
+// Quotations, invoices, debtors — money. Job roles only (src/common/roles.ts).
+@UseGuards(onlyRoles(JOB_ROLES))
 @Controller('api/autocount')
 export class AutocountController {
   constructor(

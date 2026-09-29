@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { companyWhere } from '../common/company-filter';
+import { stripJobColumns } from '../common/roles';
 
 // Each PPM quadrant maps to a named workflow lane with its own operating rules.
 // These are fixed business rules — they don't live in the DB.
@@ -76,8 +77,10 @@ export class ProductionService {
       },
       orderBy: [{ priority: 'asc' }, { createdAt: 'desc' }],
     });
+    // stripJobColumns: drop the stale money / PPM columns still on Project —
+    // STAFF see these lanes and must never get money.
     const projects = rows.map(({ lead, ...p }) => ({
-      ...p,
+      ...stripJobColumns(p),
       drainApprovedByExec:     lead?.drainApprovedByExec     ?? false,
       drainApprovedByProducer: lead?.drainApprovedByProducer ?? false,
     }));

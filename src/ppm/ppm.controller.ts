@@ -1,9 +1,12 @@
 // GET /api/ppm             →  score all active projects
 // GET /api/ppm/ai          →  AI k-NN recommendation from historical data
 // GET /api/ppm/:id         →  score one project
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { PpmService } from './ppm.service';
+import { JOB_ROLES, onlyRoles } from '../common/roles';
 
+// PPM scores are built from value / margin — assessed on the job. Job roles only.
+@UseGuards(onlyRoles(JOB_ROLES))
 @Controller('api/ppm')
 export class PpmController {
   constructor(private readonly ppm: PpmService) {}

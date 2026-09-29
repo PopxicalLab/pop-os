@@ -588,7 +588,7 @@ const TAB_ACCESS = {
   dashboard:  ['ADMIN','PRODUCER','SALES','FINANCE','PM','TEAM_LEAD','STAFF'],
   mywork:     ['ADMIN','PRODUCER','SALES','FINANCE','PM','TEAM_LEAD','STAFF'],
   // Jobs show money (value, costs, net, invoices) — money roles only.
-  // Keep in sync with JOB_ROLES in src/jobs/jobs.controller.ts.
+  // Keep in sync with JOB_ROLES in src/common/roles.ts (the API enforces it).
   jobs:       ['ADMIN','PRODUCER','PM','FINANCE','SALES'],
   sales:      ['ADMIN','SALES','PRODUCER'],
   clients:    ['ADMIN','SALES'],

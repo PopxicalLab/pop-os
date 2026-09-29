@@ -1,7 +1,10 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards } from '@nestjs/common';
 import { ProjectCostsService } from './project-costs.service';
 import { CreateProjectCostDto, UpdateProjectCostDto } from './project-cost.dto';
+import { JOB_ROLES, onlyRoles } from '../common/roles';
 
+// Job costs are money — job roles only (src/common/roles.ts).
+@UseGuards(onlyRoles(JOB_ROLES))
 @Controller('api/project-costs')
 export class ProjectCostsController {
   constructor(private readonly svc: ProjectCostsService) {}

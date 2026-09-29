@@ -147,11 +147,26 @@ visibility via `TAB_ACCESS` map in `index.html`):
 | TEAM_LEAD | My Work, Dashboard, Projects (read), Production, Capacity, People (read) |
 | FINANCE | My Work, Jobs, Financial tab, Projects (read), salary data |
 | SALES | My Work, Jobs, Sales pipeline, Clients only |
-
-Jobs show money, so only ADMIN / PRODUCER / PM / FINANCE / SALES see them —
-enforced in `JOB_ROLES` (`src/jobs/jobs.controller.ts`) and `TAB_ACCESS.jobs`
-(`shared.js`); keep the two in sync. TEAM_LEAD / STAFF get no job links.
 | STAFF | My Work, Dashboard, Projects (read), Production, Capacity, People (read) |
+
+**Money split (Sept 2026) — Job = everything, Project = production only.**
+- **Job roles** (ADMIN, PRODUCER, PM, FINANCE, SALES) see money: value,
+  margin, costs, invoices, PPM. **Project-only roles** (TEAM_LEAD, STAFF) see
+  production only and must never receive money — not even in API responses.
+- One source of truth: `src/common/roles.ts` — `JOB_ROLES`, `FINANCE_ROLES`
+  (ADMIN, FINANCE, PM), `ADMIN_ONLY`; `onlyRoles(...)` locks a whole
+  controller (`@UseGuards(onlyRoles(JOB_ROLES))`), `requireRole(req, ...)`
+  locks one route, `canSeeMoney(role)` for "include money or not",
+  `stripJobColumns()` drops the stale money / PPM columns from Project rows.
+  Mirrored in the UI by `TAB_ACCESS` (`shared.js`) — keep them in sync.
+- Locked to job roles: leads, jobs, project-costs, autocount, ppm, one
+  account (`GET /api/accounts/:id`). Financial + AR CSV: FINANCE_ROLES
+  (finance dashboard: ADMIN / FINANCE). Sales performance, targets,
+  commission tiers: ADMIN_ONLY. Projects CSV: money columns only for job roles.
+- Project responses (projects, production lanes, My Work, account view)
+  carry no money / PPM for anyone; `UpdateProjectDto` has no money / PPM
+  fields, so the project API can't write them either. **Any new endpoint
+  that returns money must be locked the same way.**
 
 **User vs Person distinction:** `User` = login credential. `Person` = production
 staff record (ELC). They are separate models. A `User` optionally links to a
@@ -236,7 +251,9 @@ login. Click (admin only) to create a login or view the linked account.
     `Project.quadrant` is a **mirror** of the job's quadrant (drives the
     Production lanes + badges); only the job writes it — LeadsService.update()
     and ProjectsService (routes `JOB_OWNED_FIELDS` to the job) keep it in sync.
-    The project page shows PPM read-only with "Assess on the job →".
+    The project page shows no money or PPM at all — job roles get a
+    "Money & PPM → Open job" link; the "Add a project" form has no money /
+    PPM fields (set them on the new project's auto job).
   - Every Project has exactly one job. Projects made on the Projects tab get an
     auto job with id `job_<projectId>` (no closer / wonAt → never counted in
     commission or targets); deleting the project deletes its auto job, never a

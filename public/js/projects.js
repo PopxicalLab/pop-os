@@ -9,19 +9,6 @@ let _peopleCache = []; // used for Producer/PM pickers — populated in loadProj
 
 // ── display helpers ──────────────────────────────────────────
 
-function complexityDots(n) {
-  if (!n) return '<span class="text-muted">—</span>';
-  let h = '<span class="inline-flex gap-0.5 items-center">';
-  for (let i = 1; i <= 5; i++)
-    h += `<span class="w-1.5 h-1.5 rounded-full ${i <= n ? 'bg-accent' : 'bg-line'}"></span>`;
-  return h + `</span> <span class="text-xs text-muted ml-1">${n}</span>`;
-}
-
-function fmtValue(v) {
-  if (v == null) return '<span class="text-muted">—</span>';
-  return 'RM ' + Number(v).toLocaleString('en-MY', { maximumFractionDigits: 0 });
-}
-
 // Deadline + days-left/overdue, same overdue/due-soon convention as the
 // Kanban card (renderKanbanCard) — finished/cancelled projects never show
 // as overdue since nobody's still racing that clock.
@@ -39,7 +26,7 @@ function fmtDeadlineCell(deadlineIso, status) {
   return `<span class="text-muted">${dateStr} · ${daysLeft}d left</span>`;
 }
 
-// CLIENT_TIER_LABEL, QUADRANT_LABEL, QUADRANT_CLS, STATUS_LABEL, PRI_CLS
+// QUADRANT_LABEL, QUADRANT_CLS, STATUS_LABEL, PRI_CLS
 // moved to shared.js — 11 files across the app read them, so they need to
 // be available on every page, not just wherever projects.js happens to load.
 
@@ -52,11 +39,8 @@ const PROJ_COLS = [
   { id: 'deadline',   label: 'Deadline',    def: true  },
   { id: 'producer',   label: 'Producer',    def: true  },
   { id: 'pm',         label: 'PM',          def: true  },
-  { id: 'value',      label: 'Est. Value',  def: false },
-  { id: 'duration',   label: 'Duration',    def: false },
-  { id: 'complexity', label: 'Complexity',  def: false },
-  { id: 'tier',       label: 'Client tier', def: false },
-  { id: 'margin',     label: 'Margin',      def: false },
+  // No money / PPM columns — projects are production-only (value, margin,
+  // complexity etc. live on the job, which only job roles can open).
 ];
 
 function getColVis() {
@@ -109,8 +93,9 @@ function toggleColPicker() {
   }
 }
 
-// PPM is assessed on the Job page now (job.js) — the project page only shows
-// a read-only summary via loadPpmBadge(). computePpm() lives in shared.js.
+// Projects are production-only (Sept 2026): money and the PPM assessment
+// live on the job (job.js), which only job roles can open. The project API
+// doesn't even send them — see ProjectsService.
 
 // ── project detail view ──────────────────────────────────────
 
@@ -154,9 +139,6 @@ async function showProjectDetail(id) {
              focus:outline-none focus:border-accent/60" />`;
   };
 
-  // Money + PPM now live on the job (Sept 2026 restructure), so they show
-  // read-only here; the job page is where they're edited.
-  const ro = (shown) => `<p class="text-xs text-ink px-2 py-1">${shown}</p>`;
   // Only money roles can open a job (TAB_ACCESS.jobs), so others get no link.
   const jobLink = (text) => p.jobId && TAB_ACCESS.jobs.includes(currentRole())
     ? `<a href="/job.html?id=${p.jobId}" class="text-[11px] text-accent hover:underline">${text}</a>`
@@ -228,24 +210,6 @@ async function showProjectDetail(id) {
     </div>
 
     <div class="mt-5 pb-5 border-b border-line">
-      <div class="flex items-center justify-between mb-3">
-        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted">PPM <span class="normal-case font-normal">(assessed on the job)</span></p>
-        ${jobLink('Assess on the job →')}
-      </div>
-      <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        ${lbl('Complexity (1–5)', ro(p.complexityScore ?? '—'))}
-        ${lbl('Duration',         ro(p.estimatedDuration != null ? p.estimatedDuration + ' wk' : '—'))}
-        ${lbl('Est. value',       ro(fmtValue(p.estimatedValue)))}
-        ${lbl('Client tier',      ro(CLIENT_TIER_LABEL[p.clientTier] || '—'))}
-        ${lbl('Margin target',    ro(p.marginTarget != null ? p.marginTarget + '%' : '—'))}
-      </div>
-      <div class="mt-3 pt-3 border-t border-line/60">
-        <p class="text-[10px] font-semibold uppercase tracking-widest text-muted mb-1.5">PPM recommendation</p>
-        <div id="ppm-rec-${p.id}" class="text-xs text-muted">Calculating…</div>
-      </div>
-    </div>
-
-    <div class="mt-5 pb-5 border-b border-line">
       <div class="flex items-center justify-between mb-2">
         <p class="text-[11px] font-semibold uppercase tracking-widest text-muted">Required Skills</p>
         <span class="text-[11px] text-muted/50">Tag skills this project needs → system suggests best-matched staff</span>
@@ -274,15 +238,16 @@ async function showProjectDetail(id) {
       <div id="proj-capacity-${p.id}" class="text-xs text-muted">Loading…</div>
     </div>
 
+    ${jobLink('') ? `
     <div class="mt-5">
       <div class="flex items-center justify-between mb-1.5">
-        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted">Money</p>
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted">Money &amp; PPM</p>
         ${jobLink('Open job →')}
       </div>
       <p class="text-xs text-muted">
-        Value, costs, quotations, invoices and payments are kept on this project's job.
+        Value, costs, invoices and the PPM assessment (quadrant, complexity, Drain approvals) are kept on this project's job.
       </p>
-    </div>`;
+    </div>` : ''}`;
 
   // Wire up all change/blur handlers — PATCH the project on every edit.
   const patch = async (data) => {
@@ -420,9 +385,6 @@ async function showProjectDetail(id) {
       msg($('p-detail-msg'), '', '');
     };
   }
-
-  // Read-only PPM summary for this project (recommendation vs current quadrant).
-  loadPpmBadge(id);
 
   // Load async sections.
   loadProjectSkills(id);
@@ -752,46 +714,6 @@ async function loadStaffSuggestions(projectId) {
   });
 }
 
-async function loadPpmBadge(projectId) {
-  const ppm = await fetch('/api/ppm/' + projectId).then(r => r.json()).catch(() => null);
-  if (!ppm) return;
-
-  const el = document.getElementById('ppm-rec-' + projectId);
-  if (!el) return;
-
-  if (!ppm.recommendedQuadrant) {
-    el.innerHTML = `<p class="text-xs text-muted">Add estimated value and complexity to unlock recommendation.</p>`;
-    return;
-  }
-
-  const recCls   = QUADRANT_CLS[ppm.recommendedQuadrant]   || 'bg-panel2 text-muted';
-  const recLabel = QUADRANT_LABEL[ppm.recommendedQuadrant] || ppm.recommendedQuadrant;
-  const curLabel = QUADRANT_LABEL[ppm.currentQuadrant]     || ppm.currentQuadrant;
-  const matchHtml = ppm.match
-    ? `<span class="text-xs text-accent font-semibold">✓ Matches current quadrant</span>`
-    : `<span class="text-xs text-warm font-semibold">Currently set to ${curLabel}</span>`;
-
-  const scoreBar = ppm.score != null ? `
-    <div class="flex items-center gap-2 mt-2">
-      <div class="flex-1 h-1.5 bg-line rounded-full overflow-hidden">
-        <div class="h-full bg-accent rounded-full" style="width:${ppm.score}%"></div>
-      </div>
-      <span class="text-xs text-muted w-12 text-right">score ${ppm.score}/100</span>
-    </div>` : '';
-
-  const missing = ppm.missingFields.length
-    ? `<p class="text-[11px] text-muted mt-1">Missing: ${ppm.missingFields.join(', ')}</p>`
-    : '';
-
-  el.innerHTML = `
-    <div class="flex items-center gap-2 flex-wrap">
-      <span class="text-xs text-muted">Recommended:</span>
-      <span class="badge ${recCls}">${recLabel}</span>
-      ${matchHtml}
-    </div>
-    ${scoreBar}${missing}`;
-}
-
 // ── project list ─────────────────────────────────────────────
 
 let _allProjects = []; // full cache — filters apply client-side
@@ -926,11 +848,6 @@ function renderProjects() {
       <td data-col="deadline"   class="py-3 px-2 text-muted text-xs whitespace-nowrap">${deadline}</td>
       <td data-col="producer"   class="py-3 px-2 text-muted text-xs whitespace-nowrap">${p.producer ? esc(p.producer.name) : '—'}</td>
       <td data-col="pm"         class="py-3 px-2 text-muted text-xs whitespace-nowrap">${p.pm ? esc(p.pm.name) : '—'}</td>
-      <td data-col="value"      class="py-3 px-2 text-xs whitespace-nowrap">${fmtValue(p.estimatedValue)}</td>
-      <td data-col="duration"   class="py-3 px-2 text-xs whitespace-nowrap">${p.estimatedDuration != null ? `<span class="text-ink">${p.estimatedDuration}</span><span class="text-muted">w</span>` : '<span class="text-muted">—</span>'}</td>
-      <td data-col="complexity" class="py-3 px-2 whitespace-nowrap">${complexityDots(p.complexityScore)}</td>
-      <td data-col="tier"       class="py-3 px-2 text-xs whitespace-nowrap">${p.clientTier ? `<span class="badge bg-panel2 border border-line text-muted">${CLIENT_TIER_LABEL[p.clientTier]}</span>` : '<span class="text-muted">—</span>'}</td>
-      <td data-col="margin"     class="py-3 px-2 text-xs whitespace-nowrap">${p.marginTarget != null ? `<span class="text-ink">${p.marginTarget}</span><span class="text-muted">%</span>` : '<span class="text-muted">—</span>'}</td>
       ${isStaff() ? '' : `<td class="py-3 px-2 whitespace-nowrap"><button class="btn-del" data-proj-del="${p.id}">Remove</button></td>`}`;
     rows.appendChild(tr);
   }
@@ -979,29 +896,16 @@ async function addProject() {
     producerId: $('p-producer').value || undefined,
     pmId:       $('p-pm').value || undefined,
   };
-  if (quad === 'DRAIN') {
-    body.drainApprovedByExec     = $('p-exec').checked;
-    body.drainApprovedByProducer = $('p-prod-approval').checked;
-  }
-  const estVal  = parseFloat($('p-est-value').value);
-  const estDur  = parseInt($('p-est-duration').value);
-  const complex = parseInt($('p-complexity').value);
-  const margin  = parseFloat($('p-margin').value);
-  if (!isNaN(estVal))  body.estimatedValue    = estVal;
-  if (!isNaN(estDur))  body.estimatedDuration = estDur;
-  if (!isNaN(complex)) body.complexityScore   = complex;
-  if ($('p-client-tier').value) body.clientTier = $('p-client-tier').value;
-  if (!isNaN(margin))  body.marginTarget      = margin;
+  // Money + PPM (value, complexity, Drain approvals…) are filled in on the
+  // new project's job afterwards (Jobs tab) — not here.
 
   if (!body.name) { msg($('pmsg'), 'Project name is required.', 'err'); return; }
   const res = await fetch('/api/projects', {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
   });
   if (res.ok) {
-    ['p-name','p-client','p-start-date','p-deadline','p-est-value','p-est-duration','p-margin'].forEach(id => $(id).value = '');
-    $('p-quadrant').value = 'GOLD'; $('p-complexity').value = ''; $('p-client-tier').value = '';
-    $('p-drain-gate').classList.add('hidden');
-    $('p-exec').checked = false; $('p-prod-approval').checked = false;
+    ['p-name','p-client','p-start-date','p-deadline'].forEach(id => $(id).value = '');
+    $('p-quadrant').value = 'GOLD';
     msg($('pmsg'), 'Project added.', 'ok');
     loadProjects();
   } else {
@@ -1015,10 +919,6 @@ async function removeProject(id) {
   await fetch('/api/projects/' + id, { method: 'DELETE' });
   loadProjects();
 }
-
-$('p-quadrant').addEventListener('change', () => {
-  $('p-drain-gate').classList.toggle('hidden', $('p-quadrant').value !== 'DRAIN');
-});
 
 $('p-add').addEventListener('click', addProject);
 
