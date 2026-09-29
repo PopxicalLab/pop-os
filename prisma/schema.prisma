@@ -462,6 +462,10 @@ model Contact {
 
 // ── LEAD ─────────────────────────────────────────────────────────
 // A sales opportunity. Converts to a Project when won.
+// A Lead is also the root of a "Job" (Sept 2026 restructure): once a deal is
+// won, the Lead holds everything money-related — value, margin, costs,
+// quotations/invoices, invoiced/paid % — and its linked Project holds only
+// production info (dates, team, skills, capacity). Every Project has one.
 model Lead {
   id             String       @id @default(cuid())
   name           String
@@ -481,7 +485,13 @@ model Lead {
   company        Company?
   airtableId     String?      @unique
 
+  // Moved here from Project (money belongs to the job, not to production).
+  // Project still has its own copies until the step-4 cleanup migration drops them.
+  marginTarget   Float?       // target gross margin as a percentage (0–100)
+  clientTier     ClientTier?  // how established the client relationship is
+
   accountingDocuments AccountingDocument[] // quotations and invoices generated from this lead
+  costs               ProjectCost[]        // job costs (warm pool, suppliers, other) — deducted before commission
 
   account   Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
   contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
@@ -710,11 +720,15 @@ model CommitteeActivityAttendee {
 model ProjectCost {
   id          String   @id @default(cuid())
   projectId   String
+  // The job (lead) this cost belongs to. Optional for now while code moves
+  // across; the step-4 cleanup makes it required and drops projectId.
+  leadId      String?
   description String
   amount      Float
   costType    CostType @default(ADDITIONAL)
 
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  lead        Lead?    @relation(fields: [leadId],    references: [id], onDelete: Cascade)
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

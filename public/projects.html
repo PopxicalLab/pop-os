@@ -460,38 +460,6 @@
     </div>
   </div>
 
-  <!-- ── Autocount: push-to-invoice modal ──────────────────────── -->
-  <div id="invoice-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
-    <div class="bg-panel border border-line rounded-2xl w-full max-w-sm mx-4 p-6 shadow-2xl space-y-4">
-      <div class="flex items-center justify-between">
-        <h2 class="text-sm font-semibold text-ink">Push Invoice to Autocount</h2>
-        <button onclick="closeInvoiceModal()" class="text-muted hover:text-ink text-lg leading-none">×</button>
-      </div>
-      <p class="text-xs text-muted">
-        Creating an invoice for: <span id="invoice-modal-title" class="text-ink font-medium"></span>
-      </p>
-      <div>
-        <label class="form-label">Autocount Debtor</label>
-        <select id="invoice-debtor-sel" class="form-input text-sm">
-          <option value="">— select debtor —</option>
-        </select>
-      </div>
-      <div id="invoice-modal-msg" class="text-xs min-h-[16px]"></div>
-      <div class="flex gap-2 pt-1">
-        <button id="invoice-submit-btn" onclick="submitInvoice()"
-          class="flex-1 bg-sky-500/15 border border-sky-500/30 text-sky-400 text-sm py-2 rounded-xl
-                 hover:bg-sky-500/25 transition-colors cursor-pointer font-semibold">
-          Create Invoice
-        </button>
-        <button onclick="closeInvoiceModal()"
-          class="flex-1 bg-panel2 border border-line text-muted text-sm py-2 rounded-xl
-                 hover:text-ink transition-colors cursor-pointer">
-          Cancel
-        </button>
-      </div>
-    </div>
-  </div>
-
   <script src="/js/projects.js"></script>
   <script>
     initUserUI();

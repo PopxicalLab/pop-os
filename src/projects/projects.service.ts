@@ -2,30 +2,38 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateProjectDto, UpdateProjectDto } from './project.dto';
 import { companyWhere } from '../common/company-filter';
+import { JOB_MONEY, withJobMoney, autoJobId, isAutoJob, ensureJobForProject } from '../common/job';
 
-// Fields we always include when returning a project — producer and PM names.
+// Fields we always include when returning a project — producer and PM names,
+// plus the job's money fields (value/margin/tier now live on the job, not the
+// project — see src/common/job.ts). Results go through withJobMoney().
 const WITH_PEOPLE = {
   producer: { select: { id: true, name: true, role: true } },
   pm:       { select: { id: true, name: true, role: true } },
   account:  { select: { id: true, name: true, industry: true } },
+  ...JOB_MONEY,
 } as const;
+
+// Money fields the project form still sends. They're saved on the job.
+const MONEY_FIELDS = ['estimatedValue', 'marginTarget', 'clientTier'] as const;
 
 @Injectable()
 export class ProjectsService {
   constructor(private prisma: PrismaService) {}
 
-  findAll(personId?: string, company?: string | null) {
+  async findAll(personId?: string, company?: string | null) {
     const co = companyWhere(company);
     // STAFF only see projects where they have a capacity allocation.
     const staffFilter = personId
       ? { capacityEntries: { some: { personId } } }
       : undefined;
     const where = { ...(co ?? {}), ...(staffFilter ?? {}) };
-    return this.prisma.project.findMany({
+    const projects = await this.prisma.project.findMany({
       where: Object.keys(where).length ? where : undefined,
       orderBy: { createdAt: 'desc' },
       include: WITH_PEOPLE,
     });
+    return projects.map(withJobMoney);
   }
 
   async findOne(id: string) {
@@ -34,55 +42,92 @@ export class ProjectsService {
       include: WITH_PEOPLE,
     });
     if (!project) throw new NotFoundException(`Project ${id} not found`);
-    return project;
+    return withJobMoney(project);
   }
 
-  create(dto: CreateProjectDto) {
-    return this.prisma.project.create({
-      data: {
-        name:        dto.name,
-        client:      dto.client,
-        company:     dto.company,
-        quadrant:    dto.quadrant,
-        priority:    dto.priority    ?? 'P2',
-        status:      dto.status      ?? 'BRIEF',
-        startDate:   dto.startDate   ? new Date(dto.startDate) : undefined,
-        deadline:    dto.deadline    ? new Date(dto.deadline) : undefined,
-        timelineUrl: dto.timelineUrl ?? null,
-        producerId:  dto.producerId  ?? null,
-        pmId:        dto.pmId        ?? null,
-        drainApprovedByExec:     dto.drainApprovedByExec     ?? false,
-        drainApprovedByProducer: dto.drainApprovedByProducer ?? false,
-        estimatedValue:    dto.estimatedValue    ?? null,
-        estimatedDuration: dto.estimatedDuration ?? null,
-        complexityScore:   dto.complexityScore   ?? null,
-        clientTier:        dto.clientTier        ?? null,
-        marginTarget:      dto.marginTarget      ?? null,
-      },
-      include: WITH_PEOPLE,
+  // A project made on the Projects tab has no sale behind it, so it gets an
+  // auto job to hold its money. (Won leads get their project via
+  // LeadsService.convertToProject instead — there the lead is the job.)
+  async create(dto: CreateProjectDto) {
+    const project = await this.prisma.$transaction(async (tx) => {
+      const p = await tx.project.create({
+        data: {
+          name:        dto.name,
+          client:      dto.client,
+          company:     dto.company,
+          quadrant:    dto.quadrant,
+          priority:    dto.priority    ?? 'P2',
+          status:      dto.status      ?? 'BRIEF',
+          startDate:   dto.startDate   ? new Date(dto.startDate) : undefined,
+          deadline:    dto.deadline    ? new Date(dto.deadline) : undefined,
+          timelineUrl: dto.timelineUrl ?? null,
+          producerId:  dto.producerId  ?? null,
+          pmId:        dto.pmId        ?? null,
+          drainApprovedByExec:     dto.drainApprovedByExec     ?? false,
+          drainApprovedByProducer: dto.drainApprovedByProducer ?? false,
+          estimatedDuration: dto.estimatedDuration ?? null,
+          complexityScore:   dto.complexityScore   ?? null,
+        },
+      });
+      await tx.lead.create({
+        data: {
+          id:             autoJobId(p.id),
+          name:           p.name,
+          accountId:      p.accountId,
+          company:        p.company,
+          status:         'WON',   // no closer / wonAt → never counted in commission
+          notes:          'Auto-created for a project with no sale logged behind it.',
+          projectId:      p.id,
+          estimatedValue: dto.estimatedValue ?? null,
+          marginTarget:   dto.marginTarget   ?? null,
+          clientTier:     dto.clientTier     ?? null,
+        },
+      });
+      return p;
     });
+    return this.findOne(project.id);
   }
 
   async update(id: string, dto: UpdateProjectDto) {
     await this.findOne(id);
-    return this.prisma.project.update({
-      where: { id },
-      data: {
-        ...dto,
-        startDate: dto.startDate !== undefined
-          ? (dto.startDate ? new Date(dto.startDate) : null)
-          : undefined,
-        deadline: dto.deadline !== undefined
-          ? (dto.deadline ? new Date(dto.deadline) : null)
-          : undefined,
-      },
-      include: WITH_PEOPLE,
+
+    // Split the form data: money fields go to the job, the rest to the project.
+    const { estimatedValue, marginTarget, clientTier, ...projectFields } = dto;
+    const money = { estimatedValue, marginTarget, clientTier };
+    const hasMoney = MONEY_FIELDS.some(f => money[f] !== undefined);
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.project.update({
+        where: { id },
+        data: {
+          ...projectFields,
+          startDate: dto.startDate !== undefined
+            ? (dto.startDate ? new Date(dto.startDate) : null)
+            : undefined,
+          deadline: dto.deadline !== undefined
+            ? (dto.deadline ? new Date(dto.deadline) : null)
+            : undefined,
+        },
+      });
+      if (hasMoney) {
+        const jobId = await ensureJobForProject(tx, id);
+        await tx.lead.update({ where: { id: jobId }, data: money });
+      }
     });
+    return this.findOne(id);
   }
 
+  // Deleting a project also deletes its auto job (it only existed to hold
+  // this project's money). A real sales lead is kept — it's sales history —
+  // and just loses its project link.
   async remove(id: string) {
-    await this.findOne(id);
-    return this.prisma.project.delete({ where: { id } });
+    const project = await this.findOne(id);
+    return this.prisma.$transaction(async (tx) => {
+      if (project.jobId && isAutoJob(project.jobId)) {
+        await tx.lead.delete({ where: { id: project.jobId } });
+      }
+      return tx.project.delete({ where: { id } });
+    });
   }
 
   // ── Required skills ───────────────────────────────────────────

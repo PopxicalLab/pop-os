@@ -7,8 +7,8 @@ export class ProjectCostsController {
   constructor(private readonly svc: ProjectCostsService) {}
 
   @Get()
-  findAll(@Query('projectId') projectId?: string) {
-    return this.svc.findAll(projectId);
+  findAll(@Query('projectId') projectId?: string, @Query('leadId') leadId?: string) {
+    return this.svc.findAll(projectId, leadId);
   }
 
   @Post()

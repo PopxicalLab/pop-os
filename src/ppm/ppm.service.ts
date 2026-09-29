@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { JOB_MONEY, withJobMoney } from '../common/job';
 
 // RM50 k is the midpoint for value normalisation: at or above = "high value".
 // Adjust this constant as the studio's average project size changes.
@@ -31,9 +32,10 @@ export class PpmService {
   constructor(private prisma: PrismaService) {}
 
   async scoreProject(id: string): Promise<PpmResult> {
-    const project = await this.prisma.project.findUnique({ where: { id } });
+    // Value / margin / client tier come from the job; complexity from the project.
+    const project = await this.prisma.project.findUnique({ where: { id }, include: JOB_MONEY });
     if (!project) throw new NotFoundException(`Project ${id} not found`);
-    return this.compute(project);
+    return this.compute(withJobMoney(project));
   }
 
   // Score all active projects in one call (used by the Projects tab badge list).
@@ -41,8 +43,9 @@ export class PpmService {
     const projects = await this.prisma.project.findMany({
       where:   { status: { notIn: ['DELIVERED', 'CANCELLED'] } },
       orderBy: [{ priority: 'asc' }, { createdAt: 'desc' }],
+      include: JOB_MONEY,
     });
-    return projects.map(p => this.compute(p));
+    return projects.map(p => this.compute(withJobMoney(p)));
   }
 
   // Pure function — no DB calls — so tests can call it directly.
@@ -132,15 +135,15 @@ export class PpmService {
     const training = await this.prisma.project.findMany({
       where: {
         id:             params.excludeId ? { not: params.excludeId } : undefined,
-        estimatedValue:  { not: null },
+        lead:            { estimatedValue: { not: null } },   // value lives on the job
         complexityScore: { not: null },
       },
       select: {
         id: true, name: true, quadrant: true, priority: true,
-        estimatedValue: true, complexityScore: true,
-        clientTier: true, marginTarget: true,
+        complexityScore: true,
+        ...JOB_MONEY,
       },
-    });
+    }).then(ps => ps.map(withJobMoney));
 
     if (training.length < 3) {
       return {

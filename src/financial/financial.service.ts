@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { JOB_MONEY } from '../common/job';
 import { companyWhere } from '../common/company-filter';
 
 // Studio cost assumptions — adjust as the business evolves.
@@ -42,6 +43,7 @@ export class FinancialService {
         include: {
           producer: { select: { id: true, name: true } },
           pm:       { select: { id: true, name: true } },
+          ...JOB_MONEY,   // value + margin target live on the job
         },
         orderBy: [{ priority: 'asc' }, { createdAt: 'desc' }],
       }),
@@ -72,7 +74,7 @@ export class FinancialService {
         if (salary) totalCost += md * dailyRate(salary);
       }
 
-      const estimatedValue = p.estimatedValue ?? null;
+      const estimatedValue = p.lead?.estimatedValue ?? null;
       const grossMargin    = estimatedValue
         ? ((estimatedValue - totalCost) / estimatedValue) * 100
         : null;
@@ -83,7 +85,7 @@ export class FinancialService {
         costToDate:    Math.round(totalCost),
         estimatedValue,
         grossMargin:   grossMargin != null ? Math.round(grossMargin * 10) / 10 : null,
-        targetMargin:  p.marginTarget ?? null,
+        targetMargin:  p.lead?.marginTarget ?? null,
         health:        healthStatus(totalCost, estimatedValue),
         weeksTracked:  new Set(entries.map(e => e.weekStart.toISOString())).size,
         missingSalary: entries.some(e => !e.person.salary),
@@ -180,8 +182,8 @@ export class FinancialService {
       }),
       this.prisma.project.findMany({
         where:  { status: { notIn: ['DELIVERED', 'CANCELLED'] }, ...(co ?? {}) },
-        select: { estimatedValue: true, marginTarget: true },
-      }),
+        select: JOB_MONEY,
+      }).then(ps => ps.map(p => ({ estimatedValue: p.lead?.estimatedValue ?? null, marginTarget: p.lead?.marginTarget ?? null }))),
     ]);
 
     const weekCost = thisWeek.reduce((sum, a) => {

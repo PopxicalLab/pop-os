@@ -377,6 +377,16 @@ async function showProjectDetail(id) {
       class="bg-panel2 border border-line text-ink text-xs px-2 py-1 rounded-md w-full
              focus:outline-none focus:border-accent/60" />`;
 
+  // Money now lives on the job (Sept 2026 restructure), so these show read-only
+  // here. A hidden input keeps the same id so the PPM suggestion code, which
+  // reads values by id, works unchanged.
+  const roEl = (fId, raw, shown) =>
+    `<input id="${fId}" type="hidden" value="${raw ?? ''}" />
+     <p class="text-xs text-ink px-2 py-1">${shown}</p>`;
+  const jobLink = (text) => p.jobId
+    ? `<a href="/job.html?id=${p.jobId}" class="text-[11px] text-accent hover:underline">${text}</a>`
+    : '';
+
   const peopleOpts = (selected) =>
     `<option value="">— none —</option>` +
     _peopleCache
@@ -449,15 +459,16 @@ async function showProjectDetail(id) {
     </div>
 
     <div class="mt-5 pb-5 border-b border-line">
-      <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">PPM inputs</p>
+      <div class="flex items-center justify-between mb-3">
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted">PPM inputs</p>
+        ${jobLink('Edit money on the job →')}
+      </div>
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        ${lbl('Est. value (RM)',   numEl(`detail-est-value-${p.id}`, p.estimatedValue, 'min="0"'))}
         ${lbl('Duration (weeks)',  numEl(`detail-est-dur-${p.id}`,   p.estimatedDuration, 'min="1"'))}
         ${lbl('Complexity (1–5)', numEl(`detail-complexity-${p.id}`, p.complexityScore, 'min="1" max="5"'))}
-        ${lbl('Client tier', selEl(`detail-tier-${p.id}`,
-          [['','— none —'],['NEW','New'],['RETURNING','Returning'],['KEY_ACCOUNT','Key account']],
-          p.clientTier || ''))}
-        ${lbl('Margin target (%)', numEl(`detail-margin-${p.id}`, p.marginTarget, 'min="0" max="100"'))}
+        ${lbl('Est. value <span class="normal-case">(from job)</span>', roEl(`detail-est-value-${p.id}`, p.estimatedValue, fmtValue(p.estimatedValue)))}
+        ${lbl('Client tier <span class="normal-case">(from job)</span>', roEl(`detail-tier-${p.id}`, p.clientTier, CLIENT_TIER_LABEL[p.clientTier] || '—'))}
+        ${lbl('Margin target <span class="normal-case">(from job)</span>', roEl(`detail-margin-${p.id}`, p.marginTarget, p.marginTarget != null ? p.marginTarget + '%' : '—'))}
       </div>
       <div class="mt-3 pt-3 border-t border-line/60">
         <p class="text-[10px] font-semibold uppercase tracking-widest text-muted mb-1.5">PPM recommendation</p>
@@ -495,50 +506,14 @@ async function showProjectDetail(id) {
       <div id="proj-capacity-${p.id}" class="text-xs text-muted">Loading…</div>
     </div>
 
-    <div class="mt-5 pb-5 border-b border-line">
-      <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Project Costs</p>
-      <div id="proj-costs-${p.id}">Loading…</div>
-      <form id="proj-cost-form-${p.id}" class="mt-3 flex flex-wrap gap-2 items-end" onsubmit="addProjectCost(event, '${p.id}')">
-        <div class="flex flex-col gap-1">
-          <label class="text-[10px] text-muted uppercase tracking-wider">Description</label>
-          <input id="pc-desc-${p.id}" type="text" placeholder="e.g. Warm pool animator"
-            class="bg-panel2 border border-line text-ink text-xs px-2 py-1.5 rounded-md w-48
-                   focus:outline-none focus:border-accent/60" required />
-        </div>
-        <div class="flex flex-col gap-1">
-          <label class="text-[10px] text-muted uppercase tracking-wider">Amount (RM)</label>
-          <input id="pc-amount-${p.id}" type="number" min="0" step="0.01" placeholder="0.00"
-            class="bg-panel2 border border-line text-ink text-xs px-2 py-1.5 rounded-md w-28
-                   focus:outline-none focus:border-accent/60" required />
-        </div>
-        <div class="flex flex-col gap-1">
-          <label class="text-[10px] text-muted uppercase tracking-wider">Type</label>
-          <select id="pc-type-${p.id}"
-            class="bg-panel2 border border-line text-ink text-xs px-2 py-1.5 rounded-md
-                   focus:outline-none focus:border-accent/60 cursor-pointer">
-            <option value="WARM_POOL">Warm pool</option>
-            <option value="SUPPLIER">Supplier</option>
-            <option value="ADDITIONAL">Additional</option>
-          </select>
-        </div>
-        <button type="submit"
-          class="text-[11px] bg-accent/15 border border-accent/30 text-accent px-3 py-1.5 rounded-lg
-                 hover:bg-accent/25 transition-colors cursor-pointer self-end">
-          + Add cost
-        </button>
-      </form>
-    </div>
-
     <div class="mt-5">
-      <div class="flex items-center justify-between mb-2">
-        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted">Accounting Documents</p>
-        <button onclick="openInvoiceModal('${p.id}', '${esc(p.name)}', '${esc((p.account?.autocountDebtorCode) || '')}')"
-          class="text-[11px] bg-sky-500/15 border border-sky-500/30 text-sky-400 px-2 py-0.5 rounded-lg
-                 hover:bg-sky-500/25 transition-colors cursor-pointer">
-          ↑ Push invoice
-        </button>
+      <div class="flex items-center justify-between mb-1.5">
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted">Money</p>
+        ${jobLink('Open job →')}
       </div>
-      <div id="proj-docs-${p.id}" class="text-xs text-muted">Loading…</div>
+      <p class="text-xs text-muted">
+        Value, costs, quotations, invoices and payments are kept on this project's job.
+      </p>
     </div>`;
 
   // Wire up all change/blur handlers — PATCH the project on every edit.
@@ -594,7 +569,6 @@ async function showProjectDetail(id) {
   wireSel(`detail-company-${id}`,  'company');
   wireSel(`detail-producer-${id}`, 'producerId');
   wireSel(`detail-pm-${id}`,       'pmId');
-  wireSel(`detail-tier-${id}`,     'clientTier');
   wireSel(`detail-priority-${id}`, 'priority');
 
   // Quadrant is special — changing it may show/hide the Drain gate row,
@@ -696,10 +670,8 @@ async function showProjectDetail(id) {
       patch({ [field]: v });
     };
   };
-  wireNum(`detail-est-value-${id}`,  'estimatedValue');
   wireNum(`detail-est-dur-${id}`,    'estimatedDuration');
   wireNum(`detail-complexity-${id}`, 'complexityScore');
-  wireNum(`detail-margin-${id}`,     'marginTarget');
 
   // Drain gate checkboxes (only present when quadrant === 'DRAIN').
   const drainExec = document.getElementById(`detail-drain-exec-${id}`);
@@ -708,12 +680,9 @@ async function showProjectDetail(id) {
   if (drainProd) drainProd.onchange = () => patch({ drainApprovedByProducer: drainProd.checked });
 
   // Wire up live PPM suggestion (instant, rule-based) + debounced AI fetch on every PPM input change.
-  [`detail-est-value-${id}`, `detail-complexity-${id}`, `detail-margin-${id}`].forEach(fId => {
-    const el = document.getElementById(fId);
-    if (el) el.addEventListener('input', () => { refreshPpmSuggestion(id); scheduleAiFetch(id); });
-  });
-  const tierEl = document.getElementById(`detail-tier-${id}`);
-  if (tierEl) tierEl.addEventListener('change', () => { refreshPpmSuggestion(id); scheduleAiFetch(id); });
+  // (Value / tier / margin come from the job and are read-only here.)
+  const cxEl = document.getElementById(`detail-complexity-${id}`);
+  if (cxEl) cxEl.addEventListener('input', () => { refreshPpmSuggestion(id); scheduleAiFetch(id); });
 
   // Initial render: rule-based is instant; AI fires after the 700 ms debounce.
   refreshPpmSuggestion(id);
@@ -722,8 +691,6 @@ async function showProjectDetail(id) {
   // Load async sections.
   loadProjectSkills(id);
   loadProjectCapacity(id);
-  loadProjectCosts(id);
-  loadProjectDocs(id);
 }
 
 async function loadProjectCapacity(projectId) {
@@ -769,72 +736,6 @@ async function removeProjectCapacity(entryId, projectId) {
   if (!confirm('Remove this allocation?')) return;
   await fetch('/api/capacity/' + entryId, { method: 'DELETE' });
   loadProjectCapacity(projectId);
-}
-
-const PROJ_COST_LABEL = { WARM_POOL: 'Warm pool', SUPPLIER: 'Supplier', ADDITIONAL: 'Additional' };
-
-async function loadProjectCosts(projectId) {
-  const costs = await fetch('/api/project-costs?projectId=' + projectId).then(r => r.json()).catch(() => null);
-  const el = document.getElementById('proj-costs-' + projectId);
-  if (!el) return;
-
-  if (!costs || !costs.length) {
-    el.innerHTML = '<p class="text-xs text-muted">No costs recorded yet.</p>';
-    return;
-  }
-
-  const total = costs.reduce((s, c) => s + c.amount, 0);
-  el.innerHTML = `
-    <table class="w-full text-[11px] mb-2">
-      <thead><tr class="text-muted border-b border-line">
-        <th class="text-left pb-1.5 font-medium">Description</th>
-        <th class="text-left pb-1.5 font-medium">Type</th>
-        <th class="text-right pb-1.5 font-medium">Amount</th>
-        <th class="pb-1.5"></th>
-      </tr></thead>
-      <tbody>
-        ${costs.map(c => `
-          <tr class="border-b border-line/40 last:border-0" id="pc-row-${c.id}">
-            <td class="py-1.5 pr-2 text-ink">${esc(c.description)}</td>
-            <td class="py-1.5 pr-2">
-              <span class="badge bg-panel2 border border-line text-muted text-[10px]">${PROJ_COST_LABEL[c.costType] || c.costType}</span>
-            </td>
-            <td class="py-1.5 text-right text-ink pr-2">RM ${c.amount.toLocaleString('en-MY', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
-            <td class="py-1.5 pl-1">
-              <button class="text-[10px] text-warm hover:underline cursor-pointer" onclick="removeProjectCost('${c.id}', '${projectId}')">Remove</button>
-            </td>
-          </tr>`).join('')}
-      </tbody>
-      <tfoot><tr>
-        <td colspan="2" class="pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted">Total costs</td>
-        <td class="pt-2 text-right font-semibold text-ink">RM ${total.toLocaleString('en-MY', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td>
-        <td></td>
-      </tr></tfoot>
-    </table>`;
-}
-
-async function addProjectCost(e, projectId) {
-  e.preventDefault();
-  const desc   = document.getElementById('pc-desc-' + projectId)?.value.trim();
-  const amount = parseFloat(document.getElementById('pc-amount-' + projectId)?.value);
-  const type   = document.getElementById('pc-type-' + projectId)?.value;
-  if (!desc || isNaN(amount)) return;
-
-  const res = await fetch('/api/project-costs', {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ projectId, description: desc, amount, costType: type }),
-  });
-  if (res.ok) {
-    document.getElementById('pc-desc-' + projectId).value   = '';
-    document.getElementById('pc-amount-' + projectId).value = '';
-    loadProjectCosts(projectId);
-  }
-}
-
-async function removeProjectCost(costId, projectId) {
-  if (!confirm('Remove this cost entry?')) return;
-  await fetch('/api/project-costs/' + costId, { method: 'DELETE' });
-  loadProjectCosts(projectId);
 }
 
 // ── Required skills + staffing suggestions ────────────────────────
@@ -1113,130 +1014,6 @@ async function loadStaffSuggestions(projectId) {
       }
     });
   });
-}
-
-async function loadProjectDocs(projectId) {
-  const docs = await fetch('/api/autocount/projects/' + projectId + '/documents')
-    .then(r => r.json()).catch(() => null);
-  const el = document.getElementById('proj-docs-' + projectId);
-  if (!el) return;
-
-  if (!docs || !docs.length) {
-    el.innerHTML = '<span class="text-muted">No accounting documents yet. Use ↑ Push invoice to create one in Autocount.</span>';
-    return;
-  }
-
-  const DOC_TYPE_LABEL = { QUOTATION: 'Quotation', SALES_INVOICE: 'Invoice', PURCHASE_INVOICE: 'PO Invoice' };
-  const STATUS_CLS = {
-    ACTIVE: 'bg-sky-500/15 border-sky-500/30 text-sky-400',
-    PAID:   'bg-emerald-500/15 border-emerald-500/30 text-emerald-400',
-    VOID:   'bg-panel2 border-line text-muted',
-  };
-
-  el.innerHTML = `<table class="w-full text-[11px]">
-    <thead><tr class="text-muted border-b border-line">
-      <th class="text-left pb-1.5 font-medium">Type</th>
-      <th class="text-left pb-1.5 font-medium">Doc No</th>
-      <th class="text-left pb-1.5 font-medium">Date</th>
-      <th class="text-left pb-1.5 font-medium">Due</th>
-      <th class="text-right pb-1.5 font-medium">Amount</th>
-      <th class="text-left pb-1.5 font-medium pl-2">Status</th>
-      <th class="pb-1.5"></th>
-    </tr></thead>
-    <tbody>
-      ${docs.map(d => {
-        const date = new Date(d.docDate).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
-        const due  = d.dueDate ? new Date(d.dueDate).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}) : '—';
-        const overdue = d.dueDate && d.status === 'ACTIVE' && new Date(d.dueDate) < new Date();
-        const dueCls  = overdue ? 'text-warm font-semibold' : '';
-        const amt     = d.amount != null ? 'RM ' + Math.round(d.amount).toLocaleString('en-MY') : '—';
-        const stCls   = STATUS_CLS[d.status] || '';
-        return `<tr class="border-b border-line/40 last:border-0">
-          <td class="py-1.5 pr-2">${DOC_TYPE_LABEL[d.docType] || d.docType}</td>
-          <td class="py-1.5 pr-2 font-mono text-ink">${esc(d.docNo)}</td>
-          <td class="py-1.5 pr-2">${date}</td>
-          <td class="py-1.5 pr-2 ${dueCls}">${due}${overdue ? ' ⚠' : ''}</td>
-          <td class="py-1.5 text-right text-ink pr-2">${amt}</td>
-          <td class="py-1.5 pl-2">
-            <span class="badge border ${stCls} text-[10px]">${d.status}</span>
-          </td>
-          <td class="py-1.5 pl-1">
-            ${d.status === 'ACTIVE' ? `
-              <select onchange="updateDocStatus('${d.id}', this.value, '${projectId}')"
-                class="bg-panel border border-line text-muted text-[10px] px-1 py-0.5 rounded cursor-pointer">
-                <option value="">— mark —</option>
-                <option value="PAID">Paid</option>
-                <option value="VOID">Void</option>
-              </select>` : ''}
-          </td>
-        </tr>`;
-      }).join('')}
-    </tbody>
-  </table>`;
-}
-
-async function updateDocStatus(docId, status, projectId) {
-  if (!status) return;
-  if (!confirm(`Mark this document as ${status}?`)) return;
-  const res = await fetch(`/api/autocount/documents/${docId}/status`, {
-    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status }),
-  });
-  if (res.ok) loadProjectDocs(projectId);
-}
-
-// ── invoice push modal (mirrors quote modal in sales.js) ─────────
-
-let _projDebtors    = [];
-let _invoiceProject = null;
-
-async function openInvoiceModal(projectId, projectName, preselectedDebtorCode) {
-  if (!_projDebtors.length) {
-    _projDebtors = await fetch('/api/autocount/debtors').then(r => r.json()).catch(() => []);
-  }
-  const options = _projDebtors.map(d =>
-    `<option value="${esc(d.accNo)}" ${d.accNo === preselectedDebtorCode ? 'selected' : ''}>
-       ${esc(d.companyName)} (${esc(d.accNo)})
-     </option>`
-  ).join('');
-
-  _invoiceProject = projectId;
-  $('invoice-modal-title').textContent = projectName;
-  $('invoice-debtor-sel').innerHTML    = `<option value="">— select debtor —</option>${options}`;
-  $('invoice-modal-msg').textContent   = '';
-  $('invoice-modal').classList.remove('hidden');
-}
-
-function closeInvoiceModal() {
-  $('invoice-modal').classList.add('hidden');
-  _invoiceProject = null;
-}
-
-async function submitInvoice() {
-  const debtorCode = $('invoice-debtor-sel').value;
-  const msgEl      = $('invoice-modal-msg');
-  if (!debtorCode) { msgEl.textContent = 'Please select a debtor.'; msgEl.className = 'text-xs text-warm'; return; }
-
-  $('invoice-submit-btn').disabled = true;
-  msgEl.textContent = 'Creating invoice…'; msgEl.className = 'text-xs text-muted';
-
-  const res = await fetch(`/api/autocount/projects/${_invoiceProject}/invoice`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ debtorCode }),
-  });
-
-  $('invoice-submit-btn').disabled = false;
-
-  if (res.ok) {
-    const data = await res.json();
-    msgEl.textContent = `Done! Invoice ${data.docNo} created in Autocount.`;
-    msgEl.className   = 'text-xs text-emerald-400';
-    setTimeout(() => { closeInvoiceModal(); loadProjectDocs(_invoiceProject); }, 1500);
-  } else {
-    const e = await res.json().catch(() => ({}));
-    msgEl.textContent = e.message || 'Failed.';
-    msgEl.className   = 'text-xs text-warm';
-  }
 }
 
 async function loadPpmBadge(projectId) {

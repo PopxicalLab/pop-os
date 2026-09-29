@@ -516,6 +516,8 @@ function renderLeadCard(l) {
       <button class="btn-del shrink-0 text-[11px]" data-lead-del="${l.id}">×</button>
     </div>
     <p class="text-[11px] text-muted">${accName}</p>
+    <a href="/job.html?id=${l.id}" draggable="false"
+       class="inline-block text-[11px] text-accent hover:underline">Open job →</a>
     <div class="flex items-center gap-1.5">
       <span class="text-xs text-muted shrink-0">RM</span>
       <input type="text" inputmode="decimal" data-lead-value="${l.id}" value="${l.estimatedValue ?? ''}"

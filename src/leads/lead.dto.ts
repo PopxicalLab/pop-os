@@ -1,5 +1,5 @@
 import { IsString, IsOptional, IsEnum, IsBoolean, IsNumber, IsInt, Min, Max } from 'class-validator';
-import { LeadStatus, LeadPriority, Company } from '@prisma/client';
+import { LeadStatus, LeadPriority, Company, ClientTier } from '@prisma/client';
 
 export class CreateLeadDto {
   @IsString() name: string;
@@ -15,6 +15,8 @@ export class CreateLeadDto {
   @IsOptional() @IsString()           notes?: string;
   @IsOptional() @IsString()           closedById?: string;
   @IsOptional() @IsEnum(Company)      company?: Company;
+  @IsOptional() @IsNumber() @Min(0) @Max(100) marginTarget?: number;
+  @IsOptional() @IsEnum(ClientTier)   clientTier?: ClientTier;
 }
 
 export class UpdateLeadDto {
@@ -32,4 +34,7 @@ export class UpdateLeadDto {
   @IsOptional() @IsString()           closedById?: string;
   @IsOptional() @IsString()           projectId?: string;
   @IsOptional() @IsEnum(Company)      company?: Company;
+  // Job money fields (moved from Project in the Sept 2026 job restructure).
+  @IsOptional() @IsNumber() @Min(0) @Max(100) marginTarget?: number;
+  @IsOptional() @IsEnum(ClientTier)   clientTier?: ClientTier;
 }

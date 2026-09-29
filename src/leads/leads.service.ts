@@ -11,9 +11,11 @@ const WITH_RELATIONS = {
   project:  { select: { id: true, name: true, status: true } },
   // Include accounting docs so the lead card can show pushed quotation badges.
   accountingDocuments: {
-    select: { id: true, docType: true, docNo: true, docDate: true, dueDate: true, amount: true, status: true },
+    select: { id: true, docType: true, docNo: true, docDate: true, dueDate: true, amount: true, status: true, debtorName: true },
     orderBy: { docDate: 'desc' as const },
   },
+  // Job costs — shown on the job page and summed for net profit.
+  costs: { orderBy: { createdAt: 'asc' as const } },
 } as const;
 
 @Injectable()
@@ -54,6 +56,8 @@ export class LeadsService {
         notes:          dto.notes          ?? null,
         closedById:     dto.closedById     ?? null,
         company:        dto.company        ?? null,
+        marginTarget:   dto.marginTarget   ?? null,
+        clientTier:     dto.clientTier     ?? null,
       },
       include: WITH_RELATIONS,
     });

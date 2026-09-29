@@ -4,6 +4,7 @@
 // on the project detail view and in the Dashboard payment alerts.
 import { Injectable, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { ensureJobForProject } from '../common/job';
 
 @Injectable()
 export class AutocountService {
@@ -138,6 +139,9 @@ export class AutocountService {
       include: { account: true },
     });
     if (!project) throw new BadRequestException('Project not found');
+    // The invoice amount is the job's value (money lives on the job, not the project).
+    const jobId = await ensureJobForProject(this.prisma, projectId);
+    const job   = await this.prisma.lead.findUniqueOrThrow({ where: { id: jobId }, select: { estimatedValue: true } });
 
     const term    = creditTerm ?? this.credit;
     const docDate = new Date();
@@ -154,7 +158,7 @@ export class AutocountService {
       details: [{
         description: `Production Services — ${project.name}`,
         qty: 1,
-        unitPrice: project.estimatedValue ?? 0,
+        unitPrice: job.estimatedValue ?? 0,
       }],
     };
 
@@ -175,11 +179,12 @@ export class AutocountService {
         docNo,
         docDate,
         dueDate:    this.calcDueDate(docDate, term),
-        amount:     project.estimatedValue ?? null,
+        amount:     job.estimatedValue ?? null,
         debtorCode,
         debtorName: project.account?.name ?? project.client ?? project.name,
         creditTerm: term,
         projectId,
+        leadId:     jobId,
       },
     });
 
@@ -430,10 +435,11 @@ export class AutocountService {
 
   // ── read ─────────────────────────────────────────────────────────
 
-  // All documents for a project — shown in the project detail view.
+  // All documents for a project's job — shown in the project detail view.
+  // Matches on either link so older rows with only one side set still show.
   getProjectDocuments(projectId: string) {
     return this.prisma.accountingDocument.findMany({
-      where:   { projectId },
+      where:   { OR: [{ projectId }, { lead: { projectId } }] },
       orderBy: { docDate: 'desc' },
     });
   }

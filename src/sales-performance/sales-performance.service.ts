@@ -45,13 +45,9 @@ export class SalesPerformanceService {
         estimatedValue: true,
         closedById:     true,
         closedBy:       { select: { id: true, name: true, company: true } },
-        project: {
-          select: {
-            id:    true,
-            name:  true,
-            costs: { select: { id: true, description: true, amount: true, costType: true } },
-          },
-        },
+        project: { select: { id: true, name: true } },
+        // Costs belong to the job (this lead), not the project.
+        costs:   { select: { id: true, description: true, amount: true, costType: true } },
       },
     });
 
@@ -100,7 +96,7 @@ export class SalesPerformanceService {
       }
       const entry      = byProducer.get(pid)!;
       const dealValue  = lead.estimatedValue ?? 0;
-      const dealCosts  = lead.project?.costs.reduce((s, c) => s + c.amount, 0) ?? 0;
+      const dealCosts  = lead.costs.reduce((s, c) => s + c.amount, 0);
 
       entry.revenue   += dealValue;
       entry.costs     += dealCosts;
@@ -182,7 +178,7 @@ export class SalesPerformanceService {
         select: {
           estimatedValue: true,
           wonAt:          true,
-          project:        { select: { costs: { select: { amount: true } } } },
+          costs:          { select: { amount: true } },
         },
       }),
       this.prisma.salesTarget.findMany({ where: { year } }),
@@ -198,7 +194,7 @@ export class SalesPerformanceService {
       const q = getQ(l.wonAt);
       if (q < 1 || q > 4) continue;
       qRev[q]  += l.estimatedValue ?? 0;
-      qCost[q] += l.project?.costs.reduce((s, c) => s + c.amount, 0) ?? 0;
+      qCost[q] += l.costs.reduce((s, c) => s + c.amount, 0);
     }
 
     // Sum targets per quarter across all producers.

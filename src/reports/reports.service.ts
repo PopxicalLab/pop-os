@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { JOB_MONEY } from '../common/job';
 
 function csvRow(cells: (string | number | null | undefined)[]): string {
   return cells.map(c => {
@@ -19,6 +20,7 @@ export class ReportsService {
         producer: { select: { name: true } },
         pm:       { select: { name: true } },
         account:  { select: { name: true } },
+        ...JOB_MONEY,   // value + margin target live on the job
       },
       orderBy: [{ priority: 'asc' }, { deadline: 'asc' }],
     });
@@ -38,10 +40,10 @@ export class ReportsService {
       p.pm?.name,
       p.startDate  ? new Date(p.startDate).toISOString().slice(0,10)  : '',
       p.deadline   ? new Date(p.deadline).toISOString().slice(0,10)   : '',
-      p.estimatedValue,
+      p.lead?.estimatedValue,
       p.estimatedDuration,
       p.complexityScore,
-      p.marginTarget,
+      p.lead?.marginTarget,
       p.company,
     ]));
 
