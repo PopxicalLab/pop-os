@@ -333,6 +333,8 @@ model Project {
   id          String          @id @default(cuid())
   name        String
   client      String?         // who commissioned it (free text for now)
+  // Mirror of the job's PPM quadrant (Lead.quadrant) — drives the production
+  // lanes and badges. Written only via the job; never edit it directly.
   quadrant    ProjectQuadrant
   priority    ProjectPriority @default(P2)
   status      ProjectStatus   @default(BRIEF)
@@ -354,6 +356,9 @@ model Project {
 
   // Drain approval gate — both must be true before a DRAIN project is accepted.
   // Only meaningful when quadrant = DRAIN; ignored otherwise.
+  // DEPRECATED (Sept 2026): moved to Lead with the PPM assessment. These,
+  // complexityScore and estimatedDuration below are no longer read —
+  // dropped in the step-4 cleanup migration.
   drainApprovedByExec     Boolean @default(false)
   drainApprovedByProducer Boolean @default(false)
 
@@ -489,6 +494,19 @@ model Lead {
   // Project still has its own copies until the step-4 cleanup migration drops them.
   marginTarget   Float?       // target gross margin as a percentage (0–100)
   clientTier     ClientTier?  // how established the client relationship is
+
+  // ── PPM assessment (moved here from Project, Sept 2026) ──────────
+  // Done on the Job page BEFORE quoting (Proposal / Negotiation), so a
+  // Drain can be caught before the studio commits. Null = not assessed yet.
+  // `quadrant` is the decision; the linked Project keeps a mirror copy
+  // (Project.quadrant) that drives the production lanes — only the job
+  // writes it (LeadsService keeps them in sync). Priority stays on Project.
+  quadrant                ProjectQuadrant?
+  complexityScore         Int?     // self-assessed 1–5 (1 = simple, 5 = very complex)
+  estimatedDuration       Int?     // length in weeks
+  // Drain gate — both must be true before a DRAIN job is accepted.
+  drainApprovedByExec     Boolean  @default(false)
+  drainApprovedByProducer Boolean  @default(false)
 
   accountingDocuments AccountingDocument[] // quotations and invoices generated from this lead
   costs               ProjectCost[]        // job costs (warm pool, suppliers, other) — deducted before commission

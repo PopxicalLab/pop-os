@@ -172,6 +172,52 @@ const PRI_CLS = {
   P3: 'font-medium text-muted',
 };
 
+// ── PPM client-side engine ───────────────────────────────────
+// Mirrors ppm.service.ts exactly so the Job page gets live recommendations
+// without a server round trip every time a PPM input changes.
+
+const PPM_VALUE_MIDPOINT      = 50_000;
+const PPM_COMPLEXITY_THRESHOLD = 3;
+
+function computePpm({ estimatedValue, complexityScore, clientTier, marginTarget }) {
+  const valueScore  = estimatedValue  != null ? Math.min((estimatedValue / PPM_VALUE_MIDPOINT) * 50, 100) : null;
+  const effortScore = complexityScore != null ? ((6 - complexityScore) / 5) * 100 : null;
+  const tierScore   = clientTier
+    ? ({ NEW: 20, RETURNING: 60, KEY_ACCOUNT: 100 }[clientTier] ?? null)
+    : null;
+  const marginScore = marginTarget != null ? Math.min((marginTarget / 100) * 100, 100) : null;
+
+  const components = [
+    { score: valueScore,  w: 0.40 },
+    { score: effortScore, w: 0.15 },
+    { score: tierScore,   w: 0.25 },
+    { score: marginScore, w: 0.20 },
+  ];
+  const available = components.filter(c => c.score != null);
+  let score = null;
+  if (available.length >= 2) {
+    const totalW = available.reduce((s, c) => s + c.w, 0);
+    score = Math.round(available.reduce((s, c) => s + c.score * c.w, 0) / totalW);
+  }
+
+  let recommendedQuadrant = null;
+  if (estimatedValue != null && complexityScore != null) {
+    const highValue = estimatedValue  >= PPM_VALUE_MIDPOINT;
+    const lowEffort = complexityScore <= PPM_COMPLEXITY_THRESHOLD;
+    if      ( highValue &&  lowEffort) recommendedQuadrant = 'GOLD';
+    else if ( highValue && !lowEffort) recommendedQuadrant = 'STRATEGIC_BET';
+    else if (!highValue &&  lowEffort) recommendedQuadrant = 'OPERATIONAL_FILLER';
+    else                               recommendedQuadrant = 'DRAIN';
+  }
+
+  // Priority suggestion derived from the weighted score.
+  const recommendedPriority = score != null
+    ? (score >= 70 ? 'P1' : score >= 40 ? 'P2' : 'P3')
+    : null;
+
+  return { score, recommendedQuadrant, recommendedPriority };
+}
+
 // Lead status display constants — used by Sales and Clients tabs.
 const LEAD_STATUS_LABEL = {
   QUALIFICATION: 'Qualification',

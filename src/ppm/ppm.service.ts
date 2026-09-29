@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { JOB_MONEY, withJobMoney } from '../common/job';
+import { JOB_FIELDS, withJobFields } from '../common/job';
 
 // RM50 k is the midpoint for value normalisation: at or above = "high value".
 // Adjust this constant as the studio's average project size changes.
@@ -21,6 +21,7 @@ export interface PpmResult {
   projectName:         string;
   currentQuadrant:     string;
   recommendedQuadrant: string | null; // null when value or complexity is missing
+  recommendedPriority: string | null; // P1 ≥ 70, P2 ≥ 40, else P3; null when no score
   score:               number | null; // 0–100 weighted aggregate, null when <2 inputs
   match:               boolean | null; // true = current matches recommendation
   breakdown:           PpmBreakdown;
@@ -32,10 +33,10 @@ export class PpmService {
   constructor(private prisma: PrismaService) {}
 
   async scoreProject(id: string): Promise<PpmResult> {
-    // Value / margin / client tier come from the job; complexity from the project.
-    const project = await this.prisma.project.findUnique({ where: { id }, include: JOB_MONEY });
+    // Value / margin / client tier / complexity all come from the job.
+    const project = await this.prisma.project.findUnique({ where: { id }, include: JOB_FIELDS });
     if (!project) throw new NotFoundException(`Project ${id} not found`);
-    return this.compute(withJobMoney(project));
+    return this.compute(withJobFields(project));
   }
 
   // Score all active projects in one call (used by the Projects tab badge list).
@@ -43,9 +44,9 @@ export class PpmService {
     const projects = await this.prisma.project.findMany({
       where:   { status: { notIn: ['DELIVERED', 'CANCELLED'] } },
       orderBy: [{ priority: 'asc' }, { createdAt: 'desc' }],
-      include: JOB_MONEY,
+      include: JOB_FIELDS,
     });
-    return projects.map(p => this.compute(withJobMoney(p)));
+    return projects.map(p => this.compute(withJobFields(p)));
   }
 
   // Pure function — no DB calls — so tests can call it directly.
@@ -107,11 +108,17 @@ export class PpmService {
       else                               recommendedQuadrant = 'DRAIN';
     }
 
+    // Priority from the weighted score — same thresholds as computePpm() in the browser.
+    const recommendedPriority = score != null
+      ? (score >= 70 ? 'P1' : score >= 40 ? 'P2' : 'P3')
+      : null;
+
     return {
       projectId:           project.id,
       projectName:         project.name,
       currentQuadrant:     project.quadrant,
       recommendedQuadrant,
+      recommendedPriority,
       score,
       match: recommendedQuadrant != null ? recommendedQuadrant === project.quadrant : null,
       breakdown: { valueScore, effortScore, tierScore, marginScore },
@@ -131,19 +138,19 @@ export class PpmService {
   }) {
     const TIER_NUM: Record<string, number> = { NEW: 0.2, RETURNING: 0.6, KEY_ACCOUNT: 1.0 };
 
-    // Training set: all projects that at least have value + complexity.
+    // Training set: all projects whose job has at least value + complexity.
+    // (Projects, not bare leads — quadrant + priority there are what a
+    // producer actually confirmed for real work.)
     const training = await this.prisma.project.findMany({
       where: {
-        id:             params.excludeId ? { not: params.excludeId } : undefined,
-        lead:            { estimatedValue: { not: null } },   // value lives on the job
-        complexityScore: { not: null },
+        id:   params.excludeId ? { not: params.excludeId } : undefined,
+        lead: { estimatedValue: { not: null }, complexityScore: { not: null } },
       },
       select: {
         id: true, name: true, quadrant: true, priority: true,
-        complexityScore: true,
-        ...JOB_MONEY,
+        ...JOB_FIELDS,
       },
-    }).then(ps => ps.map(withJobMoney));
+    }).then(ps => ps.map(withJobFields));
 
     if (training.length < 3) {
       return {

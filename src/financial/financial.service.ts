@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { JOB_MONEY } from '../common/job';
+import { JOB_FIELDS } from '../common/job';
 import { companyWhere } from '../common/company-filter';
 
 // Studio cost assumptions — adjust as the business evolves.
@@ -43,7 +43,7 @@ export class FinancialService {
         include: {
           producer: { select: { id: true, name: true } },
           pm:       { select: { id: true, name: true } },
-          ...JOB_MONEY,   // value + margin target live on the job
+          ...JOB_FIELDS,   // value + margin target live on the job
         },
         orderBy: [{ priority: 'asc' }, { createdAt: 'desc' }],
       }),
@@ -182,7 +182,7 @@ export class FinancialService {
       }),
       this.prisma.project.findMany({
         where:  { status: { notIn: ['DELIVERED', 'CANCELLED'] }, ...(co ?? {}) },
-        select: JOB_MONEY,
+        select: JOB_FIELDS,
       }).then(ps => ps.map(p => ({ estimatedValue: p.lead?.estimatedValue ?? null, marginTarget: p.lead?.marginTarget ?? null }))),
     ]);
 

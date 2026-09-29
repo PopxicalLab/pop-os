@@ -38,6 +38,7 @@ export class JobsService {
       select: {
         id: true, name: true, status: true, company: true,
         estimatedValue: true, marginTarget: true, invoicedPct: true, paidPct: true, wonAt: true,
+        quadrant: true, drainApprovedByExec: true, drainApprovedByProducer: true,
         account:  { select: { id: true, name: true } },
         closedBy: PERSON,
         project: {

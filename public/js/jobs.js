@@ -68,7 +68,7 @@ function renderJobs() {
   $('jobs-table').innerHTML = `
     <table class="w-full text-xs">
       <thead><tr class="text-[11px] text-muted border-b border-line">
-        ${th('Job')}${th('Co')}${th('Sales')}${th('Production')}${th('Deadline')}${th('Producer / PM')}
+        ${th('Job')}${th('Co')}${th('Sales / PPM')}${th('Production')}${th('Deadline')}${th('Producer / PM')}
         ${th('Value', true)}${th('Costs', true)}${th('Net', true)}${th('Inv / Paid', true)}${th('Unpaid', true)}
       </tr></thead>
       <tbody>
@@ -83,7 +83,10 @@ function renderJobs() {
               <p class="text-[11px] text-muted">${j.account ? esc(j.account.name) : 'No client'}</p>
             </td>
             <td class="py-2.5 px-2">${j.company ? coBadge(j.company) : ''}</td>
-            <td class="py-2.5 px-2"><span class="badge border ${LEAD_STATUS_CLS[j.status] || ''} text-[10px]">${LEAD_STATUS_LABEL[j.status] || j.status}</span></td>
+            <td class="py-2.5 px-2 whitespace-nowrap">
+              <span class="badge border ${LEAD_STATUS_CLS[j.status] || ''} text-[10px]">${LEAD_STATUS_LABEL[j.status] || j.status}</span>
+              ${j.quadrant ? `<span class="badge ${QUADRANT_CLS[j.quadrant] || ''} text-[10px] ml-1">${QUADRANT_LABEL[j.quadrant]}</span>` : ''}
+            </td>
             <td class="py-2.5 px-2 whitespace-nowrap">${p ? (STATUS_LABEL[p.status] || p.status) : '<span class="text-muted">No project</span>'}</td>
             <td class="py-2.5 px-2 whitespace-nowrap ${late ? 'text-warm font-semibold' : ''}">${jobsDate(p?.deadline)}${late ? ' ⚠' : ''}</td>
             <td class="py-2.5 px-2 text-[11px]">

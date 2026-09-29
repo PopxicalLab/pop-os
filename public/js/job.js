@@ -107,6 +107,57 @@ function renderJob() {
         : '<p class="text-xs text-muted">No project for this job.</p>'}`;
   }
 
+  // ── PPM assessment — done here, ideally before quoting (Proposal /
+  //    Negotiation), so a Drain is caught before the studio commits.
+  //    Value / tier / margin come from the Money section below.
+  const rec = computePpm(j);
+  const isDrain = j.quadrant === 'DRAIN';
+  const drainOk = j.drainApprovedByExec && j.drainApprovedByProducer;
+  const recHtml = rec.recommendedQuadrant || rec.score != null
+    ? `<div class="flex items-center gap-2 flex-wrap">
+         <span class="text-xs text-muted">Suggested:</span>
+         <span class="badge ${QUADRANT_CLS[rec.recommendedQuadrant] || 'bg-panel2 text-muted'}">${QUADRANT_LABEL[rec.recommendedQuadrant] || '—'}</span>
+         <span class="text-xs text-muted">· priority</span>
+         <span class="text-xs font-bold ${PRI_CLS[rec.recommendedPriority] || 'text-muted'}">${rec.recommendedPriority || '—'}</span>
+         ${rec.score != null ? `<span class="text-xs text-muted">· score ${rec.score}/100</span>` : ''}
+         ${rec.recommendedQuadrant && rec.recommendedQuadrant !== j.quadrant
+           ? `<button onclick="applyJobPpm('${rec.recommendedQuadrant}', '${rec.recommendedPriority || ''}')"
+                class="text-[11px] bg-accent/15 border border-accent/30 text-accent px-2.5 py-1 rounded-lg hover:bg-accent/25 transition-colors cursor-pointer font-semibold">
+                Apply →</button>`
+           : rec.recommendedQuadrant ? '<span class="text-xs text-accent font-semibold">✓ matches</span>' : ''}
+       </div>`
+    : '<p class="text-xs text-muted">Add value (Money) and complexity to get a recommendation.</p>';
+
+  const ppm = `
+    ${sectionHead('PPM assessment', p ? '' : '<span class="text-[11px] text-muted">Do this before quoting</span>')}
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+      ${lbl('Complexity (1–5)', `<select id="job-complexity" class="${inputCls} cursor-pointer">
+                                   <option value="">—</option>${opts([1, 2, 3, 4, 5], j.complexityScore)}</select>`)}
+      ${lbl('Duration (weeks)', `<input id="job-duration" type="number" min="1" value="${j.estimatedDuration ?? ''}" class="${inputCls}" />`)}
+      ${lbl('Quadrant',         `<select id="job-quadrant" class="${inputCls} cursor-pointer">
+                                   <option value="">— not assessed —</option>
+                                   ${opts(Object.keys(QUADRANT_LABEL), j.quadrant, v => QUADRANT_LABEL[v])}</select>`)}
+    </div>
+    ${isDrain ? `
+      <div class="mt-4 p-3 rounded-lg border ${drainOk ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-warm/40 bg-warm/5'}">
+        <p class="text-[11px] font-semibold ${drainOk ? 'text-emerald-400' : 'text-warm'} mb-1.5">
+          Drain gate — low budget / high complexity. ${drainOk ? 'Both approvals in.' : 'Needs both approvals before a project can be created.'}
+        </p>
+        <div class="flex gap-5">
+          <label class="flex items-center gap-1.5 text-xs text-ink cursor-pointer">
+            <input id="job-drain-exec" type="checkbox" ${j.drainApprovedByExec ? 'checked' : ''} class="accent-accent cursor-pointer" /> Exec approved
+          </label>
+          <label class="flex items-center gap-1.5 text-xs text-ink cursor-pointer">
+            <input id="job-drain-prod" type="checkbox" ${j.drainApprovedByProducer ? 'checked' : ''} class="accent-accent cursor-pointer" /> Producer approved
+          </label>
+        </div>
+      </div>` : ''}
+    <div class="mt-4 pt-3 border-t border-line/60">
+      <p class="text-[10px] font-semibold uppercase tracking-widest text-muted mb-1.5">Recommendation</p>
+      ${recHtml}
+      <div id="job-ppm-ai" class="mt-2"></div>
+    </div>`;
+
   $('job-content').innerHTML = `
     <div class="flex flex-wrap items-start justify-between gap-3 mb-5">
       <div>
@@ -169,6 +220,8 @@ function renderJob() {
       <p class="text-[11px] text-muted/60 mt-2">Value, margin target and client tier also feed the project's PPM recommendation.</p>
     </div>
 
+    <div class="py-5 border-b border-line">${ppm}</div>
+
     <div class="py-5 border-b border-line">
       <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Costs</p>
       <div id="job-costs"></div>
@@ -216,6 +269,7 @@ function renderJob() {
     </div>`;
 
   renderCosts();
+  loadJobPpmAi();
   renderDocs();
   wireMoneyInputs();
 }
@@ -314,6 +368,55 @@ function wireMoneyInputs() {
   $('job-invoiced').onchange = e => patchJob({ invoicedPct:    Number(e.target.value) });
   $('job-paid').onchange     = e => patchJob({ paidPct:        Number(e.target.value) });
   $('job-paydate').onchange  = e => { if (e.target.value) patchJob({ paymentDate: e.target.value }); };
+
+  // PPM assessment. Each save reloads the page, so the recommendation and
+  // Drain gate box refresh. A quadrant change also updates the project's copy
+  // (production lanes) — LeadsService does that server-side.
+  const int = v => v === '' ? null : parseInt(v, 10);
+  $('job-complexity').onchange = e => patchJob({ complexityScore:   int(e.target.value) });
+  $('job-duration').onchange   = e => patchJob({ estimatedDuration: int(e.target.value) });
+  $('job-quadrant').onchange   = e => patchJob({ quadrant:          e.target.value || null });
+  const exec = $('job-drain-exec'), prod = $('job-drain-prod');
+  if (exec) exec.onchange = () => patchJob({ drainApprovedByExec:     exec.checked });
+  if (prod) prod.onchange = () => patchJob({ drainApprovedByProducer: prod.checked });
+}
+
+// Apply the PPM suggestion: quadrant on the job, and — once there is a
+// project — the suggested priority on it (priority is a production setting).
+async function applyJobPpm(quadrant, priority) {
+  if (_job.project && priority) {
+    await fetch('/api/projects/' + _job.project.id, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ priority }),
+    });
+  }
+  patchJob({ quadrant });
+}
+
+// "Similar past jobs" — k-NN over delivered/active projects (GET /api/ppm/ai).
+async function loadJobPpmAi() {
+  const el = $('job-ppm-ai');
+  const j  = _job;
+  if (!el || (j.estimatedValue == null && j.complexityScore == null)) return;
+  const params = new URLSearchParams();
+  if (j.project)                 params.set('excludeId',  j.project.id);  // don't match itself
+  if (j.estimatedValue != null)  params.set('value',      j.estimatedValue);
+  if (j.complexityScore != null) params.set('complexity', j.complexityScore);
+  if (j.clientTier)              params.set('tier',       j.clientTier);
+  if (j.marginTarget != null)    params.set('margin',     j.marginTarget);
+  const data = await fetch('/api/ppm/ai?' + params).then(r => r.json()).catch(() => null);
+  if (!data || data.source === 'insufficient') return;   // too little history — say nothing
+  const similar = (data.neighbours || []).slice(0, 3)
+    .map(n => `<span class="text-ink">${esc(n.name)}</span><span class="text-muted/70"> ${Math.round(n.similarity * 100)}%</span>`)
+    .join(' · ');
+  el.innerHTML = `
+    <p class="text-[11px] text-muted">
+      Past work like this was mostly
+      <span class="badge ${QUADRANT_CLS[data.recommendedQuadrant] || 'bg-panel2 text-muted'}">${QUADRANT_LABEL[data.recommendedQuadrant] || '—'}</span>
+      · priority <span class="font-bold ${PRI_CLS[data.recommendedPriority] || ''}">${data.recommendedPriority || '—'}</span>
+      <span class="text-muted/70">(${data.confidence} confidence, ${data.trainingSize} projects)</span>
+    </p>
+    ${similar ? `<p class="text-[11px] text-muted mt-0.5">Similar: ${similar}</p>` : ''}`;
 }
 
 async function addJobCost(e) {

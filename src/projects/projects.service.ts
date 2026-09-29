@@ -2,20 +2,30 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateProjectDto, UpdateProjectDto } from './project.dto';
 import { companyWhere } from '../common/company-filter';
-import { JOB_MONEY, withJobMoney, autoJobId, isAutoJob, ensureJobForProject } from '../common/job';
+import { JOB_FIELDS, JOB_OWNED_FIELDS, withJobFields, autoJobId, isAutoJob, ensureJobForProject } from '../common/job';
 
 // Fields we always include when returning a project — producer and PM names,
-// plus the job's money fields (value/margin/tier now live on the job, not the
-// project — see src/common/job.ts). Results go through withJobMoney().
+// plus the job's money + PPM fields (they live on the job, not the project —
+// see src/common/job.ts). Results go through withJobFields().
 const WITH_PEOPLE = {
   producer: { select: { id: true, name: true, role: true } },
   pm:       { select: { id: true, name: true, role: true } },
   account:  { select: { id: true, name: true, industry: true } },
-  ...JOB_MONEY,
+  ...JOB_FIELDS,
 } as const;
 
-// Money fields the project form still sends. They're saved on the job.
-const MONEY_FIELDS = ['estimatedValue', 'marginTarget', 'clientTier'] as const;
+// Split incoming project-form data into what the job owns and what the
+// project owns. `quadrant` is both: decided on the job, mirrored onto the
+// project for the production lanes.
+function splitJobFields<T extends Record<string, any>>(dto: T) {
+  const job: Record<string, any> = {};
+  const project: Record<string, any> = { ...dto };
+  for (const f of JOB_OWNED_FIELDS) {
+    if (dto[f] !== undefined) job[f] = dto[f];
+    if (f !== 'quadrant') delete project[f];
+  }
+  return { job, project };
+}
 
 @Injectable()
 export class ProjectsService {
@@ -33,7 +43,7 @@ export class ProjectsService {
       orderBy: { createdAt: 'desc' },
       include: WITH_PEOPLE,
     });
-    return projects.map(withJobMoney);
+    return projects.map(withJobFields);
   }
 
   async findOne(id: string) {
@@ -42,7 +52,7 @@ export class ProjectsService {
       include: WITH_PEOPLE,
     });
     if (!project) throw new NotFoundException(`Project ${id} not found`);
-    return withJobMoney(project);
+    return withJobFields(project);
   }
 
   // A project made on the Projects tab has no sale behind it, so it gets an
@@ -63,12 +73,9 @@ export class ProjectsService {
           timelineUrl: dto.timelineUrl ?? null,
           producerId:  dto.producerId  ?? null,
           pmId:        dto.pmId        ?? null,
-          drainApprovedByExec:     dto.drainApprovedByExec     ?? false,
-          drainApprovedByProducer: dto.drainApprovedByProducer ?? false,
-          estimatedDuration: dto.estimatedDuration ?? null,
-          complexityScore:   dto.complexityScore   ?? null,
         },
       });
+      // The auto job holds the money + PPM assessment from the form.
       await tx.lead.create({
         data: {
           id:             autoJobId(p.id),
@@ -81,6 +88,11 @@ export class ProjectsService {
           estimatedValue: dto.estimatedValue ?? null,
           marginTarget:   dto.marginTarget   ?? null,
           clientTier:     dto.clientTier     ?? null,
+          quadrant:          dto.quadrant,
+          complexityScore:   dto.complexityScore   ?? null,
+          estimatedDuration: dto.estimatedDuration ?? null,
+          drainApprovedByExec:     dto.drainApprovedByExec     ?? false,
+          drainApprovedByProducer: dto.drainApprovedByProducer ?? false,
         },
       });
       return p;
@@ -91,10 +103,9 @@ export class ProjectsService {
   async update(id: string, dto: UpdateProjectDto) {
     await this.findOne(id);
 
-    // Split the form data: money fields go to the job, the rest to the project.
-    const { estimatedValue, marginTarget, clientTier, ...projectFields } = dto;
-    const money = { estimatedValue, marginTarget, clientTier };
-    const hasMoney = MONEY_FIELDS.some(f => money[f] !== undefined);
+    // Split the form data: money + PPM fields go to the job, the rest to the
+    // project (quadrant goes to both — the project copy is the lane mirror).
+    const { job, project: projectFields } = splitJobFields(dto);
 
     await this.prisma.$transaction(async (tx) => {
       await tx.project.update({
@@ -109,9 +120,9 @@ export class ProjectsService {
             : undefined,
         },
       });
-      if (hasMoney) {
+      if (Object.keys(job).length) {
         const jobId = await ensureJobForProject(tx, id);
-        await tx.lead.update({ where: { id: jobId }, data: money });
+        await tx.lead.update({ where: { id: jobId }, data: job });
       }
     });
     return this.findOne(id);

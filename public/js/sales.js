@@ -501,6 +501,22 @@ function renderLeadCard(l) {
        </div>`
     : '';
 
+  // PPM is assessed on the job page, ideally at Proposal / Negotiation —
+  // before the quote goes out — so a Drain is caught before committing.
+  // Assessed → quadrant badge (+ Drain gate status); not yet → a nudge.
+  const drainPending = l.quadrant === 'DRAIN' && !(l.drainApprovedByExec && l.drainApprovedByProducer);
+  const ppmLine = l.quadrant
+    ? `<div class="flex items-center gap-1.5 flex-wrap">
+         <span class="badge ${QUADRANT_CLS[l.quadrant] || ''} text-[10px]">${QUADRANT_LABEL[l.quadrant]}</span>
+         ${drainPending ? '<span class="text-[10px] text-warm font-semibold">needs approval</span>' : ''}
+         <a href="/job.html?id=${l.id}" draggable="false" class="text-[11px] text-accent hover:underline ml-auto">Open job →</a>
+       </div>`
+    : ['PROPOSAL', 'NEGOTIATION'].includes(l.status)
+      ? `<a href="/job.html?id=${l.id}" draggable="false"
+            class="inline-block text-[11px] text-yellow-400 font-semibold hover:underline">Assess (PPM) →</a>`
+      : `<a href="/job.html?id=${l.id}" draggable="false"
+            class="inline-block text-[11px] text-accent hover:underline">Open job →</a>`;
+
   const closedBySel = '<option value="">— unassigned —</option>' +
     _salesPeople.filter(p => p.status === 'ACTIVE')
       .map(p => `<option value="${p.id}"${l.closedById === p.id ? ' selected' : ''}>${esc(p.name)}</option>`).join('');
@@ -516,8 +532,7 @@ function renderLeadCard(l) {
       <button class="btn-del shrink-0 text-[11px]" data-lead-del="${l.id}">×</button>
     </div>
     <p class="text-[11px] text-muted">${accName}</p>
-    <a href="/job.html?id=${l.id}" draggable="false"
-       class="inline-block text-[11px] text-accent hover:underline">Open job →</a>
+    ${ppmLine}
     <div class="flex items-center gap-1.5">
       <span class="text-xs text-muted shrink-0">RM</span>
       <input type="text" inputmode="decimal" data-lead-value="${l.id}" value="${l.estimatedValue ?? ''}"

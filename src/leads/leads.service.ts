@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma.service';
 import { CreateLeadDto, UpdateLeadDto } from './lead.dto';
 import { companyWhere } from '../common/company-filter';
 import { NotificationRulesService } from '../mattermost/notification-rules.service';
+import { PpmService } from '../ppm/ppm.service';
 
 const WITH_RELATIONS = {
   account:  { select: { id: true, name: true, industry: true, autocountDebtorCode: true } },
@@ -23,6 +24,7 @@ export class LeadsService {
   constructor(
     private prisma: PrismaService,
     private notifications: NotificationRulesService,
+    private ppm: PpmService,   // pure scoring — used to pick a starting priority on convert
   ) {}
 
   findAll(company?: string | null) {
@@ -73,14 +75,23 @@ export class LeadsService {
     const current = await this.findOne(id);
     // Record the exact moment a lead becomes WON — used for quarterly commission bucketing.
     const wonAt = dto.status === 'WON' && current.status !== 'WON' ? new Date() : undefined;
-    const updated = await this.prisma.lead.update({
-      where: { id },
-      data: {
-        ...dto,
-        paymentDate: dto.paymentDate ? new Date(dto.paymentDate) : undefined,
-        ...(wonAt ? { wonAt } : {}),
-      },
-      include: WITH_RELATIONS,
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const lead = await tx.lead.update({
+        where: { id },
+        data: {
+          ...dto,
+          paymentDate: dto.paymentDate ? new Date(dto.paymentDate) : undefined,
+          ...(wonAt ? { wonAt } : {}),
+        },
+        include: WITH_RELATIONS,
+      });
+      // The job decides the PPM quadrant; its project keeps a mirror copy that
+      // drives the production lanes. Keep them in step. (Clearing the job's
+      // quadrant leaves the project's last value — Project.quadrant is required.)
+      if (dto.quadrant && lead.projectId) {
+        await tx.project.update({ where: { id: lead.projectId }, data: { quadrant: dto.quadrant } });
+      }
+      return lead;
     });
 
     // Announce a pipeline stage change to Mattermost (fire-and-forget: emit() never
@@ -106,14 +117,30 @@ export class LeadsService {
     if (lead.projectId) {
       throw new BadRequestException('This lead has already been converted to a project.');
     }
+    // Drain gate: low budget + high complexity needs both signatures before
+    // the studio commits production to it.
+    if (lead.quadrant === 'DRAIN' && !(lead.drainApprovedByExec && lead.drainApprovedByProducer)) {
+      throw new BadRequestException(
+        'This job is assessed as a Drain — it needs both Exec and Producer approval (Job page → PPM) before a project can be created.',
+      );
+    }
+
+    // Start production from the PPM assessment done on the job: its quadrant
+    // (mirrored onto the project for the lanes) and the recommended priority.
+    const ppm = this.ppm.compute({
+      id: lead.id, name: lead.name, quadrant: lead.quadrant ?? 'GOLD',
+      estimatedValue: lead.estimatedValue, complexityScore: lead.complexityScore,
+      clientTier: lead.clientTier, marginTarget: lead.marginTarget,
+    });
 
     const project = await this.prisma.project.create({
       data: {
         name:           lead.name,
         client:         lead.account?.name ?? null,
         accountId:      lead.accountId     ?? null,
-        quadrant:       'GOLD',   // default — producer should update after review
-        priority:       'P2',
+        // Not assessed yet → GOLD / P2 defaults; producer should review.
+        quadrant:       lead.quadrant ?? 'GOLD',
+        priority:       (ppm.recommendedPriority ?? 'P2') as 'P1' | 'P2' | 'P3',
         status:         'BRIEF',
         estimatedValue: lead.estimatedValue ?? null,
         // Project.company is required — a lead with no company set becomes a

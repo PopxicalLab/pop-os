@@ -109,226 +109,8 @@ function toggleColPicker() {
   }
 }
 
-// ── PPM AI recommendation (k-NN, server-side) ───────────────
-
-let _ppmAiTimer = null; // debounce handle
-
-// Renders the AI result into the ppm-ai-{id} div.
-function renderAiResult(id, data) {
-  const el = document.getElementById(`ppm-ai-${id}`);
-  if (!el) return;
-
-  if (!data || data.source === 'insufficient') {
-    const needed = Math.max(0, 3 - (data?.trainingSize ?? 0));
-    el.innerHTML = `
-      <p class="text-[11px] text-muted/70 italic">
-        AI learning active — add ${needed} more project${needed !== 1 ? 's' : ''} with PPM data to unlock.
-      </p>`;
-    return;
-  }
-
-  const recCls   = QUADRANT_CLS[data.recommendedQuadrant]  || 'bg-panel2 text-muted';
-  const recLabel = QUADRANT_LABEL[data.recommendedQuadrant] || '—';
-  const priCls   = PRI_CLS[data.recommendedPriority]        || 'text-muted';
-  const confCls  = { high: 'text-emerald-400', medium: 'text-yellow-400', low: 'text-warm' }[data.confidence] || 'text-muted';
-
-  const neighbours = (data.neighbours || []).slice(0, 3)
-    .map(n => `<span class="text-ink">${esc(n.name)}</span><span class="text-muted/70"> ${Math.round(n.similarity * 100)}%</span>`)
-    .join(' · ');
-
-  const quadEl = document.getElementById(`detail-quadrant-${id}`);
-  const priEl  = document.getElementById(`detail-priority-${id}`);
-  const alreadyApplied = data.recommendedQuadrant === quadEl?.value && data.recommendedPriority === priEl?.value;
-
-  const applyBtn = alreadyApplied
-    ? `<span class="text-xs text-accent font-semibold mt-1 block">✓ AI agrees with current settings</span>`
-    : `<button onclick="applyPpmSuggestion('${id}', '${data.recommendedQuadrant}', '${data.recommendedPriority}')"
-         class="mt-1.5 text-[11px] bg-accent/15 border border-accent/30 text-accent px-2.5 py-1 rounded-lg
-                hover:bg-accent/25 transition-colors cursor-pointer font-semibold">
-         Apply AI suggestion →
-       </button>`;
-
-  el.innerHTML = `
-    <div class="mt-3 pt-3 border-t border-dashed border-line/60">
-      <div class="flex items-center gap-2 mb-1.5 flex-wrap">
-        <p class="text-[10px] font-semibold uppercase tracking-widest text-muted">AI recommendation</p>
-        <span class="text-[10px] ${confCls} font-semibold uppercase">${data.confidence}</span>
-        <span class="text-[10px] text-muted">· ${data.trainingSize} projects learned</span>
-      </div>
-      <div class="flex items-center gap-2 flex-wrap">
-        <span class="text-xs text-muted">Quadrant:</span>
-        <span class="badge ${recCls}">${recLabel}</span>
-        <span class="text-line">·</span>
-        <span class="text-xs text-muted">Priority:</span>
-        <span class="text-xs font-bold ${priCls}">${data.recommendedPriority || '—'}</span>
-      </div>
-      ${neighbours ? `<p class="text-[11px] text-muted mt-1">Similar: ${neighbours}</p>` : ''}
-      ${applyBtn}
-    </div>`;
-}
-
-// Debounces a call to GET /api/ppm/ai and renders the result.
-// Rule-based suggestion (refreshPpmSuggestion) still fires instantly on every keystroke.
-function scheduleAiFetch(id) {
-  clearTimeout(_ppmAiTimer);
-
-  // Show a subtle loading hint while waiting.
-  const aiEl = document.getElementById(`ppm-ai-${id}`);
-  if (aiEl && aiEl.innerHTML) aiEl.innerHTML += '';
-
-  _ppmAiTimer = setTimeout(async () => {
-    const readNum = fId => { const el = document.getElementById(fId); return el && el.value !== '' ? el.value : null; };
-    const readStr = fId => { const el = document.getElementById(fId); return el?.value || null; };
-
-    const value      = readNum(`detail-est-value-${id}`);
-    const complexity = readNum(`detail-complexity-${id}`);
-
-    // Need at least one of these to make a meaningful AI call.
-    if (!value && !complexity) { if (aiEl) aiEl.innerHTML = ''; return; }
-
-    const tier   = readStr(`detail-tier-${id}`);
-    const margin = readNum(`detail-margin-${id}`);
-
-    const params = new URLSearchParams({ excludeId: id });
-    if (value)      params.set('value',      value);
-    if (complexity) params.set('complexity', complexity);
-    if (tier)       params.set('tier',       tier);
-    if (margin)     params.set('margin',     margin);
-
-    const data = await fetch(`/api/ppm/ai?${params}`).then(r => r.json()).catch(() => null);
-    renderAiResult(id, data);
-  }, 700); // wait 700 ms after the user stops typing before hitting the server
-}
-
-// ── PPM client-side engine ───────────────────────────────────
-// Mirrors ppm.service.ts exactly so we get live recommendations without
-// a server round trip every time a PPM input changes.
-
-const PPM_VALUE_MIDPOINT      = 50_000;
-const PPM_COMPLEXITY_THRESHOLD = 3;
-
-function computePpm({ estimatedValue, complexityScore, clientTier, marginTarget }) {
-  const valueScore  = estimatedValue  != null ? Math.min((estimatedValue / PPM_VALUE_MIDPOINT) * 50, 100) : null;
-  const effortScore = complexityScore != null ? ((6 - complexityScore) / 5) * 100 : null;
-  const tierScore   = clientTier
-    ? ({ NEW: 20, RETURNING: 60, KEY_ACCOUNT: 100 }[clientTier] ?? null)
-    : null;
-  const marginScore = marginTarget != null ? Math.min((marginTarget / 100) * 100, 100) : null;
-
-  const components = [
-    { score: valueScore,  w: 0.40 },
-    { score: effortScore, w: 0.15 },
-    { score: tierScore,   w: 0.25 },
-    { score: marginScore, w: 0.20 },
-  ];
-  const available = components.filter(c => c.score != null);
-  let score = null;
-  if (available.length >= 2) {
-    const totalW = available.reduce((s, c) => s + c.w, 0);
-    score = Math.round(available.reduce((s, c) => s + c.score * c.w, 0) / totalW);
-  }
-
-  let recommendedQuadrant = null;
-  if (estimatedValue != null && complexityScore != null) {
-    const highValue = estimatedValue  >= PPM_VALUE_MIDPOINT;
-    const lowEffort = complexityScore <= PPM_COMPLEXITY_THRESHOLD;
-    if      ( highValue &&  lowEffort) recommendedQuadrant = 'GOLD';
-    else if ( highValue && !lowEffort) recommendedQuadrant = 'STRATEGIC_BET';
-    else if (!highValue &&  lowEffort) recommendedQuadrant = 'OPERATIONAL_FILLER';
-    else                               recommendedQuadrant = 'DRAIN';
-  }
-
-  // Priority suggestion derived from the weighted score.
-  const recommendedPriority = score != null
-    ? (score >= 70 ? 'P1' : score >= 40 ? 'P2' : 'P3')
-    : null;
-
-  return { score, recommendedQuadrant, recommendedPriority };
-}
-
-// Called after any PPM input changes — reads live form values and renders
-// a suggestion callout into the ppm-rec-{id} div.
-function refreshPpmSuggestion(id) {
-  const readNum = fId => { const el = document.getElementById(fId); return el && el.value !== '' ? parseFloat(el.value) : null; };
-  const readStr = fId => { const el = document.getElementById(fId); return el?.value || null; };
-
-  const { score, recommendedQuadrant, recommendedPriority } = computePpm({
-    estimatedValue:  readNum(`detail-est-value-${id}`),
-    complexityScore: readNum(`detail-complexity-${id}`),
-    clientTier:      readStr(`detail-tier-${id}`),
-    marginTarget:    readNum(`detail-margin-${id}`),
-  });
-
-  const recEl = document.getElementById(`ppm-rec-${id}`);
-  if (!recEl) return;
-
-  if (!recommendedQuadrant && score == null) {
-    recEl.innerHTML = `<p class="text-xs text-muted">Add est. value and complexity to unlock recommendation.</p>`;
-    return;
-  }
-
-  const quadEl = document.getElementById(`detail-quadrant-${id}`);
-  const priEl  = document.getElementById(`detail-priority-${id}`);
-  const curQuad = quadEl?.value;
-  const curPri  = priEl?.value;
-  const bothMatch = recommendedQuadrant === curQuad && recommendedPriority === curPri;
-
-  const recCls   = QUADRANT_CLS[recommendedQuadrant]  || 'bg-panel2 text-muted';
-  const recLabel = QUADRANT_LABEL[recommendedQuadrant] || '—';
-  const priCls   = PRI_CLS[recommendedPriority]        || 'text-muted';
-
-  const scoreBar = score != null ? `
-    <div class="flex items-center gap-2 mt-2">
-      <div class="flex-1 h-1.5 bg-line rounded-full overflow-hidden">
-        <div class="h-full bg-accent rounded-full" style="width:${score}%"></div>
-      </div>
-      <span class="text-xs text-muted w-14 text-right">score ${score}/100</span>
-    </div>` : '';
-
-  const action = bothMatch
-    ? `<span class="text-xs text-accent font-semibold mt-1.5 block">✓ Quadrant and priority already match</span>`
-    : `<button onclick="applyPpmSuggestion('${id}', '${recommendedQuadrant}', '${recommendedPriority}')"
-         class="mt-1.5 text-[11px] bg-accent/15 border border-accent/30 text-accent px-2.5 py-1 rounded-lg
-                hover:bg-accent/25 transition-colors cursor-pointer font-semibold">
-         Apply suggestion →
-       </button>`;
-
-  recEl.innerHTML = `
-    <div class="flex items-center gap-2 flex-wrap">
-      <span class="text-xs text-muted">Quadrant:</span>
-      <span class="badge ${recCls}">${recLabel}</span>
-      <span class="text-line">·</span>
-      <span class="text-xs text-muted">Priority:</span>
-      <span class="text-xs font-bold ${priCls}">${recommendedPriority || '—'}</span>
-    </div>
-    ${scoreBar}
-    ${action}`;
-}
-
-// Applies the PPM suggestion to both the quadrant and priority selects,
-// saves to the server, then re-renders the detail view if quadrant changed
-// (so the Drain gate row appears / disappears as needed).
-async function applyPpmSuggestion(id, quadrant, priority) {
-  const quadEl = document.getElementById(`detail-quadrant-${id}`);
-  const priEl  = document.getElementById(`detail-priority-${id}`);
-  const prevQuad = quadEl?.value;
-
-  // Update UI immediately for instant feedback before the server responds.
-  if (quadEl) quadEl.value = quadrant;
-  if (priEl)  priEl.value  = priority;
-
-  await fetch(`/api/projects/${id}`, {
-    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ quadrant, priority }),
-  });
-
-  if (quadrant !== prevQuad) {
-    // Quadrant changed — full re-render so Drain gate row shows/hides correctly.
-    showProjectDetail(id);
-  } else {
-    refreshPpmSuggestion(id);
-  }
-}
+// PPM is assessed on the Job page now (job.js) — the project page only shows
+// a read-only summary via loadPpmBadge(). computePpm() lives in shared.js.
 
 // ── project detail view ──────────────────────────────────────
 
@@ -372,17 +154,9 @@ async function showProjectDetail(id) {
              focus:outline-none focus:border-accent/60" />`;
   };
 
-  const numEl = (fId, val, extra = '') =>
-    `<input id="${fId}" type="number" value="${val ?? ''}" ${extra}
-      class="bg-panel2 border border-line text-ink text-xs px-2 py-1 rounded-md w-full
-             focus:outline-none focus:border-accent/60" />`;
-
-  // Money now lives on the job (Sept 2026 restructure), so these show read-only
-  // here. A hidden input keeps the same id so the PPM suggestion code, which
-  // reads values by id, works unchanged.
-  const roEl = (fId, raw, shown) =>
-    `<input id="${fId}" type="hidden" value="${raw ?? ''}" />
-     <p class="text-xs text-ink px-2 py-1">${shown}</p>`;
+  // Money + PPM now live on the job (Sept 2026 restructure), so they show
+  // read-only here; the job page is where they're edited.
+  const ro = (shown) => `<p class="text-xs text-ink px-2 py-1">${shown}</p>`;
   // Only money roles can open a job (TAB_ACCESS.jobs), so others get no link.
   const jobLink = (text) => p.jobId && TAB_ACCESS.jobs.includes(currentRole())
     ? `<a href="/job.html?id=${p.jobId}" class="text-[11px] text-accent hover:underline">${text}</a>`
@@ -406,7 +180,7 @@ async function showProjectDetail(id) {
 
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 pb-5 border-b border-line">
       ${lbl('Status',     selEl(`detail-status-${p.id}`,   Object.entries(STATUS_LABEL), p.status))}
-      ${lbl('Quadrant',   selEl(`detail-quadrant-${p.id}`, Object.entries(QUADRANT_LABEL), p.quadrant))}
+      ${lbl('Quadrant',   `<span class="badge ${QUADRANT_CLS[p.quadrant] || ''}">${QUADRANT_LABEL[p.quadrant] || p.quadrant}</span>`)}
       ${lbl('Priority',   selEl(`detail-priority-${p.id}`, [['P1','P1 — High'],['P2','P2 — Med'],['P3','P3 — Low']], p.priority))}
       ${lbl('Company',    selEl(`detail-company-${p.id}`,  [['LPS','LPS'],['PXL','PXL'],['GROUP','Group']], p.company))}
       ${lbl('Start date', dateEl(`detail-start-${p.id}`,   p.startDate))}
@@ -427,17 +201,11 @@ async function showProjectDetail(id) {
       </div>
       ${p.quadrant === 'DRAIN' ? `
         <div class="col-span-full pt-1">
-          <p class="text-[10px] text-muted font-medium uppercase tracking-wider mb-1.5">Drain gate approvals</p>
-          <div class="flex gap-5">
-            <label class="flex items-center gap-1.5 text-xs text-ink cursor-pointer">
-              <input id="detail-drain-exec-${p.id}" type="checkbox" ${p.drainApprovedByExec ? 'checked' : ''}
-                class="accent-accent cursor-pointer" /> Exec approved
-            </label>
-            <label class="flex items-center gap-1.5 text-xs text-ink cursor-pointer">
-              <input id="detail-drain-prod-${p.id}" type="checkbox" ${p.drainApprovedByProducer ? 'checked' : ''}
-                class="accent-accent cursor-pointer" /> Producer approved
-            </label>
-          </div>
+          <p class="text-[10px] text-muted font-medium uppercase tracking-wider mb-1">Drain gate approvals</p>
+          <p class="text-xs ${p.drainApprovedByExec && p.drainApprovedByProducer ? 'text-emerald-400' : 'text-warm'}">
+            Exec ${p.drainApprovedByExec ? '✓' : '✗'} · Producer ${p.drainApprovedByProducer ? '✓' : '✗'}
+            <span class="text-muted">— approved on the job</span>
+          </p>
         </div>` : ''}
     </div>
 
@@ -461,20 +229,19 @@ async function showProjectDetail(id) {
 
     <div class="mt-5 pb-5 border-b border-line">
       <div class="flex items-center justify-between mb-3">
-        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted">PPM inputs</p>
-        ${jobLink('Edit money on the job →')}
+        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted">PPM <span class="normal-case font-normal">(assessed on the job)</span></p>
+        ${jobLink('Assess on the job →')}
       </div>
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
-        ${lbl('Duration (weeks)',  numEl(`detail-est-dur-${p.id}`,   p.estimatedDuration, 'min="1"'))}
-        ${lbl('Complexity (1–5)', numEl(`detail-complexity-${p.id}`, p.complexityScore, 'min="1" max="5"'))}
-        ${lbl('Est. value <span class="normal-case">(from job)</span>', roEl(`detail-est-value-${p.id}`, p.estimatedValue, fmtValue(p.estimatedValue)))}
-        ${lbl('Client tier <span class="normal-case">(from job)</span>', roEl(`detail-tier-${p.id}`, p.clientTier, CLIENT_TIER_LABEL[p.clientTier] || '—'))}
-        ${lbl('Margin target <span class="normal-case">(from job)</span>', roEl(`detail-margin-${p.id}`, p.marginTarget, p.marginTarget != null ? p.marginTarget + '%' : '—'))}
+        ${lbl('Complexity (1–5)', ro(p.complexityScore ?? '—'))}
+        ${lbl('Duration',         ro(p.estimatedDuration != null ? p.estimatedDuration + ' wk' : '—'))}
+        ${lbl('Est. value',       ro(fmtValue(p.estimatedValue)))}
+        ${lbl('Client tier',      ro(CLIENT_TIER_LABEL[p.clientTier] || '—'))}
+        ${lbl('Margin target',    ro(p.marginTarget != null ? p.marginTarget + '%' : '—'))}
       </div>
       <div class="mt-3 pt-3 border-t border-line/60">
         <p class="text-[10px] font-semibold uppercase tracking-widest text-muted mb-1.5">PPM recommendation</p>
         <div id="ppm-rec-${p.id}" class="text-xs text-muted">Calculating…</div>
-        <div id="ppm-ai-${p.id}"></div>
       </div>
     </div>
 
@@ -572,14 +339,6 @@ async function showProjectDetail(id) {
   wireSel(`detail-pm-${id}`,       'pmId');
   wireSel(`detail-priority-${id}`, 'priority');
 
-  // Quadrant is special — changing it may show/hide the Drain gate row,
-  // so we re-render the whole detail panel after saving.
-  const quadEl = document.getElementById(`detail-quadrant-${id}`);
-  if (quadEl) quadEl.onchange = async () => {
-    await patch({ quadrant: quadEl.value });
-    showProjectDetail(id);
-  };
-
   // Date inputs — patch on change.
   const wireDate = (fId, field) => {
     const el = document.getElementById(fId);
@@ -662,32 +421,8 @@ async function showProjectDetail(id) {
     };
   }
 
-  // Number inputs — patch on blur.
-  const wireNum = (fId, field) => {
-    const el = document.getElementById(fId);
-    if (!el) return;
-    el.onblur = () => {
-      const v = el.value === '' ? null : parseFloat(el.value);
-      patch({ [field]: v });
-    };
-  };
-  wireNum(`detail-est-dur-${id}`,    'estimatedDuration');
-  wireNum(`detail-complexity-${id}`, 'complexityScore');
-
-  // Drain gate checkboxes (only present when quadrant === 'DRAIN').
-  const drainExec = document.getElementById(`detail-drain-exec-${id}`);
-  const drainProd = document.getElementById(`detail-drain-prod-${id}`);
-  if (drainExec) drainExec.onchange = () => patch({ drainApprovedByExec:     drainExec.checked });
-  if (drainProd) drainProd.onchange = () => patch({ drainApprovedByProducer: drainProd.checked });
-
-  // Wire up live PPM suggestion (instant, rule-based) + debounced AI fetch on every PPM input change.
-  // (Value / tier / margin come from the job and are read-only here.)
-  const cxEl = document.getElementById(`detail-complexity-${id}`);
-  if (cxEl) cxEl.addEventListener('input', () => { refreshPpmSuggestion(id); scheduleAiFetch(id); });
-
-  // Initial render: rule-based is instant; AI fires after the 700 ms debounce.
-  refreshPpmSuggestion(id);
-  scheduleAiFetch(id);
+  // Read-only PPM summary for this project (recommendation vs current quadrant).
+  loadPpmBadge(id);
 
   // Load async sections.
   loadProjectSkills(id);

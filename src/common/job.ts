@@ -2,41 +2,66 @@ import { Prisma, PrismaClient } from '@prisma/client';
 
 // ── The "Job" root (Sept 2026 restructure) ──────────────────────────
 // A Job is a Lead that owns a Project. The Lead (job) holds the money —
-// value, margin target, client tier, costs, quotations/invoices — and the
-// Project holds production info only. Every Project has exactly one job.
+// value, margin target, client tier, costs, quotations/invoices — AND the
+// PPM assessment (quadrant, complexity, duration, Drain approvals), which is
+// done before quoting. The Project holds production info only, plus a mirror
+// of the quadrant for the production lanes. Every Project has exactly one job.
 //
-// During the move, Project still has its old money columns. They are no
-// longer the source of truth: read money from the job via the helpers here.
-// The step-4 cleanup migration drops the Project columns.
+// Project still has its old money / PPM columns. They are no longer the
+// source of truth: read them from the job via the helpers here. The step-4
+// cleanup migration drops them (except Project.quadrant — the lane mirror).
 
 // Either the root client or a transaction client (`tx` inside $transaction).
 type Db = PrismaClient | Prisma.TransactionClient;
 
-// Add this to a Project `include`/`select` to fetch its job's money fields.
-export const JOB_MONEY = {
-  lead: { select: { id: true, estimatedValue: true, marginTarget: true, clientTier: true } },
+// Add this to a Project `include`/`select` to fetch its job's money + PPM fields.
+export const JOB_FIELDS = {
+  lead: {
+    select: {
+      id: true, estimatedValue: true, marginTarget: true, clientTier: true,
+      complexityScore: true, estimatedDuration: true,
+      drainApprovedByExec: true, drainApprovedByProducer: true,
+    },
+  },
 } as const;
 
-type JobMoney = {
+type JobFields = {
   id: string;
   estimatedValue: number | null;
   marginTarget: number | null;
   clientTier: string | null;
+  complexityScore: number | null;
+  estimatedDuration: number | null;
+  drainApprovedByExec: boolean;
+  drainApprovedByProducer: boolean;
 } | null;
 
-// Replace a project's (stale) money fields with its job's values, and add
-// `jobId` so the UI can link across. Keeps the response shape the frontend
-// already reads, so screens keep working until they're moved to the job.
-export function withJobMoney<T extends { lead?: JobMoney }>(project: T) {
+// Replace a project's (stale) money + PPM fields with its job's values, and
+// add `jobId` so the UI can link across. Keeps the response shape the
+// frontend already reads, so screens keep working unchanged.
+// (quadrant isn't overlaid: Project.quadrant is kept in sync with the job.)
+export function withJobFields<T extends { lead?: JobFields }>(project: T) {
   const { lead, ...rest } = project;
   return {
     ...rest,
-    jobId:          lead?.id ?? null,
-    estimatedValue: lead?.estimatedValue ?? null,
-    marginTarget:   lead?.marginTarget   ?? null,
-    clientTier:     lead?.clientTier     ?? null,
+    jobId:                   lead?.id ?? null,
+    estimatedValue:          lead?.estimatedValue    ?? null,
+    marginTarget:            lead?.marginTarget      ?? null,
+    clientTier:              lead?.clientTier        ?? null,
+    complexityScore:         lead?.complexityScore   ?? null,
+    estimatedDuration:       lead?.estimatedDuration ?? null,
+    drainApprovedByExec:     lead?.drainApprovedByExec     ?? false,
+    drainApprovedByProducer: lead?.drainApprovedByProducer ?? false,
   };
 }
+
+// Fields the job owns that the old project form / API may still send.
+// ProjectsService routes these to the job instead of the project.
+export const JOB_OWNED_FIELDS = [
+  'estimatedValue', 'marginTarget', 'clientTier',
+  'quadrant', 'complexityScore', 'estimatedDuration',
+  'drainApprovedByExec', 'drainApprovedByProducer',
+] as const;
 
 // Jobs created for a project that had no sale behind it (made on the
 // Projects tab, or back-filled by the migration) use this id pattern.
@@ -65,6 +90,7 @@ export async function ensureJobForProject(db: Db, projectId: string): Promise<st
                : 'WON',
       notes:     'Auto-created for a project with no sale logged behind it.',
       projectId: project.id,
+      quadrant:  project.quadrant,
     },
     select: { id: true },
   });

@@ -65,14 +65,22 @@ export class ProductionService {
     const where: any = { status: { notIn: ['DELIVERED', 'CANCELLED'] }, ...(co ?? {}) };
     if (personId) where.capacityEntries = { some: { personId } };
 
-    const projects = await this.prisma.project.findMany({
+    const rows = await this.prisma.project.findMany({
       where,
       include: {
         producer: { select: { id: true, name: true } },
         pm:       { select: { id: true, name: true } },
+        // Drain gate approvals live on the job (PPM is assessed there) — only
+        // those two flags, since STAFF see these lanes and jobs hold money.
+        lead:     { select: { drainApprovedByExec: true, drainApprovedByProducer: true } },
       },
       orderBy: [{ priority: 'asc' }, { createdAt: 'desc' }],
     });
+    const projects = rows.map(({ lead, ...p }) => ({
+      ...p,
+      drainApprovedByExec:     lead?.drainApprovedByExec     ?? false,
+      drainApprovedByProducer: lead?.drainApprovedByProducer ?? false,
+    }));
 
     // Group projects into their lane and attach lane metadata.
     return Object.entries(LANE_META).map(([quadrant, meta]) => ({

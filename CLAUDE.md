@@ -226,18 +226,33 @@ login. Click (admin only) to create a login or view the linked account.
   (WON / COMPLETED, or any lead with a project) is the root of the deal:
   - Lead = sales + **all money**: `estimatedValue`, `marginTarget`, `clientTier`,
     `invoicedPct` / `paidPct`, costs (`ProjectCost.leadId`), Autocount docs.
-  - Project = **production only**: dates, team, priority/quadrant, skills, capacity.
+  - Lead = the **PPM assessment** too: `quadrant` (null = not assessed),
+    `complexityScore`, `estimatedDuration`, `drainApprovedByExec/Producer`.
+    Assessed on the Job page, ideally at Proposal / Negotiation (Sales cards
+    nudge "Assess (PPM) →") so a Drain is caught before quoting.
+    `convertToProject` refuses a DRAIN job without both approvals, and starts
+    the project with the job's quadrant + the PPM-recommended priority.
+  - Project = **production only**: dates, team, **priority**, skills, capacity.
+    `Project.quadrant` is a **mirror** of the job's quadrant (drives the
+    Production lanes + badges); only the job writes it — LeadsService.update()
+    and ProjectsService (routes `JOB_OWNED_FIELDS` to the job) keep it in sync.
+    The project page shows PPM read-only with "Assess on the job →".
   - Every Project has exactly one job. Projects made on the Projects tab get an
     auto job with id `job_<projectId>` (no closer / wonAt → never counted in
     commission or targets); deleting the project deletes its auto job, never a
-    real sales lead. Helpers: `src/common/job.ts` (`JOB_MONEY`, `withJobMoney`,
-    `ensureJobForProject`) — read money from the job, never from Project.
+    real sales lead. Helpers: `src/common/job.ts` (`JOB_FIELDS`, `withJobFields`,
+    `JOB_OWNED_FIELDS`, `ensureJobForProject`) — read money + PPM from the job,
+    never from Project.
   - UI: Jobs tab (`jobs.html`, list) → Job page (`job.html`: Sales / Production
     / Money sections). API: `GET /api/jobs`, `GET /api/jobs/:id` (read-only;
     edits go through `/api/leads`, `/api/projects`, `/api/project-costs`).
   - Pending "step 4" cleanup: Project still has old `estimatedValue`,
-    `marginTarget`, `clientTier`, `client` columns and `ProjectCost.projectId`
-    is still required. They are no longer read — drop them in a later migration.
+    `marginTarget`, `clientTier`, `client`, `complexityScore`,
+    `estimatedDuration`, `drainApprovedByExec/Producer` columns, and
+    `ProjectCost.projectId` is still required. They are no longer read — drop
+    them in a later migration (keep `Project.quadrant`, the lane mirror).
+    Also: `prisma/seed.js` creates projects without jobs — `ensureJobForProject`
+    covers writes, but seeded projects show no money / PPM until one is made.
 
 - **AccountingDocument** — one Autocount document per row (QUOTATION,
   SALES_INVOICE, PURCHASE_INVOICE). Linked to Project and/or Lead. Fields:
