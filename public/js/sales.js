@@ -331,19 +331,8 @@ function renderSalesPipeline() {
     }).join('') +
     `</div>`;
 
-  // Wire up inline status dropdowns and convert buttons.
-  $('sales-board').querySelectorAll('[data-lead-status]').forEach(sel => {
-    sel.onchange = async () => {
-      const id     = sel.dataset.leadStatus;
-      const status = sel.value;
-      await fetch(`/api/leads/${id}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      });
-      loadSales();
-    };
-  });
-
+  // Wire up the inline "closed by" dropdown. Status is changed by dragging the
+  // card between columns (below) — there's no per-card status dropdown.
   $('sales-board').querySelectorAll('[data-lead-closed-by]').forEach(sel => {
     sel.onchange = async () => {
       await fetch(`/api/leads/${sel.dataset.leadClosedBy}`, {
@@ -356,7 +345,7 @@ function renderSalesPipeline() {
 
 
   // Drag-and-drop: dragging a card into a different column changes its status
-  // (same PATCH the status dropdown uses). Dragging within a column just
+  // (PATCH /api/leads/:id with the new status). Dragging within a column just
   // repositions the card visually — there's no persisted order field, so
   // that position resets next time the board reloads.
   $('sales-board').querySelectorAll('[data-lead-card]').forEach(card => {
@@ -512,10 +501,6 @@ function renderLeadCard(l) {
        </div>`
     : '';
 
-  const statusSel = PIPELINE_STAGES.map(s =>
-    `<option value="${s}"${l.status === s ? ' selected' : ''}>${LEAD_STATUS_LABEL[s]}</option>`
-  ).join('');
-
   const closedBySel = '<option value="">— unassigned —</option>' +
     _salesPeople.filter(p => p.status === 'ACTIVE')
       .map(p => `<option value="${p.id}"${l.closedById === p.id ? ' selected' : ''}>${esc(p.name)}</option>`).join('');
@@ -542,13 +527,8 @@ function renderLeadCard(l) {
       <span class="text-xs ${priCls}">${l.priority.replace('_', ' ')}</span>
     </div>
     ${payBadge}
-    <select data-lead-status="${l.id}"
-      class="w-full mt-1 bg-panel border border-line text-ink px-2 py-1 rounded-md text-xs
-             focus:outline-none focus:border-accent/70 cursor-pointer">
-      ${statusSel}
-    </select>
     <select data-lead-closed-by="${l.id}"
-      class="w-full bg-panel border border-line text-muted px-2 py-1 rounded-md text-xs
+      class="w-full mt-1 bg-panel border border-line text-muted px-2 py-1 rounded-md text-xs
              focus:outline-none focus:border-accent/70 cursor-pointer">
       ${closedBySel}
     </select>
