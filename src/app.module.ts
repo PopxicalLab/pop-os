@@ -24,6 +24,7 @@ import { ReportsModule } from './reports/reports.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { MattermostModule } from './mattermost/mattermost.module';
 import { ProjectCostsModule } from './project-costs/project-costs.module';
+import { JobsModule } from './jobs/jobs.module';
 import { CommissionTiersModule } from './commission-tiers/commission-tiers.module';
 import { SalesTargetsModule } from './sales-targets/sales-targets.module';
 import { SalesPerformanceModule } from './sales-performance/sales-performance.module';
@@ -61,6 +62,7 @@ import { JwtAuthGuard } from './auth/jwt.guard';
     NotificationsModule,
     MattermostModule,
     ProjectCostsModule,
+    JobsModule,
     CommissionTiersModule,
     SalesTargetsModule,
     SalesPerformanceModule,

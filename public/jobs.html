@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pop OS — Job</title>
+  <title>Pop OS — Jobs</title>
   <link rel="icon" type="image/png" href="/lps-logo.png" />
 
   <!-- Paint body background immediately to prevent a flash while Tailwind loads. -->
@@ -81,8 +81,8 @@
 <body class="bg-bg min-h-screen text-ink antialiased">
 
   <!-- Header — same nav on every page, built by shared.js's renderHeader()
-       instead of duplicating ~140 lines of markup per page. A single job
-       belongs to the Jobs tab, so Jobs renders as active in the nav. -->
+       instead of duplicating ~140 lines of markup per page. 'jobs' here
+       is this page's own tab — it renders as active in the nav. -->
   <script>document.write(renderHeader('jobs'));</script>
 
   <!-- ── SETTINGS OVERLAY ────────────────────────────────────── -->
@@ -187,16 +187,28 @@
   </div>
 
   <!-- ════════════════════════════════════════════════════
-       JOB — one deal: money (here) + a link to its project (production).
-       Content is rendered by /js/job.js.
+       JOBS — every won deal in one list: sales + production + money.
+       Rows open the Job page. Rendered by /js/jobs.js.
   ════════════════════════════════════════════════════ -->
-  <div class="max-w-4xl mx-auto px-5 py-6">
-    <a href="/jobs.html" class="text-xs text-muted hover:text-ink">← All jobs</a>
-    <div id="job-msg" class="text-xs mt-2 min-h-[16px]"></div>
-    <div id="job-content" class="bg-panel border border-line rounded-xl p-6 mt-1">
-      <p class="text-sm text-muted">Loading…</p>
+  <div class="max-w-7xl mx-auto px-5 py-6">
+    <div id="jobs-stats" class="text-xs mb-4"></div>
+    <div class="bg-panel border border-line rounded-xl p-5">
+      <div class="flex flex-wrap items-center gap-3 mb-4">
+        <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">Jobs</h2>
+        <input id="jobs-search" type="search" placeholder="Search job, client, producer…"
+          class="ml-auto bg-panel2 border border-line text-ink text-xs px-3 py-1.5 rounded-lg w-64
+                 focus:outline-none focus:border-accent/60 placeholder-muted/60" />
+        <select id="jobs-show"
+          class="bg-panel2 border border-line text-ink text-xs px-2 py-1.5 rounded-lg cursor-pointer focus:outline-none focus:border-accent/60">
+          <option value="active">In progress</option>
+          <option value="done">Delivered / completed</option>
+          <option value="all">All jobs</option>
+        </select>
+      </div>
+      <div id="jobs-table" class="overflow-x-auto"><p class="text-sm text-muted">Loading…</p></div>
     </div>
   </div>
+
   <!-- ── User Manager modal (admin only) ──────────────────────── -->
   <div id="user-mgr-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center">
     <div class="absolute inset-0 bg-bg/80 backdrop-blur-sm" onclick="closeUserManager()"></div>
@@ -255,43 +267,11 @@
   </div>
 
 
-  <!-- ── Autocount push modal (quotation or invoice — job.js sets the wording) ── -->
-  <div id="push-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
-    <div class="bg-panel border border-line rounded-2xl w-full max-w-sm mx-4 p-6 shadow-2xl space-y-4">
-      <div class="flex items-center justify-between">
-        <h2 id="push-modal-heading" class="text-sm font-semibold text-ink">Push to Autocount</h2>
-        <button onclick="closePushModal()" class="text-muted hover:text-ink text-lg leading-none">×</button>
-      </div>
-      <p class="text-xs text-muted">
-        For: <span id="push-modal-title" class="text-ink font-medium"></span>
-      </p>
-      <div>
-        <label class="form-label">Autocount Debtor</label>
-        <select id="push-debtor-sel" class="form-input text-sm">
-          <option value="">— select debtor —</option>
-        </select>
-      </div>
-      <div id="push-modal-msg" class="text-xs min-h-[16px]"></div>
-      <div class="flex gap-2 pt-1">
-        <button id="push-submit-btn" onclick="submitPush()"
-          class="flex-1 bg-sky-500/15 border border-sky-500/30 text-sky-400 text-sm py-2 rounded-xl
-                 hover:bg-sky-500/25 transition-colors cursor-pointer font-semibold">
-          Create
-        </button>
-        <button onclick="closePushModal()"
-          class="flex-1 bg-panel2 border border-line text-muted text-sm py-2 rounded-xl
-                 hover:text-ink transition-colors cursor-pointer">
-          Cancel
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <script src="/js/job.js"></script>
+  <script src="/js/jobs.js"></script>
   <script>
     initUserUI();
-    window._reloadCurrentTab = loadJob; // company filter buttons reload this page's data
-    loadJob();
+    window._reloadCurrentTab = renderJobs; // company filter buttons re-filter this page
+    loadJobs();
   </script>
 </body>
 </html>

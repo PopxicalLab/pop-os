@@ -24,7 +24,8 @@ not just describe.
   `public/index.html` is a thin shell (HTML structure, shared utilities, theme,
   tab switching, auth check, global fetch wrapper). Each tab's logic lives in its
   own file under `public/js/`:
-  `mywork.js`, `dashboard.js`, `sales.js`, `clients.js`, `sales-performance.js`,
+  `mywork.js`, `dashboard.js`, `jobs.js` (Jobs list), `job.js` (one job),
+  `sales.js`, `clients.js`, `sales-performance.js`,
   `projects.js`, `production.js`,
   `capacity.js`, `financial.js`, `people.js`, `staffing.js`, `admin.js`.
   Adding a new tab = new file + one `<script src>` line in `index.html`.
@@ -141,11 +142,15 @@ visibility via `TAB_ACCESS` map in `index.html`):
 | Role | Access |
 |---|---|
 | ADMIN | Everything — users, all tabs, Autocount push, salary data |
-| PRODUCER | My Work, Dashboard, Sales pipeline, Projects, Capacity, Production, People, Staffing |
+| PRODUCER | My Work, Dashboard, Jobs, Sales pipeline, Projects, Capacity, Production, People, Staffing |
 | PM | Same as PRODUCER |
 | TEAM_LEAD | My Work, Dashboard, Projects (read), Production, Capacity, People (read) |
-| FINANCE | My Work, Financial tab, Projects (read), salary data |
-| SALES | My Work, Sales pipeline, Clients only |
+| FINANCE | My Work, Jobs, Financial tab, Projects (read), salary data |
+| SALES | My Work, Jobs, Sales pipeline, Clients only |
+
+Jobs show money, so only ADMIN / PRODUCER / PM / FINANCE / SALES see them —
+enforced in `JOB_ROLES` (`src/jobs/jobs.controller.ts`) and `TAB_ACCESS.jobs`
+(`shared.js`); keep the two in sync. TEAM_LEAD / STAFF get no job links.
 | STAFF | My Work, Dashboard, Projects (read), Production, Capacity, People (read) |
 
 **User vs Person distinction:** `User` = login credential. `Person` = production
@@ -212,10 +217,27 @@ login. Click (admin only) to create a login or view the linked account.
 - **Contact** — person at a client company. Linked to Account and Lead.
 
 - **Lead** — sales opportunity. Status: QUALIFICATION → PROPOSAL → NEGOTIATION →
-  WON → LOST. `convertToProject` endpoint creates a Project from a WON lead.
+  WON → COMPLETED / LOST. `convertToProject` endpoint creates a Project from a WON lead.
   Has many AccountingDocument (quotations pushed to Autocount).
   `closedById` FK → Person (who won/lost the deal). Set manually via inline
   dropdown on each kanban card. `wonAt` auto-stamped when status changes to WON.
+
+- **Job (Sept 2026 restructure) — not a table, a role a Lead plays.** A won lead
+  (WON / COMPLETED, or any lead with a project) is the root of the deal:
+  - Lead = sales + **all money**: `estimatedValue`, `marginTarget`, `clientTier`,
+    `invoicedPct` / `paidPct`, costs (`ProjectCost.leadId`), Autocount docs.
+  - Project = **production only**: dates, team, priority/quadrant, skills, capacity.
+  - Every Project has exactly one job. Projects made on the Projects tab get an
+    auto job with id `job_<projectId>` (no closer / wonAt → never counted in
+    commission or targets); deleting the project deletes its auto job, never a
+    real sales lead. Helpers: `src/common/job.ts` (`JOB_MONEY`, `withJobMoney`,
+    `ensureJobForProject`) — read money from the job, never from Project.
+  - UI: Jobs tab (`jobs.html`, list) → Job page (`job.html`: Sales / Production
+    / Money sections). API: `GET /api/jobs`, `GET /api/jobs/:id` (read-only;
+    edits go through `/api/leads`, `/api/projects`, `/api/project-costs`).
+  - Pending "step 4" cleanup: Project still has old `estimatedValue`,
+    `marginTarget`, `clientTier`, `client` columns and `ProjectCost.projectId`
+    is still required. They are no longer read — drop them in a later migration.
 
 - **AccountingDocument** — one Autocount document per row (QUOTATION,
   SALES_INVOICE, PURCHASE_INVOICE). Linked to Project and/or Lead. Fields:
@@ -308,6 +330,7 @@ is its own mini-dashboard in context.
 **Navigation** uses grouped dropdowns:
 - My Work (direct — personal dashboard for all roles)
 - Dashboard (direct — cross-module command centre)
+- Jobs (direct — every won deal: sales + production + money; money roles only)
 - Sales ▾ → Sales pipeline, Clients, Sales Performance (admin only)
 - Production ▾ → Projects, Production engine, Capacity
 - Financial (direct — FINANCE + ADMIN only)

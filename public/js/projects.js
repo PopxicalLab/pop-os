@@ -383,7 +383,8 @@ async function showProjectDetail(id) {
   const roEl = (fId, raw, shown) =>
     `<input id="${fId}" type="hidden" value="${raw ?? ''}" />
      <p class="text-xs text-ink px-2 py-1">${shown}</p>`;
-  const jobLink = (text) => p.jobId
+  // Only money roles can open a job (TAB_ACCESS.jobs), so others get no link.
+  const jobLink = (text) => p.jobId && TAB_ACCESS.jobs.includes(currentRole())
     ? `<a href="/job.html?id=${p.jobId}" class="text-[11px] text-accent hover:underline">${text}</a>`
     : '';
 

@@ -7,9 +7,10 @@
 // Project holds production info only (dates, team, skills, capacity)
 // and has an "Open job" link back here.
 //
-// Opened as  /job.html?id=<leadId>   or   /job.html?project=<projectId>
+// Opened from the Jobs tab (jobs.html), a Sales card, or a project page:
+//   /job.html?id=<leadId>   or   /job.html?project=<projectId>
 // Depends on: $, msg, esc, coBadge, LEAD_STATUS_LABEL, LEAD_STATUS_CLS,
-//             CLIENT_TIER_LABEL, STATUS_LABEL  (shared.js)
+//             CLIENT_TIER_LABEL, STATUS_LABEL, PRI_CLS  (shared.js)
 // ══════════════════════════════════════════════════════════════
 
 const JOB_COST_LABEL = { WARM_POOL: 'Warm pool', SUPPLIER: 'Supplier', ADDITIONAL: 'Additional' };
@@ -42,7 +43,10 @@ async function loadJob() {
   }
   if (!id) { $('job-content').innerHTML = '<p class="text-sm text-muted">Job not found.</p>'; return; }
 
-  const res = await fetch('/api/leads/' + id);
+  // /api/jobs/:id = the lead + its full project (team, dates, this week's
+  // bookings) + costs + Autocount docs. Edits still PATCH /api/leads.
+  const res = await fetch('/api/jobs/' + id);
+  if (res.status === 403) { $('job-content').innerHTML = '<p class="text-sm text-muted">Jobs aren\'t available for your role.</p>'; return; }
   if (!res.ok) { $('job-content').innerHTML = '<p class="text-sm text-muted">Job not found.</p>'; return; }
   _job = await res.json();
   document.title = 'Pop OS — ' + _job.name;
@@ -63,19 +67,45 @@ function renderJob() {
   const opts = (list, cur, fmt = v => v) =>
     list.map(v => `<option value="${v}"${String(cur ?? '') === String(v) ? ' selected' : ''}>${fmt(v)}</option>`).join('');
 
-  // Production side: link to the project, or offer to create one once won.
-  const projectBlock = j.project
-    ? `<a href="/projects.html?open=${j.project.id}"
-          class="inline-flex items-center gap-1.5 text-xs bg-emerald-500/15 border border-emerald-500/30 text-emerald-400
-                 px-3 py-1.5 rounded-lg hover:bg-emerald-500/25 transition-colors">
-         Open project → ${esc(j.project.name)}
-         <span class="text-emerald-400/70">(${STATUS_LABEL[j.project.status] || j.project.status})</span>
-       </a>`
-    : j.status === 'WON'
-      ? `<button onclick="convertJob()"
-            class="text-xs bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 px-3 py-1.5 rounded-lg
-                   hover:bg-emerald-500/25 transition-colors cursor-pointer font-semibold">→ Create project</button>`
-      : `<span class="text-xs text-muted">No project yet — one is created once the deal is won.</span>`;
+  const val = (v) => `<p class="text-xs text-ink">${v}</p>`;
+  const sectionHead = (title, link = '') =>
+    `<div class="flex items-center justify-between mb-3">
+       <p class="text-[11px] font-semibold uppercase tracking-widest text-muted">${title}</p>${link}
+     </div>`;
+  const p = j.project;
+
+  // ── Production side (read-only here — the project page is where it's edited,
+  //    so there's one place to change each thing). No project yet → offer one.
+  let production;
+  if (p) {
+    const booked = p.capacityEntries || [];
+    production = `
+      ${sectionHead('Production',
+        `<a href="/projects.html?open=${p.id}" class="text-[11px] text-accent hover:underline">Edit on project page →</a>`)}
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        ${lbl('Project status', val(STATUS_LABEL[p.status] || p.status))}
+        ${lbl('Priority',       `<p class="text-xs ${PRI_CLS[p.priority] || 'text-ink'}">${p.priority}</p>`)}
+        ${lbl('Start → Deadline', val(`${fmtDate(p.startDate)} → ${fmtDate(p.deadline)}`))}
+        ${lbl('Producer',       val(p.producer ? esc(p.producer.name) : '—'))}
+        ${lbl('PM',             val(p.pm ? esc(p.pm.name) : '—'))}
+        ${lbl('Timeline',       p.timelineUrl
+          ? `<a href="${esc(p.timelineUrl)}" target="_blank" rel="noopener" class="text-xs text-accent hover:underline">Open ↗</a>`
+          : val('—'))}
+      </div>
+      <p class="text-[10px] text-muted font-medium uppercase tracking-wider mt-4 mb-1">Booked this week</p>
+      ${booked.length
+        ? `<div class="flex flex-wrap gap-1.5">${booked.map(b =>
+            `<span class="badge bg-panel2 border border-line text-ink text-[11px]">${esc(b.person.name)} · ${Math.round(b.pctWeek)}%</span>`).join('')}</div>`
+        : '<p class="text-xs text-muted">Nobody booked this week.</p>'}`;
+  } else {
+    production = `
+      ${sectionHead('Production')}
+      ${j.status === 'WON'
+        ? `<button onclick="convertJob()"
+             class="text-xs bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 px-3 py-1.5 rounded-lg
+                    hover:bg-emerald-500/25 transition-colors cursor-pointer font-semibold">→ Create project</button>`
+        : '<p class="text-xs text-muted">No project for this job.</p>'}`;
+  }
 
   $('job-content').innerHTML = `
     <div class="flex flex-wrap items-start justify-between gap-3 mb-5">
@@ -87,15 +117,26 @@ function renderJob() {
           ${j.company ? ' · ' + coBadge(j.company) : ''}
         </p>
       </div>
-      <div class="text-right space-y-1">
+      <div class="flex gap-1.5">
         <span class="badge border ${LEAD_STATUS_CLS[j.status] || ''}">${LEAD_STATUS_LABEL[j.status] || j.status}</span>
-        <p class="text-[11px] text-muted">
-          ${j.closedBy ? 'Closed by ' + esc(j.closedBy.name) : 'No closer'}${j.wonAt ? ' · won ' + fmtDate(j.wonAt) : ''}
-        </p>
+        ${p ? `<span class="badge bg-panel2 border border-line text-ink">${STATUS_LABEL[p.status] || p.status}</span>` : ''}
       </div>
     </div>
 
-    <div class="pb-5 border-b border-line">${projectBlock}</div>
+    <!-- Sales side — who won it, when, for whom. -->
+    <div class="pb-5 border-b border-line">
+      ${sectionHead('Sales', '<a href="/sales.html" class="text-[11px] text-accent hover:underline">Sales pipeline →</a>')}
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        ${lbl('Stage',     `<span class="badge border ${LEAD_STATUS_CLS[j.status] || ''} text-[11px]">${LEAD_STATUS_LABEL[j.status] || j.status}</span>`)}
+        ${lbl('Closed by', val(j.closedBy ? esc(j.closedBy.name) : '—'))}
+        ${lbl('Won on',    val(fmtDate(j.wonAt)))}
+        ${lbl('Client',    val(j.account ? esc(j.account.name) : '—'))}
+        ${lbl('Contact',   val(j.contact ? esc(j.contact.name) + (j.contact.title ? ` <span class="text-muted">· ${esc(j.contact.title)}</span>` : '') : '—'))}
+      </div>
+      ${j.id.startsWith('job_') ? '<p class="text-[11px] text-muted/60 mt-2">No sale was logged for this job — it was created from its project.</p>' : ''}
+    </div>
+
+    <div class="py-5 border-b border-line">${production}</div>
 
     <!-- Money summary — the numbers commission and Financial read. -->
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 py-5 border-b border-line">
@@ -262,8 +303,7 @@ async function patchJob(data) {
     return loadJob();
   }
   msg($('job-msg'), '', '');
-  _job = { ..._job, ...(await res.json()) };
-  renderJob();   // refresh the Value / Net / Net margin tiles
+  loadJob();   // refetch the full job (the lead PATCH reply has no project detail) → tiles refresh
 }
 
 function wireMoneyInputs() {

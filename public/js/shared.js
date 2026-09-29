@@ -191,11 +191,11 @@ const LEAD_STATUS_CLS = {
 };
 
 // ── tab switching (SPA shell only — no-op on a standalone tab page) ──
-const ALL_TABS = ['dashboard','mywork','sales','clients','sp','projects','production','capacity','financial','people','staffing','committees','admin'];
+const ALL_TABS = ['dashboard','mywork','jobs','sales','clients','sp','projects','production','capacity','financial','people','staffing','committees','admin'];
 
 // Which group each tab belongs to (for highlighting the group button)
 const TAB_GROUP = {
-  dashboard: null, mywork: null,
+  dashboard: null, mywork: null, jobs: null,
   sales: 'sales', clients: 'sales', sp: 'sales',
   projects: 'production', production: 'production', capacity: 'production',
   financial: null,
@@ -220,6 +220,7 @@ const TAB_PAGE = {
   staffing:   '/staffing.html',
   committees: '/committees.html',
   mywork:     '/mywork.html',
+  jobs:       '/jobs.html',
   admin:      '/admin.html',
 };
 function hrefForTab(name) {
@@ -270,6 +271,9 @@ function renderHeader(activeTab) {
 
         <!-- My Work (direct — personal dashboard for the logged-in user) -->
         <a id="tab-btn-mywork" href="${hrefForTab('mywork')}" class="${directCls('mywork')}">My Work</a>
+
+        <!-- Jobs (direct — every won deal: sales + production + money in one place) -->
+        <a id="tab-btn-jobs" href="${hrefForTab('jobs')}" class="${directCls('jobs')}">Jobs</a>
 
         <!-- Sales group -->
         <div class="relative" id="grp-sales">
@@ -537,6 +541,9 @@ function resetTheme() {
 const TAB_ACCESS = {
   dashboard:  ['ADMIN','PRODUCER','SALES','FINANCE','PM','TEAM_LEAD','STAFF'],
   mywork:     ['ADMIN','PRODUCER','SALES','FINANCE','PM','TEAM_LEAD','STAFF'],
+  // Jobs show money (value, costs, net, invoices) — money roles only.
+  // Keep in sync with JOB_ROLES in src/jobs/jobs.controller.ts.
+  jobs:       ['ADMIN','PRODUCER','PM','FINANCE','SALES'],
   sales:      ['ADMIN','SALES','PRODUCER'],
   clients:    ['ADMIN','SALES'],
   sp:         ['ADMIN'],
