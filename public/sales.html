@@ -234,8 +234,31 @@
             class="px-2.5 py-1 rounded-md cursor-pointer transition-colors">Leads over time</button>
           <button id="sales-subtab-board" onclick="setSalesSubTab('board')"
             class="px-2.5 py-1 rounded-md cursor-pointer transition-colors">Pipeline</button>
+          <button id="sales-subtab-list" onclick="setSalesSubTab('list')"
+            class="px-2.5 py-1 rounded-md cursor-pointer transition-colors">List</button>
         </div>
         <div id="sales-stats" class="text-xs text-muted"></div>
+      </div>
+
+      <!-- List pane — Airtable-style grid, one row per lead, cells editable in
+           place. Columns can be shown / hidden per user (⚙ Columns). -->
+      <div id="sales-pane-list" class="hidden">
+        <div class="flex items-center gap-2 mb-3">
+          <input id="sales-list-search" type="text" placeholder="Search leads, accounts, contacts…" autocomplete="off"
+            class="flex-1 bg-panel2 border border-line text-ink text-xs px-3 py-1.5 rounded-lg
+                   focus:outline-none focus:border-accent/60" />
+          <div class="relative">
+            <button onclick="toggleSalesColPicker(event)"
+              class="text-xs bg-panel2 border border-line text-muted hover:text-ink px-3 py-1.5 rounded-lg cursor-pointer whitespace-nowrap">
+              ⚙ Columns
+            </button>
+            <div id="sales-col-picker"
+              class="hidden absolute right-0 top-full mt-1 z-30 bg-panel border border-line rounded-xl shadow-xl p-3 w-52 space-y-1.5"></div>
+          </div>
+        </div>
+        <div id="sales-list" class="overflow-x-auto">
+          <div class="text-center text-muted text-sm py-10">Loading…</div>
+        </div>
       </div>
 
       <!-- Pipeline pane -->
@@ -365,6 +388,7 @@
   </div>
 
   <script src="/js/sales.js"></script>
+  <script src="/js/sales-list.js"></script>
   <script>
     initUserUI();
     window._reloadCurrentTab = loadSales; // so the company filter buttons reload this page's data

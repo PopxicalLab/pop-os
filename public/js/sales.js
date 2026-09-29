@@ -33,8 +33,10 @@ let _autocountDebtors = [];
 let _allLeads = []; // full cache — search filters client-side
 let _dragGhost = null; // placeholder bar shown at the drop position while dragging a lead card
 
-// 'chart' (default) or 'board' — which sub-tab of the right-hand panel is showing.
-let _salesSubTab = localStorage.getItem('pop-os-sales-subtab') === 'board' ? 'board' : 'chart';
+// 'chart' (default), 'board' or 'list' — which sub-tab of the right-hand panel is showing.
+// (The List view itself lives in sales-list.js.)
+let _salesSubTab = ['board', 'list'].includes(localStorage.getItem('pop-os-sales-subtab'))
+  ? localStorage.getItem('pop-os-sales-subtab') : 'chart';
 
 function setSalesSubTab(tab) {
   _salesSubTab = tab;
@@ -44,10 +46,10 @@ function setSalesSubTab(tab) {
 
 function applySalesSubTab() {
   const on = 'bg-accent text-bg font-semibold', off = 'text-muted hover:text-ink';
-  $('sales-subtab-chart').className = 'px-2.5 py-1 rounded-md cursor-pointer transition-colors ' + (_salesSubTab === 'chart' ? on : off);
-  $('sales-subtab-board').className = 'px-2.5 py-1 rounded-md cursor-pointer transition-colors ' + (_salesSubTab === 'board' ? on : off);
-  $('sales-pane-chart').classList.toggle('hidden', _salesSubTab !== 'chart');
-  $('sales-pane-board').classList.toggle('hidden', _salesSubTab !== 'board');
+  for (const t of ['chart', 'board', 'list']) {
+    $('sales-subtab-' + t).className = 'px-2.5 py-1 rounded-md cursor-pointer transition-colors ' + (_salesSubTab === t ? on : off);
+    $('sales-pane-' + t).classList.toggle('hidden', _salesSubTab !== t);
+  }
 }
 
 // 'month' (default) or 'quarter' — which period the "Leads over time" chart buckets by.
@@ -307,6 +309,7 @@ function renderSalesPipeline() {
     `<span class="text-slate-400 font-semibold">${completed.length}</span><span class="text-muted"> completed</span>`;
 
   renderSalesChart(filtered);
+  renderSalesList();   // List view (sales-list.js) — has its own search box
 
   // Pipeline columns
   const byStage = {};

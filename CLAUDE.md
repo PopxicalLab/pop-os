@@ -25,7 +25,7 @@ not just describe.
   tab switching, auth check, global fetch wrapper). Each tab's logic lives in its
   own file under `public/js/`:
   `mywork.js`, `dashboard.js`, `jobs.js` (Jobs list), `job.js` (one job),
-  `sales.js`, `clients.js`, `sales-performance.js`,
+  `sales.js` (+ `sales-list.js`, the List sub-tab), `clients.js`, `sales-performance.js`,
   `projects.js`, `production.js`,
   `capacity.js`, `financial.js`, `people.js`, `staffing.js`, `admin.js`.
   Adding a new tab = new file + one `<script src>` line in `index.html`.
