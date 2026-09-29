@@ -433,7 +433,18 @@ Server `.env` must include all vars from `.env.example` plus Autocount credentia
 Mattermost vars are optional; if set, the server must be able to reach `MATTERMOST_URL`.
 Rules are created afterwards in Admin → Mattermost Notifications (stored in the DB,
 so `migrate deploy` creates the tables — nothing else to seed).
-The server does NOT use Docker — PostgreSQL runs natively via the system package.
+PostgreSQL 16 on the server runs in a Docker container named `pop-os-db`
+(port 5432). The app itself runs outside Docker, under PM2. There is no
+`pg_dump` / `psql` on the host — run them inside the container. Back up
+before any migration that drops data:
+
+```bash
+mkdir -p ~/backups
+docker exec pop-os-db pg_dump -U postgres pop_os > ~/backups/pop_os-$(date +%F).sql
+```
+
+Restore = load the file into an **empty** `pop_os` database (drop and recreate
+it first, with the app stopped): `docker exec -i pop-os-db psql -U postgres pop_os < <file>.sql`
 
 ---
 
