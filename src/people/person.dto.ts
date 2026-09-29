@@ -79,4 +79,6 @@ export class UpdatePersonDto {
   @IsEnum(PersonStatus) @IsOptional() status?: PersonStatus;
   @IsEnum(Company) @IsOptional() company?: Company;
   @IsNumber() @Min(0) @IsOptional() salary?: number;
+  // false = hide from capacity summaries (bosses). See schema.prisma.
+  @IsBoolean() @IsOptional() showInCapacityReports?: boolean;
 }

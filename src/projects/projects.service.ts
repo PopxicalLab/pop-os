@@ -145,7 +145,7 @@ export class ProjectsService {
 
     for (const ps of project.requiredSkills) {
       const matches = await this.prisma.personSkill.findMany({
-        where: { skillId: ps.skillId, person: { status: 'ACTIVE' } },
+        where: { skillId: ps.skillId, person: { status: 'ACTIVE', showInCapacityReports: true } },
         include: { person: { select: { id: true, name: true, role: true, department: true } } },
       });
 

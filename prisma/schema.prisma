@@ -127,6 +127,11 @@ model Person {
   status         PersonStatus   @default(ACTIVE) // ACTIVE / WARM_POOL / RESIGNED / TERMINATED
   company        Company?       // LPS or PXL — optional so existing records are unaffected
   salary         Float?         // monthly salary in RM — used by the Financial Engine for man-day costing
+  // false = leave this person out of capacity SUMMARIES (weekly Mattermost post,
+  // Dashboard "this week", "who's free" lists, staffing suggestions). Meant for
+  // bosses: they can still be booked on the Capacity board, and a booking still
+  // shows under the project it belongs to — they just never count as spare capacity.
+  showInCapacityReports Boolean @default(true)
 
   // A person's rated skills (the live current scores).
   skills             PersonSkill[]

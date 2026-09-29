@@ -64,7 +64,9 @@ function renderDashboard(data) {
   // Apply company filter.
   const filtered   = activeProjects.filter(p => matchesFilter(p.company));
   const overdueFil = overdueProjects.filter(p => matchesFilter(p.company));
-  const allocFil   = thisWeek.allocations.filter(a => matchesFilter(a.project.company));
+  // Bosses switched out of capacity reports don't appear in the per-person
+  // "this week" panel or the allocated count (they're still on the Capacity board).
+  const allocFil   = thisWeek.allocations.filter(a => matchesFilter(a.project.company) && a.person.showInCapacityReports !== false);
   const freeFil    = thisWeek.unallocatedPeople.filter(p => matchesFilter(p.company));
 
   // ── stats strip ─────────────────────────────────────────────

@@ -29,7 +29,7 @@ export class DashboardService {
     const [allPeople, activeProjects, thisWeekAllocations, paymentAlerts] = await Promise.all([
       this.prisma.person.findMany({
         where:   co ?? undefined,
-        select:  { id: true, name: true, role: true, company: true, status: true },
+        select:  { id: true, name: true, role: true, company: true, status: true, showInCapacityReports: true },
         orderBy: { name: 'asc' },
       }),
       // "Active" = anything not yet finished or cancelled.
@@ -44,7 +44,7 @@ export class DashboardService {
       this.prisma.capacity.findMany({
         where:   { weekStart, ...(co ? { project: co } : {}) },
         include: {
-          person:  { select: { id: true, name: true, role: true, company: true } },
+          person:  { select: { id: true, name: true, role: true, company: true, showInCapacityReports: true } },
           project: { select: { id: true, name: true, quadrant: true, priority: true, company: true } },
         },
         orderBy: [{ person: { name: 'asc' } }, { pctWeek: 'desc' }],
@@ -110,9 +110,10 @@ export class DashboardService {
       p => p.deadline && p.deadline < now,
     );
 
-    // Who has NO allocation at all this week (active staff only).
+    // Who has NO allocation at all this week (active staff only). People
+    // switched out of capacity reports (bosses) are never listed as free.
     const allocatedPersonIds  = new Set(thisWeekAllocations.map(a => a.personId));
-    const unallocatedPeople   = activePeople.filter(p => !allocatedPersonIds.has(p.id));
+    const unallocatedPeople   = activePeople.filter(p => p.showInCapacityReports && !allocatedPersonIds.has(p.id));
 
     return {
       stats: {

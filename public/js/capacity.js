@@ -325,7 +325,8 @@ function renderCapUtilization() {
 
 // Anyone ACTIVE with no allocation at all this week (any company/project) —
 // answers "who's free right now" at a glance instead of forcing a scan of
-// every row for an absence.
+// every row for an absence. People switched out of capacity reports (bosses)
+// are skipped: they're bookable, but never "free capacity".
 function renderCapUnallocated(personQ) {
   const el = $('cap-unallocated');
   if (!el) return;
@@ -333,6 +334,7 @@ function renderCapUnallocated(personQ) {
   const allocatedIds = new Set(_capAllEntries.map(e => e.personId));
   const free = _capAllPeople
     .filter(p => matchesFilter(p.company))
+    .filter(p => p.showInCapacityReports !== false)
     .filter(p => !allocatedIds.has(p.id))
     .filter(p => !personQ || p.name.toLowerCase().includes(personQ))
     .sort((a, b) => (a.company || '').localeCompare(b.company || '') || a.name.localeCompare(b.name));

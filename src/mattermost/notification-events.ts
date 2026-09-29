@@ -160,14 +160,14 @@ async function buildCapacityDigest(prisma: PrismaService, rule: RuleLike): Promi
     prisma.capacity.findMany({
       where: { weekStart, person: personWhere },
       include: {
-        person:  { select: { id: true, name: true, department: true } },
+        person:  { select: { id: true, name: true, department: true, showInCapacityReports: true } },
         project: { select: { id: true, name: true } },
       },
       orderBy: [{ pctWeek: 'desc' }],
     }),
     opts.includeUnbooked
       ? prisma.person.findMany({
-          where: { ...personWhere, status: 'ACTIVE', capacityEntries: { none: { weekStart } } },
+          where: { ...personWhere, status: 'ACTIVE', showInCapacityReports: true, capacityEntries: { none: { weekStart } } },
           select: { id: true, name: true, department: true },
         })
       : Promise.resolve([] as { id: string; name: string; department: string }[]),
@@ -177,11 +177,16 @@ async function buildCapacityDigest(prisma: PrismaService, rule: RuleLike): Promi
   const loads = new Map<string, PersonLoad>();
   const projects = new Map<string, { name: string; total: number; people: string[] }>();
   for (const r of rows) {
-    const p = loads.get(r.person.id) ?? { id: r.person.id, name: r.person.name, department: r.person.department, total: 0, weekend: false, projects: [] };
-    p.total += r.pctWeek;
-    p.weekend = p.weekend || r.weekendApproved;
-    p.projects.push({ name: r.project.name, pct: r.pctWeek });
-    loads.set(p.id, p);
+    // People switched out of capacity reports (bosses) still appear under the
+    // project they're booked on, but never in the per-person / free lists or
+    // the averages — they aren't spare capacity the team should plan around.
+    if (r.person.showInCapacityReports) {
+      const p = loads.get(r.person.id) ?? { id: r.person.id, name: r.person.name, department: r.person.department, total: 0, weekend: false, projects: [] };
+      p.total += r.pctWeek;
+      p.weekend = p.weekend || r.weekendApproved;
+      p.projects.push({ name: r.project.name, pct: r.pctWeek });
+      loads.set(p.id, p);
+    }
 
     const pr = projects.get(r.project.id) ?? { name: r.project.name, total: 0, people: [] };
     pr.total += r.pctWeek;
@@ -206,7 +211,7 @@ async function buildCapacityDigest(prisma: PrismaService, rule: RuleLike): Promi
   const title = `#### 📅 Capacity board — ${opts.week === 'NEXT' ? 'next week, ' : 'week '}of ${fmtDate(weekStart)}${scope ? ` (${scope})` : ''}`;
   const out: string[] = [title, ''];
 
-  if (!people.length) return `${title}\n\nNo allocations booked for this week.`;
+  if (!people.length && !projects.size) return `${title}\n\nNo allocations booked for this week.`;
 
   if (has('PER_PERSON')) {
     out.push('**By person**', '', '| Person | Total | Projects |', '|:--|:--|:--|');
@@ -241,8 +246,11 @@ async function buildCapacityDigest(prisma: PrismaService, rule: RuleLike): Promi
     out.push('');
   }
 
-  const avg = Math.round(people.reduce((s, p) => s + p.total, 0) / people.length);
-  out.push(`**${people.length} people** · avg ${avg}% · ${over.length} over-allocated · ${free.length} with free capacity`);
+  // Only booked bosses this week → no per-person stats to average.
+  if (people.length) {
+    const avg = Math.round(people.reduce((s, p) => s + p.total, 0) / people.length);
+    out.push(`**${people.length} people** · avg ${avg}% · ${over.length} over-allocated · ${free.length} with free capacity`);
+  }
   const appUrl = process.env.APP_URL || 'http://192.168.1.40:3000';
   out.push(`[Open the capacity board](${appUrl}/capacity.html)`);
   return out.join('\n');

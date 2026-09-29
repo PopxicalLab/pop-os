@@ -27,7 +27,9 @@ export class StaffingService {
 
     const [people, allocations] = await Promise.all([
       this.prisma.person.findMany({
-        where:   { status: 'ACTIVE' }, // only active staff available for scheduling
+        // Only active staff who count as schedulable capacity (bosses switched
+        // out of capacity reports are never suggested — book them by hand).
+        where:   { status: 'ACTIVE', showInCapacityReports: true },
         include: {
           skills: {
             include: { skill: true },

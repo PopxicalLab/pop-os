@@ -1069,6 +1069,15 @@ function openEditModal(person) {
           </select>
         </div>
         ${salaryRow}
+        <label class="flex items-start gap-2.5 pt-1 cursor-pointer">
+          <input id="ep-capreports" type="checkbox" class="mt-0.5 accent-accent cursor-pointer"
+            ${person.showInCapacityReports !== false ? 'checked' : ''} />
+          <span class="text-xs text-muted leading-snug">
+            <span class="text-ink font-medium">Show in capacity reports</span><br>
+            Untick for bosses — they'll be left out of the weekly Mattermost post, the Dashboard's
+            "this week" panel, "who's free" lists and staffing suggestions. You can still book them on the Capacity board.
+          </span>
+        </label>
       </div>
       <div class="flex items-center gap-3 mt-5">
         <button onclick="submitEdit('${person.id}')"
@@ -1101,6 +1110,7 @@ async function submitEdit(personId) {
     employmentType: $('ep-emptype').value,
     company:        $('ep-company').value || undefined,
     status:         $('ep-status').value || undefined,
+    showInCapacityReports: $('ep-capreports').checked,
     salary:         canSeeSalary() && $('ep-salary')
                       ? (parseFloat($('ep-salary').value) || undefined)
                       : undefined,

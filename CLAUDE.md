@@ -172,7 +172,12 @@ login. Click (admin only) to create a login or view the linked account.
 - **Person** — staff record. Fields: name, role, department, startDate,
   employmentType, warmPool, company, salary (monthly RM, optional — ADMIN +
   FINANCE only), `commissionRateOverride` (optional flat rate that
-  bypasses the global CommissionTier table). Has many PersonSkill, Capacity,
+  bypasses the global CommissionTier table), `showInCapacityReports`
+  (default true; false = bosses — left out of person-level capacity summaries:
+  weekly Mattermost post By person / Available / averages, Dashboard "this
+  week", Capacity "unallocated" strip, staffing + project skill suggestions.
+  Still bookable on the Capacity board, and still listed under a project in
+  the post's By project section when booked). Has many PersonSkill, Capacity,
   PersonTierRate, and optionally one User.
 
 - **Skill / PersonSkill / SkillRatingChange** — see Skills design decisions below.
