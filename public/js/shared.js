@@ -218,6 +218,19 @@ function computePpm({ estimatedValue, complexityScore, clientTier, marginTarget 
   return { score, recommendedQuadrant, recommendedPriority };
 }
 
+// A job's quadrant badge, plus a small "overridden" mark when the team chose
+// a different quadrant than computePpm suggests. Hover shows the reason
+// (lead.quadrantNote). Used by the Sales card and List view.
+function jobQuadrantBadge(l) {
+  if (!l.quadrant) return '';
+  const rec = computePpm(l).recommendedQuadrant;
+  const over = rec && rec !== l.quadrant;
+  const tip = over
+    ? `Overridden — suggested ${QUADRANT_LABEL[rec]}. ${l.quadrantNote ? 'Why: ' + l.quadrantNote : 'No reason given.'}`
+    : QUADRANT_LABEL[l.quadrant];
+  return `<span class="badge ${QUADRANT_CLS[l.quadrant] || ''} text-[10px]" title="${esc(tip)}">${QUADRANT_LABEL[l.quadrant]}${over ? ' ✎' : ''}</span>`;
+}
+
 // Lead status display constants — used by Sales and Clients tabs.
 const LEAD_STATUS_LABEL = {
   QUALIFICATION: 'Qualification',

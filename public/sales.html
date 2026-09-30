@@ -69,6 +69,12 @@
         @apply text-ink font-semibold;
       }
     }
+    /* Open dropdown lists: the List view's in-cell selects are transparent,
+       so without this the browser paints the options on white with the
+       theme's pale text — unreadable. Give every option the panel colours. */
+    select option {
+      @apply bg-panel text-ink;
+    }
   </style>
 
   <!-- Shared shell: utilities, theme, auth (incl. the not-logged-in redirect),
@@ -184,10 +190,13 @@
   <!-- ════════════════════════════════════════════════════
        SALES HUB — pipeline board + add lead
   ════════════════════════════════════════════════════ -->
-  <div class="max-w-7xl mx-auto px-5 py-6 grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5 items-start">
+  <!-- Layout classes are swapped by applySalesSubTab() (sales.js): in List
+       view the Add-a-lead form folds away and the page goes full width so
+       every column fits; "+ Add lead" in the List toolbar brings it back. -->
+  <div id="sales-layout" class="max-w-7xl mx-auto px-5 py-6 grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5 items-start">
 
     <!-- Left: add lead form -->
-    <div class="bg-panel border border-line rounded-xl p-5">
+    <div id="sales-add-panel" class="bg-panel border border-line rounded-xl p-5">
       <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-4">Add a lead</h2>
       <label class="form-label" style="margin-top:0">Lead name</label>
       <input id="lead-name" class="form-input" placeholder="e.g. Petronas Brand Film" />
@@ -247,6 +256,10 @@
           <input id="sales-list-search" type="text" placeholder="Search leads, accounts, contacts…" autocomplete="off"
             class="flex-1 bg-panel2 border border-line text-ink text-xs px-3 py-1.5 rounded-lg
                    focus:outline-none focus:border-accent/60" />
+          <button id="sales-add-toggle" onclick="toggleSalesAddPanel()"
+            class="text-xs bg-accent/15 border border-accent/30 text-accent hover:bg-accent/25 px-3 py-1.5 rounded-lg cursor-pointer whitespace-nowrap">
+            + Add lead
+          </button>
           <div class="relative">
             <button onclick="toggleSalesColPicker(event)"
               class="text-xs bg-panel2 border border-line text-muted hover:text-ink px-3 py-1.5 rounded-lg cursor-pointer whitespace-nowrap">

@@ -21,6 +21,10 @@ const SL_PAID_STEPS     = [0, 20, 25, 30, 40, 50, 60, 70, 80, 100];
 
 const slDate  = d => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' }) : '';
 const slIso   = d => d ? new Date(d).toISOString().split('T')[0] : '';
+// One-line text cut to `px` wide with "…"; hover shows the full text.
+const slClip = (text, px) =>
+  `<span class="block truncate" style="max-width:${px}px" title="${esc(text)}">${esc(text)}</span>`;
+
 const slInput = 'w-full bg-transparent border border-transparent hover:border-line focus:border-accent/60 ' +
                 'rounded px-1 py-0.5 text-xs text-ink focus:outline-none cursor-pointer';
 
@@ -45,10 +49,10 @@ const SALES_LIST_COLS = [
     cell: l => slSelect(l, 'priority', 'str', Object.keys(SL_PRIORITY_LABEL), l.priority, p => SL_PRIORITY_LABEL[p]) },
   { id: 'account',  label: 'Account',     def: true,
     sort: l => l.account?.name?.toLowerCase() ?? '',
-    cell: l => l.account ? esc(l.account.name) : '<span class="text-muted">—</span>' },
-  { id: 'contact',  label: 'Primary contact', def: true,
+    cell: l => l.account ? slClip(l.account.name, 130) : '<span class="text-muted">—</span>' },
+  { id: 'contact',  label: 'Contact',     def: true,
     sort: l => l.contact?.name?.toLowerCase() ?? '',
-    cell: l => l.contact ? esc(l.contact.name) : '<span class="text-muted">—</span>' },
+    cell: l => l.contact ? slClip(l.contact.name, 110) : '<span class="text-muted">—</span>' },
   { id: 'closedBy', label: 'Sales PIC',   def: true,
     sort: l => l.closedBy?.name?.toLowerCase() ?? '',
     cell: l => {
@@ -59,21 +63,21 @@ const SALES_LIST_COLS = [
         ${people.map(p => `<option value="${p.id}"${p.id === l.closedById ? ' selected' : ''}>${esc(p.name)}</option>`).join('')}
       </select>`;
     } },
-  { id: 'completed', label: 'Completion', def: true,
+  { id: 'completed', label: 'Done',       def: true,
     sort: l => l.completed ? 1 : 0,
     cell: l => `<input type="checkbox" data-lead="${l.id}" data-field="completed" data-kind="bool"
                   ${l.completed ? 'checked' : ''} class="accent-accent cursor-pointer" />` },
-  { id: 'value',    label: 'Estimated value', def: true, right: true,
+  { id: 'value',    label: 'Value',       def: true, right: true,
     sort: l => l.estimatedValue ?? -1,
     cell: l => `<input type="number" min="0" step="100" data-lead="${l.id}" data-field="estimatedValue" data-kind="num"
-                  value="${l.estimatedValue ?? ''}" placeholder="—" class="${slInput} text-right w-28" />` },
+                  value="${l.estimatedValue ?? ''}" placeholder="—" class="${slInput} text-right w-24" />` },
   { id: 'invoiced', label: 'Invoiced',    def: true,
     sort: l => l.invoicedPct,
     cell: l => slSelect(l, 'invoicedPct', 'int', SL_INVOICED_STEPS, l.invoicedPct, v => v ? v + '%' : '—') },
   { id: 'paid',     label: 'Paid',        def: true,
     sort: l => l.paidPct,
     cell: l => slSelect(l, 'paidPct', 'int', SL_PAID_STEPS, l.paidPct, v => v ? v + '%' : '—') },
-  { id: 'paymentDate', label: 'Payment date', def: true,
+  { id: 'paymentDate', label: 'Paid on',     def: true,
     sort: l => l.paymentDate ? new Date(l.paymentDate).getTime() : 0,
     cell: l => `<input type="date" data-lead="${l.id}" data-field="paymentDate" data-kind="date"
                   value="${slIso(l.paymentDate)}" class="${slInput}" />` },
@@ -82,11 +86,11 @@ const SALES_LIST_COLS = [
   { id: 'company',  label: 'Company',     def: true,
     sort: l => l.company ?? '',
     cell: l => slSelect(l, 'company', 'str', ['LPS', 'PXL', 'GROUP'], l.company, c => c === 'GROUP' ? 'Group' : c, true) },
-  { id: 'quadrant', label: 'PPM quadrant', def: true,
+  { id: 'quadrant', label: 'PPM',         def: true,
     sort: l => l.quadrant ?? '',
     // Read-only here — PPM is assessed on the Job page (Drain approvals etc).
     cell: l => l.quadrant
-      ? `<span class="badge ${QUADRANT_CLS[l.quadrant] || ''} text-[10px]">${QUADRANT_LABEL[l.quadrant]}</span>`
+      ? jobQuadrantBadge(l)
       : '<a href="/job.html?id=' + l.id + '" class="text-[11px] text-muted hover:text-accent">assess →</a>' },
   { id: 'project',  label: 'Project',     def: true,
     sort: l => l.project?.status ?? '',
@@ -205,7 +209,7 @@ function renderSalesList() {
   const arrow = id => _salesListSort.col === id ? (_salesListSort.dir === 1 ? ' ↑' : ' ↓') : '';
   const th = (id, label, right = false) =>
     `<th onclick="sortSalesList('${id}')"
-        class="pb-2 px-2 font-medium whitespace-nowrap cursor-pointer hover:text-ink select-none ${right ? 'text-right' : 'text-left'}">${label}${arrow(id)}</th>`;
+        class="pb-2 px-1.5 font-medium whitespace-nowrap cursor-pointer hover:text-ink select-none ${right ? 'text-right' : 'text-left'}">${label}${arrow(id)}</th>`;
 
   if (!leads.length) {
     el.innerHTML = '<p class="text-sm text-muted text-center py-10">No leads match.</p>';
@@ -222,15 +226,16 @@ function renderSalesList() {
       <tbody>
         ${leads.map(l => `
           <tr class="border-b border-line/40 last:border-0 hover:bg-panel2/60">
-            <td class="py-1.5 px-2 min-w-[180px]">
-              <a href="/job.html?id=${l.id}" class="text-ink font-semibold hover:text-accent">${esc(l.name)}</a>
+            <td class="py-1.5 px-1.5">
+              <a href="/job.html?id=${l.id}" title="${esc(l.name)}"
+                 class="block truncate max-w-[200px] text-ink font-semibold hover:text-accent">${esc(l.name)}</a>
             </td>
-            ${cols.map(c => `<td class="py-1.5 px-2 ${c.right ? 'text-right' : ''}">${c.cell(l)}</td>`).join('')}
+            ${cols.map(c => `<td class="py-1.5 px-1.5 ${c.right ? 'text-right' : ''}">${c.cell(l)}</td>`).join('')}
           </tr>`).join('')}
       </tbody>
       <tfoot><tr class="text-[11px] text-muted">
-        <td class="pt-2 px-2">${leads.length} lead${leads.length === 1 ? '' : 's'}</td>
-        ${cols.map(c => `<td class="pt-2 px-2 ${c.right ? 'text-right' : ''}">${c.id === 'value' ? 'RM ' + Math.round(total).toLocaleString('en-MY') : ''}</td>`).join('')}
+        <td class="pt-2 px-1.5">${leads.length} lead${leads.length === 1 ? '' : 's'}</td>
+        ${cols.map(c => `<td class="pt-2 px-1.5 ${c.right ? 'text-right' : ''}">${c.id === 'value' ? 'RM ' + Math.round(total).toLocaleString('en-MY') : ''}</td>`).join('')}
       </tr></tfoot>
     </table>`;
 }

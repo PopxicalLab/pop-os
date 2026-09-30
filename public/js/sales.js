@@ -50,6 +50,28 @@ function applySalesSubTab() {
     $('sales-subtab-' + t).className = 'px-2.5 py-1 rounded-md cursor-pointer transition-colors ' + (_salesSubTab === t ? on : off);
     $('sales-pane-' + t).classList.toggle('hidden', _salesSubTab !== t);
   }
+  applySalesLayout();
+}
+
+// The List view needs every pixel for its columns: it goes full width and
+// folds the Add-a-lead form away (brought back with "+ Add lead"). Chart and
+// Pipeline keep the normal form-on-the-left layout.
+let _salesAddOpen = false;
+
+function applySalesLayout() {
+  const list    = _salesSubTab === 'list';
+  const showAdd = !list || _salesAddOpen;
+  $('sales-layout').className = 'mx-auto px-5 py-6 grid grid-cols-1 gap-5 items-start '
+    + (list ? 'max-w-none ' : 'max-w-7xl ')
+    + (showAdd ? 'lg:grid-cols-[280px_1fr]' : '');
+  $('sales-add-panel').classList.toggle('hidden', !showAdd);
+  const btn = $('sales-add-toggle');
+  if (btn) btn.textContent = _salesAddOpen ? '× Close form' : '+ Add lead';
+}
+
+function toggleSalesAddPanel() {
+  _salesAddOpen = !_salesAddOpen;
+  applySalesLayout();
 }
 
 // 'month' (default) or 'quarter' — which period the "Leads over time" chart buckets by.
@@ -334,8 +356,19 @@ function renderSalesPipeline() {
     }).join('') +
     `</div>`;
 
-  // Wire up the inline "closed by" dropdown. Status is changed by dragging the
-  // card between columns (below) — there's no per-card status dropdown.
+  // Status can be changed two ways: the per-card dropdown (some people prefer
+  // it) or dragging the card between columns (below). Both PATCH the same field.
+  $('sales-board').querySelectorAll('[data-lead-status]').forEach(sel => {
+    sel.onchange = async () => {
+      await fetch(`/api/leads/${sel.dataset.leadStatus}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: sel.value }),
+      });
+      loadSales();
+    };
+  });
+
+  // Wire up the inline "closed by" dropdown.
   $('sales-board').querySelectorAll('[data-lead-closed-by]').forEach(sel => {
     sel.onchange = async () => {
       await fetch(`/api/leads/${sel.dataset.leadClosedBy}`, {
@@ -510,7 +543,7 @@ function renderLeadCard(l) {
   const drainPending = l.quadrant === 'DRAIN' && !(l.drainApprovedByExec && l.drainApprovedByProducer);
   const ppmLine = l.quadrant
     ? `<div class="flex items-center gap-1.5 flex-wrap">
-         <span class="badge ${QUADRANT_CLS[l.quadrant] || ''} text-[10px]">${QUADRANT_LABEL[l.quadrant]}</span>
+         ${jobQuadrantBadge(l)}
          ${drainPending ? '<span class="text-[10px] text-warm font-semibold">needs approval</span>' : ''}
          <a href="/job.html?id=${l.id}" draggable="false" class="text-[11px] text-accent hover:underline ml-auto">Open job →</a>
        </div>`
@@ -547,6 +580,11 @@ function renderLeadCard(l) {
       <span class="text-xs ${priCls}">${l.priority.replace('_', ' ')}</span>
     </div>
     ${payBadge}
+    <select data-lead-status="${l.id}" draggable="false" title="Status"
+      class="w-full mt-1 bg-panel border border-line text-ink px-2 py-1 rounded-md text-xs
+             focus:outline-none focus:border-accent/70 cursor-pointer">
+      ${PIPELINE_STAGES.map(s => `<option value="${s}"${l.status === s ? ' selected' : ''}>${LEAD_STATUS_LABEL[s]}</option>`).join('')}
+    </select>
     <select data-lead-closed-by="${l.id}"
       class="w-full mt-1 bg-panel border border-line text-muted px-2 py-1 rounded-md text-xs
              focus:outline-none focus:border-accent/70 cursor-pointer">

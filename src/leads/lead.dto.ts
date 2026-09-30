@@ -41,6 +41,8 @@ export class UpdateLeadDto {
   @IsOptional() @IsEnum(ProjectQuadrant)         quadrant?: ProjectQuadrant;
   @IsOptional() @IsInt() @Min(1) @Max(5)         complexityScore?: number;
   @IsOptional() @IsInt() @Min(1)                 estimatedDuration?: number;
+  // Reason for overriding the suggested quadrant. null clears it.
+  @IsOptional() @IsString()                      quadrantNote?: string | null;
   @IsOptional() @IsBoolean()                     drainApprovedByExec?: boolean;
   @IsOptional() @IsBoolean()                     drainApprovedByProducer?: boolean;
 }

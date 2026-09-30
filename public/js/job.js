@@ -128,6 +128,20 @@ function renderJob() {
        </div>`
     : '<p class="text-xs text-muted">Add value (Money) and complexity to get a recommendation.</p>';
 
+  // Override: the team picked a different quadrant than the numbers suggest
+  // (e.g. a small MNC job kept as a Strategic bet for the relationship).
+  // Allowed, but flagged, with a free-text reason so others see why.
+  const overridden = !!(j.quadrant && rec.recommendedQuadrant && j.quadrant !== rec.recommendedQuadrant);
+  const overrideHtml = overridden ? `
+    <div class="mt-4 p-3 rounded-lg border border-accent/30 bg-accent/5">
+      <p class="text-[11px] font-semibold text-accent mb-1.5">
+        Overridden — suggested ${QUADRANT_LABEL[rec.recommendedQuadrant]}, set to ${QUADRANT_LABEL[j.quadrant]}.
+        ${j.quadrantNote ? '' : '<span class="text-warm">Add a reason.</span>'}
+      </p>
+      <textarea id="job-quadrant-note" rows="2" placeholder="Why? e.g. MNC client, more projects likely to follow"
+        class="${inputCls} resize-y">${esc(j.quadrantNote || '')}</textarea>
+    </div>` : '';
+
   const ppm = `
     ${sectionHead('PPM assessment', p ? '' : '<span class="text-[11px] text-muted">Do this before quoting</span>')}
     <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
@@ -138,6 +152,7 @@ function renderJob() {
                                    <option value="">— not assessed —</option>
                                    ${opts(Object.keys(QUADRANT_LABEL), j.quadrant, v => QUADRANT_LABEL[v])}</select>`)}
     </div>
+    ${overrideHtml}
     ${isDrain ? `
       <div class="mt-4 p-3 rounded-lg border ${drainOk ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-warm/40 bg-warm/5'}">
         <p class="text-[11px] font-semibold ${drainOk ? 'text-emerald-400' : 'text-warm'} mb-1.5">
@@ -376,6 +391,8 @@ function wireMoneyInputs() {
   $('job-complexity').onchange = e => patchJob({ complexityScore:   int(e.target.value) });
   $('job-duration').onchange   = e => patchJob({ estimatedDuration: int(e.target.value) });
   $('job-quadrant').onchange   = e => patchJob({ quadrant:          e.target.value || null });
+  const note = $('job-quadrant-note');
+  if (note) note.onchange = () => patchJob({ quadrantNote: note.value.trim() || null });
   const exec = $('job-drain-exec'), prod = $('job-drain-prod');
   if (exec) exec.onchange = () => patchJob({ drainApprovedByExec:     exec.checked });
   if (prod) prod.onchange = () => patchJob({ drainApprovedByProducer: prod.checked });

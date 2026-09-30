@@ -242,7 +242,10 @@ login. Click (admin only) to create a login or view the linked account.
   - Lead = sales + **all money**: `estimatedValue`, `marginTarget`, `clientTier`,
     `invoicedPct` / `paidPct`, costs (`ProjectCost.leadId`), Autocount docs.
   - Lead = the **PPM assessment** too: `quadrant` (null = not assessed),
-    `complexityScore`, `estimatedDuration`, `drainApprovedByExec/Producer`.
+    `complexityScore`, `estimatedDuration`, `drainApprovedByExec/Producer`,
+    `quadrantNote` (why the chosen quadrant differs from `computePpm`'s
+    suggestion — overrides are allowed, flagged "Overridden" on the Job page
+    and ✎ on Sales badges via `jobQuadrantBadge()` in `shared.js`).
     Assessed on the Job page, ideally at Proposal / Negotiation (Sales cards
     nudge "Assess (PPM) →") so a Drain is caught before quoting.
     `convertToProject` refuses a DRAIN job without both approvals, and starts

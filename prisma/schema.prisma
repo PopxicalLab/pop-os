@@ -504,6 +504,9 @@ model Lead {
   quadrant                ProjectQuadrant?
   complexityScore         Int?     // self-assessed 1–5 (1 = simple, 5 = very complex)
   estimatedDuration       Int?     // length in weeks
+  // Why the chosen quadrant differs from the PPM suggestion (e.g. "MNC client,
+  // repeat work likely"). Free text; shown next to an "Overridden" tag.
+  quadrantNote            String?
   // Drain gate — both must be true before a DRAIN job is accepted.
   drainApprovedByExec     Boolean  @default(false)
   drainApprovedByProducer Boolean  @default(false)
