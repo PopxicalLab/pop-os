@@ -91,7 +91,7 @@ function renderJob() {
     const booked = p.capacityEntries || [];
     production = `
       ${sectionHead('Production',
-        `<a href="/projects.html?open=${p.id}" class="text-[11px] text-accent hover:underline">Edit on project page →</a>`)}
+        canAccessTab('projects') ? `<a href="/projects.html?open=${p.id}" class="text-[11px] text-accent hover:underline">Edit on project page →</a>` : '')}
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
         ${lbl('Project status', val(STATUS_LABEL[p.status] || p.status))}
         ${lbl('Priority',       `<p class="text-xs ${PRI_CLS[p.priority] || 'text-ink'}">${p.priority}</p>`)}
@@ -201,7 +201,7 @@ function renderJob() {
 
     <!-- Sales side — who won it, when, for whom. -->
     <div class="pb-5 border-b border-line">
-      ${sectionHead('Sales', '<a href="/sales.html" class="text-[11px] text-accent hover:underline">Sales pipeline →</a>')}
+      ${sectionHead('Sales', canAccessTab('sales') ? '<a href="/sales.html" class="text-[11px] text-accent hover:underline">Sales pipeline →</a>' : '')}
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
         ${lbl('Stage',     `<span class="badge border ${LEAD_STATUS_CLS[j.status] || ''} text-[11px]">${LEAD_STATUS_LABEL[j.status] || j.status}</span>`)}
         ${lbl('Closed by', val(j.closedBy ? esc(j.closedBy.name) : '—'))}

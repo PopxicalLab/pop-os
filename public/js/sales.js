@@ -513,7 +513,9 @@ function renderLeadCard(l) {
                       px-2 py-1 rounded-lg hover:bg-emerald-500/25 transition-colors cursor-pointer font-semibold"
               data-lead-convert="${l.id}">→ Create project</button>`
     : (l.projectId
-        ? `<a href="/projects.html?open=${l.projectId}" class="block text-[11px] text-emerald-400 mt-1.5 hover:underline cursor-pointer">✓ ${esc(l.project?.name || 'Project created')}</a>`
+        ? (canAccessTab('projects')
+            ? `<a href="/projects.html?open=${l.projectId}" class="block text-[11px] text-emerald-400 mt-1.5 hover:underline cursor-pointer">✓ ${esc(l.project?.name || 'Project created')}</a>`
+            : `<p class="text-[11px] text-emerald-400 mt-1.5">✓ ${esc(l.project?.name || 'Project created')}</p>`)
         : '');
 
   // Show existing document badges (quotations + invoices — a lead can carry

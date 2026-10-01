@@ -94,9 +94,10 @@ const SALES_LIST_COLS = [
       : '<a href="/job.html?id=' + l.id + '" class="text-[11px] text-muted hover:text-accent">assess →</a>' },
   { id: 'project',  label: 'Project',     def: true,
     sort: l => l.project?.status ?? '',
-    cell: l => l.project
-      ? `<a href="/projects.html?open=${l.project.id}" class="text-[11px] text-accent hover:underline whitespace-nowrap">${STATUS_LABEL[l.project.status] || l.project.status}</a>`
-      : '<span class="text-muted">—</span>' },
+    cell: l => !l.project ? '<span class="text-muted">—</span>'
+      : canAccessTab('projects')
+        ? `<a href="/projects.html?open=${l.project.id}" class="text-[11px] text-accent hover:underline whitespace-nowrap">${STATUS_LABEL[l.project.status] || l.project.status}</a>`
+        : `<span class="text-[11px] text-ink whitespace-nowrap">${STATUS_LABEL[l.project.status] || l.project.status}</span>` },
   { id: 'wonAt',    label: 'Won on',      def: false,
     sort: l => l.wonAt ? new Date(l.wonAt).getTime() : 0,
     cell: l => slDate(l.wonAt) || '<span class="text-muted">—</span>' },

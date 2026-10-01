@@ -295,6 +295,13 @@ function hrefForTab(name) {
 // straight there instead of trying to switchTab() a panel that no longer
 // exists on this page.
 function renderHeader(activeTab) {
+  // Page guard: hiding nav buttons isn't enough — a link or a typed URL can
+  // still reach a page. If this role can't use this tab, go to My Work
+  // instead. (The API has its own role checks; this keeps the UI honest.)
+  if (!canAccessTab(activeTab)) {
+    window.location.replace('/mywork.html');
+    return '';
+  }
   const directCls = (t) => 'px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 '
     + (t === activeTab ? 'bg-panel text-ink' : 'text-muted hover:text-ink');
   const groupBtnCls = (g) => 'flex items-center gap-1 px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 '
@@ -615,6 +622,16 @@ const TAB_ACCESS = {
   committees:  ['ADMIN','PRODUCER','PM','TEAM_LEAD','FINANCE','STAFF'],
   admin:       ['ADMIN'],
 };
+
+// Can the signed-in user open this tab? Used by the page guard in
+// renderHeader() and to hide cross-page links (e.g. Job → Sales pipeline).
+// Unknown tab names are allowed — TAB_ACCESS lists the restricted ones.
+function canAccessTab(tab) {
+  let role = null;
+  try { role = JSON.parse(localStorage.getItem('pop-os-user') || '{}').role; } catch (e) {}
+  if (!role || !TAB_ACCESS[tab]) return true;   // not signed in → login redirect handles it
+  return TAB_ACCESS[tab].includes(role);
+}
 
 const ROLE_LABEL = {
   ADMIN:     'Admin',

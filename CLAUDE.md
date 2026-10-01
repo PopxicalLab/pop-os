@@ -143,7 +143,7 @@ visibility via `TAB_ACCESS` map in `index.html`):
 |---|---|
 | ADMIN | Everything — users, all tabs, Autocount push, salary data |
 | PRODUCER | My Work, Dashboard, Jobs, Sales pipeline, Projects, Capacity, Production, People, Staffing |
-| PM | Same as PRODUCER |
+| PM | Same as PRODUCER minus the Sales pipeline (reaches deals via Jobs) |
 | TEAM_LEAD | My Work, Dashboard, Projects (read), Production, Capacity, People (read) |
 | FINANCE | My Work, Jobs, Financial tab, Projects (read), salary data |
 | SALES | My Work, Jobs, Sales pipeline, Clients only |
@@ -159,6 +159,9 @@ visibility via `TAB_ACCESS` map in `index.html`):
   locks one route, `canSeeMoney(role)` for "include money or not",
   `stripJobColumns()` drops the stale money / PPM columns from Project rows.
   Mirrored in the UI by `TAB_ACCESS` (`shared.js`) — keep them in sync.
+  `renderHeader(tab)` is also a **page guard**: a role not in `TAB_ACCESS[tab]`
+  is sent to My Work (stops links / typed URLs). Use `canAccessTab(tab)` to
+  hide cross-page links the role can't follow.
 - Locked to job roles: leads, jobs, job-attachments, project-costs, autocount, ppm, one
   account (`GET /api/accounts/:id`). Financial + AR CSV: FINANCE_ROLES
   (finance dashboard: ADMIN / FINANCE). Sales performance, targets,
