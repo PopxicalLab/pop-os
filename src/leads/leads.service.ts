@@ -4,6 +4,7 @@ import { CreateLeadDto, UpdateLeadDto } from './lead.dto';
 import { companyWhere } from '../common/company-filter';
 import { NotificationRulesService } from '../mattermost/notification-rules.service';
 import { PpmService } from '../ppm/ppm.service';
+import { removeJobUploads } from '../common/uploads';
 
 const WITH_RELATIONS = {
   account:  { select: { id: true, name: true, industry: true, autocountDebtorCode: true } },
@@ -105,7 +106,10 @@ export class LeadsService {
 
   async remove(id: string) {
     await this.findOne(id);
-    return this.prisma.lead.delete({ where: { id } });
+    const deleted = await this.prisma.lead.delete({ where: { id } });
+    // Attachment rows cascade with the lead; the files on disk go here.
+    await removeJobUploads(id);
+    return deleted;
   }
 
   // Convert a WON lead into a Project — the key Sales → Production handoff.

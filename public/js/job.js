@@ -15,6 +15,11 @@
 
 const JOB_COST_LABEL = { WARM_POOL: 'Warm pool', SUPPLIER: 'Supplier', ADDITIONAL: 'Additional' };
 const JOB_DOC_LABEL  = { QUOTATION: 'Quotation', SALES_INVOICE: 'Invoice', PURCHASE_INVOICE: 'PO Invoice' };
+// Uploaded files (Files section) — matches AttachmentCategory in schema.prisma.
+const JOB_FILE_LABEL = {
+  CONTRACT: 'Contract', QUOTATION: 'Quotation', PURCHASE_ORDER: 'Purchase order',
+  INVOICE: 'Invoice', RECEIPT: 'Receipt', BRIEF: 'Brief', OTHER: 'Other',
+};
 const JOB_DOC_STATUS_CLS = {
   ACTIVE: 'bg-sky-500/15 border-sky-500/30 text-sky-400',
   PAID:   'bg-emerald-500/15 border-emerald-500/30 text-emerald-400',
@@ -281,11 +286,36 @@ function renderJob() {
         </div>
       </div>
       <div id="job-docs"></div>
+    </div>
+
+    <!-- Files — contracts, POs, signed quotes, invoices, receipts. Stored on
+         the Pop OS server (not Autocount), job roles only. -->
+    <div class="mt-5 pt-5 border-t border-line">
+      <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Files</p>
+      <label id="jf-drop"
+        class="flex flex-col items-center justify-center gap-1 border border-dashed border-line rounded-xl px-4 py-5
+               text-center cursor-pointer hover:border-accent/60 hover:bg-accent/5 transition-colors">
+        <span class="text-xs text-ink font-semibold">Drop files here or click to choose</span>
+        <span class="text-[11px] text-muted">PDF, images, Office, zip… up to 25 MB each</span>
+        <input id="jf-input" type="file" multiple class="hidden" />
+      </label>
+      <div class="mt-2 flex flex-wrap gap-2 items-center">
+        <label class="text-[10px] text-muted uppercase tracking-wider">Upload as</label>
+        <select id="jf-category" class="bg-panel2 border border-line text-ink text-xs px-2 py-1 rounded-md cursor-pointer focus:outline-none focus:border-accent/60">
+          ${opts(Object.keys(JOB_FILE_LABEL), 'OTHER', v => JOB_FILE_LABEL[v])}
+        </select>
+        <input id="jf-note" type="text" maxlength="500" placeholder="Note (optional)"
+          class="bg-panel2 border border-line text-ink text-xs px-2 py-1 rounded-md w-56 focus:outline-none focus:border-accent/60" />
+        <span id="jf-msg" class="text-[11px]"></span>
+      </div>
+      <div id="job-files" class="mt-3"></div>
     </div>`;
 
   renderCosts();
   loadJobPpmAi();
   renderDocs();
+  wireJobFiles();
+  loadJobFiles();
   wireMoneyInputs();
 }
 
@@ -356,6 +386,135 @@ function renderDocs() {
       }).join('')}
     </tbody>
   </table>`;
+}
+
+// ── files (attachments) ───────────────────────────────────────
+// The files are behind the login, so a plain <a href> won't work (it can't
+// send the token). We fetch the file with the token, turn it into a local
+// "blob:" URL, and open / download that instead.
+
+const fmtSize = b => b < 1024 ? b + ' B' : b < 1048576 ? Math.round(b / 1024) + ' KB' : (b / 1048576).toFixed(1) + ' MB';
+const fileIcon = m => m === 'application/pdf' ? '📕' : m.startsWith('image/') ? '🖼' : '📄';
+
+async function loadJobFiles() {
+  const el = $('job-files');
+  if (!el) return;
+  const res = await fetch('/api/job-attachments?leadId=' + encodeURIComponent(_job.id));
+  const files = res.ok ? await res.json() : [];
+  if (!files.length) { el.innerHTML = '<p class="text-xs text-muted">No files yet.</p>'; return; }
+  el.innerHTML = `<table class="w-full text-[11px]">
+    <thead><tr class="text-muted border-b border-line">
+      <th class="text-left pb-1.5 font-medium">File</th>
+      <th class="text-left pb-1.5 font-medium">Type</th>
+      <th class="text-left pb-1.5 font-medium">Note</th>
+      <th class="text-right pb-1.5 font-medium">Size</th>
+      <th class="text-left pb-1.5 font-medium pl-3">Added</th>
+      <th class="pb-1.5"></th>
+    </tr></thead>
+    <tbody>
+      ${files.map(f => `<tr class="border-b border-line/40 last:border-0">
+        <td class="py-1.5 pr-2 max-w-[260px]">
+          <button class="text-left text-ink hover:text-accent hover:underline cursor-pointer truncate max-w-full block"
+                  title="${esc(f.fileName)}" onclick="openJobFile('${f.id}', true)">${fileIcon(f.mimeType)} ${esc(f.fileName)}</button>
+        </td>
+        <td class="py-1.5 pr-2">
+          <select onchange="patchJobFile('${f.id}', { category: this.value })"
+            class="bg-panel border border-line text-ink text-[10px] px-1 py-0.5 rounded cursor-pointer">
+            ${Object.entries(JOB_FILE_LABEL).map(([v, l]) => `<option value="${v}"${f.category === v ? ' selected' : ''}>${l}</option>`).join('')}
+          </select>
+        </td>
+        <td class="py-1.5 pr-2">
+          <input type="text" value="${esc(f.note || '')}" placeholder="—" maxlength="500"
+            onchange="patchJobFile('${f.id}', { note: this.value.trim() || null })"
+            class="bg-transparent border-b border-transparent hover:border-line focus:border-accent/70 text-ink text-[11px] w-full min-w-[120px] focus:outline-none" />
+        </td>
+        <td class="py-1.5 text-right text-muted whitespace-nowrap">${fmtSize(f.size)}</td>
+        <td class="py-1.5 pl-3 text-muted whitespace-nowrap">${fmtDate(f.createdAt)}${f.uploadedByName ? ' · ' + esc(f.uploadedByName) : ''}</td>
+        <td class="py-1.5 pl-2 whitespace-nowrap text-right">
+          <button class="text-[10px] text-accent hover:underline cursor-pointer" onclick="openJobFile('${f.id}', false)">Download</button>
+          <button class="text-[10px] text-warm hover:underline cursor-pointer ml-2" onclick="removeJobFile('${f.id}')">Delete</button>
+        </td>
+      </tr>`).join('')}
+    </tbody>
+  </table>`;
+}
+
+function wireJobFiles() {
+  const drop = $('jf-drop'), input = $('jf-input');
+  if (!drop) return;
+  input.onchange = () => { uploadJobFiles([...input.files]); input.value = ''; };
+  drop.ondragover  = e => { e.preventDefault(); drop.classList.add('border-accent/60', 'bg-accent/5'); };
+  drop.ondragleave = () => drop.classList.remove('border-accent/60', 'bg-accent/5');
+  drop.ondrop = e => {
+    e.preventDefault();
+    drop.classList.remove('border-accent/60', 'bg-accent/5');
+    uploadJobFiles([...e.dataTransfer.files]);
+  };
+}
+
+// One request per file, so one bad file doesn't sink the rest.
+async function uploadJobFiles(files) {
+  if (!files.length) return;
+  const out = $('jf-msg');
+  const errors = [];
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    out.className = 'text-[11px] text-muted';
+    out.textContent = `Uploading ${i + 1} of ${files.length}: ${f.name}…`;
+    if (f.size > 25 * 1024 * 1024) { errors.push(`${f.name}: bigger than 25 MB`); continue; }
+    const fd = new FormData();
+    fd.append('file', f);
+    fd.append('category', $('jf-category').value);
+    if ($('jf-note').value.trim()) fd.append('note', $('jf-note').value.trim());
+    const res = await fetch('/api/job-attachments/' + encodeURIComponent(_job.id), { method: 'POST', body: fd });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      errors.push(`${f.name}: ${[].concat(body.message || res.statusText).join(', ')}`);
+    }
+  }
+  $('jf-note').value = '';
+  const ok = files.length - errors.length;
+  out.className = 'text-[11px] ' + (errors.length ? 'text-warm' : 'text-emerald-400');
+  out.textContent = (ok ? `${ok} file${ok > 1 ? 's' : ''} uploaded. ` : '') + errors.join(' · ');
+  loadJobFiles();
+}
+
+// view = true → open PDFs / images in a new tab; anything else (or view =
+// false) downloads. The new tab is opened *before* the await so the
+// browser doesn't treat it as an unwanted pop-up.
+async function openJobFile(id, view) {
+  const tab = view ? window.open('', '_blank') : null;
+  const res = await fetch(`/api/job-attachments/${id}/file${view ? '?inline=1' : ''}`);
+  if (!res.ok) { tab?.close(); alert('Could not open the file — it may be missing on the server.'); return; }
+  const blob = await res.blob();
+  const url  = URL.createObjectURL(blob);
+  const viewable = /^(application\/pdf|image\/)/.test(blob.type);
+  if (tab && viewable) {
+    tab.location = url;
+  } else {
+    tab?.close();
+    // Original file name comes back in the Content-Disposition header.
+    const cd = res.headers.get('Content-Disposition') || '';
+    const m  = cd.match(/filename\*=UTF-8''([^;]+)/);
+    const a  = document.createElement('a');
+    a.href = url;
+    a.download = m ? decodeURIComponent(m[1]) : 'file';
+    a.click();
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+async function patchJobFile(id, data) {
+  const res = await fetch('/api/job-attachments/' + id, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data),
+  });
+  if (!res.ok) loadJobFiles();
+}
+
+async function removeJobFile(id) {
+  if (!confirm('Delete this file? This cannot be undone.')) return;
+  await fetch('/api/job-attachments/' + id, { method: 'DELETE' });
+  loadJobFiles();
 }
 
 // ── edits ─────────────────────────────────────────────────────

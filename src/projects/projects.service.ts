@@ -4,6 +4,7 @@ import { CreateProjectDto, UpdateProjectDto } from './project.dto';
 import { companyWhere } from '../common/company-filter';
 import { autoJobId, isAutoJob } from '../common/job';
 import { stripJobColumns } from '../common/roles';
+import { removeJobUploads } from '../common/uploads';
 
 // ── Projects = production only ─────────────────────────────────────
 // Everyone who works on a project (incl. TEAM_LEAD / STAFF) can read it, so
@@ -123,12 +124,13 @@ export class ProjectsService {
   // and just loses its project link.
   async remove(id: string) {
     const project = await this.findOne(id);
-    return this.prisma.$transaction(async (tx) => {
-      if (project.jobId && isAutoJob(project.jobId)) {
-        await tx.lead.delete({ where: { id: project.jobId } });
-      }
+    const dropJob = !!project.jobId && isAutoJob(project.jobId);
+    const deleted = await this.prisma.$transaction(async (tx) => {
+      if (dropJob) await tx.lead.delete({ where: { id: project.jobId! } });
       return tx.project.delete({ where: { id } });
     });
+    if (dropJob) await removeJobUploads(project.jobId!);   // the auto job's files
+    return deleted;
   }
 
   // ── Required skills ───────────────────────────────────────────

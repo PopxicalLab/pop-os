@@ -9,3 +9,6 @@ dist/
 .claude/settings.json
 .agents/
 skills-lock.json
+
+# Uploaded job files (see src/common/uploads.ts) — back up separately
+uploads/

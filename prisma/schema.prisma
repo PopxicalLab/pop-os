@@ -513,6 +513,7 @@ model Lead {
 
   accountingDocuments AccountingDocument[] // quotations and invoices generated from this lead
   costs               ProjectCost[]        // job costs (warm pool, suppliers, other) — deducted before commission
+  attachments         JobAttachment[]      // uploaded files: contracts, POs, signed quotes, receipts…
 
   account   Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
   contact   Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
@@ -734,6 +735,39 @@ model CommitteeActivityAttendee {
   person     Person            @relation(fields: [personId], references: [id], onDelete: Cascade)
 
   @@unique([activityId, personId]) // can't attend the same activity twice
+}
+
+// What kind of file a job attachment is — only for filtering / labelling.
+enum AttachmentCategory {
+  CONTRACT
+  QUOTATION
+  PURCHASE_ORDER
+  INVOICE
+  RECEIPT
+  BRIEF
+  OTHER
+}
+
+// A file uploaded to a job (Job page → Files). The bytes live on the server's
+// disk under UPLOAD_DIR (default <app>/uploads), NOT in the database — this
+// row is just the index card: original name, type, size, who uploaded it.
+// Files can hold money (invoices, POs) → job roles only, like the rest of the job.
+model JobAttachment {
+  id             String             @id @default(cuid())
+  leadId         String
+  lead           Lead               @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  category       AttachmentCategory @default(OTHER)
+  fileName       String             // original name, shown to people and used on download
+  storedName     String             // random name on disk (never user-controlled) — <leadId>/<storedName>
+  mimeType       String
+  size           Int                // bytes
+  note           String?
+  uploadedById   String?            // User id (no FK — keeps the row if the login is deleted)
+  uploadedByName String?            // denormalised, like AuditLog.actorName
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@index([leadId])
 }
 
 // Project costs deducted from deal value before commission is applied.

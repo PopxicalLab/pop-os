@@ -159,7 +159,7 @@ visibility via `TAB_ACCESS` map in `index.html`):
   locks one route, `canSeeMoney(role)` for "include money or not",
   `stripJobColumns()` drops the stale money / PPM columns from Project rows.
   Mirrored in the UI by `TAB_ACCESS` (`shared.js`) — keep them in sync.
-- Locked to job roles: leads, jobs, project-costs, autocount, ppm, one
+- Locked to job roles: leads, jobs, job-attachments, project-costs, autocount, ppm, one
   account (`GET /api/accounts/:id`). Financial + AR CSV: FINANCE_ROLES
   (finance dashboard: ADMIN / FINANCE). Sales performance, targets,
   commission tiers: ADMIN_ONLY. Projects CSV: money columns only for job roles.
@@ -273,6 +273,18 @@ login. Click (admin only) to create a login or view the linked account.
     them in a later migration (keep `Project.quadrant`, the lane mirror).
     Also: `prisma/seed.js` creates projects without jobs — `ensureJobForProject`
     covers writes, but seeded projects show no money / PPM until one is made.
+
+- **JobAttachment (Oct 2026)** — a file uploaded to a job (Job page → Files):
+  contract, PO, signed quote, invoice, receipt, brief… `category`
+  (`AttachmentCategory`), original `fileName`, random `storedName`, mimeType,
+  size, note, uploader. Bytes live on disk at `UPLOAD_DIR` (default
+  `<app>/uploads`, git-ignored) under `jobs/<leadId>/` — **not** in the DB,
+  so `pg_dump` doesn't back them up. API `/api/job-attachments` (job roles):
+  list `?leadId=`, `POST /:leadId` multipart (`file`, 25 MB, extension
+  whitelist — no html/svg/js), `GET /:id/file` (`?inline=1` for PDF/images),
+  PATCH category/note, DELETE. Front-end fetches with the token → blob URL
+  (a plain link can't carry the token). Deleting a job (or a project's auto
+  job) removes its folder (`removeJobUploads`, `src/common/uploads.ts`).
 
 - **AccountingDocument** — one Autocount document per row (QUOTATION,
   SALES_INVOICE, PURCHASE_INVOICE). Linked to Project and/or Lead. Fields:
@@ -476,6 +488,13 @@ before any migration that drops data:
 ```bash
 mkdir -p ~/backups
 docker exec pop-os-db pg_dump -U postgres pop_os > ~/backups/pop_os-$(date +%F).sql
+```
+
+Job attachments are files on disk, not in the DB — back up the uploads
+folder too (default `/opt/pop-os/uploads`, or `UPLOAD_DIR` if set):
+
+```bash
+tar czf ~/backups/uploads-$(date +%F).tgz -C /opt/pop-os uploads
 ```
 
 Restore = load the file into an **empty** `pop_os` database (drop and recreate

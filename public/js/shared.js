@@ -644,7 +644,10 @@ if (!_token) { window.location.replace('/login.html'); }
 const _origFetch = window.fetch;
 window.fetch = function(url, opts = {}) {
   if (typeof url === 'string' && url.startsWith('/api') && _token) {
-    opts = { ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers || {}), Authorization: 'Bearer ' + _token } };
+    // File uploads (FormData) must NOT get a JSON Content-Type — the browser
+    // sets "multipart/form-data; boundary=…" itself, and the server needs it.
+    const json = opts.body instanceof FormData ? {} : { 'Content-Type': 'application/json' };
+    opts = { ...opts, headers: { ...json, ...(opts.headers || {}), Authorization: 'Bearer ' + _token } };
   }
   return _origFetch(url, opts).then(res => {
     if (res.status === 401) { logout(); }
