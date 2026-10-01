@@ -32,7 +32,12 @@ const PAID_STEPS     = [0, 20, 25, 30, 40, 50, 60, 70, 80, 100];
 let _job     = null;   // the lead (job) currently shown
 let _debtors = [];     // Autocount debtor list, fetched once when the push modal first opens
 
-const rm = v => v == null ? '—' : 'RM ' + Math.round(v).toLocaleString('en-MY');
+// Money as entered: whole amounts stay "RM 5,000", anything with cents
+// shows exactly two decimals ("RM 44.70") — never rounded to the ringgit.
+const rm = v => v == null ? '—' : 'RM ' + Number(v).toLocaleString('en-MY', {
+  minimumFractionDigits: Number.isInteger(Math.round(v * 100) / 100) ? 0 : 2,
+  maximumFractionDigits: 2,
+});
 const fmtDate = d => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
 
 // ── load ──────────────────────────────────────────────────────
