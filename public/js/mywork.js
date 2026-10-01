@@ -59,14 +59,12 @@ async function loadMyWork() {
 }
 
 function renderMyWork(data) {
-  const { profile, myCapacity, myProjects, activeLeads, paymentAlerts } = data;
+  const { profile, myCapacity, myProjects, activeLeads } = data;
   const role = profile.role;
 
   // ── stats strip ────────────────────────────────────────────
   const parts = [];
   if (myProjects.length)    parts.push(`<span class="text-ink font-semibold">${myProjects.length}</span><span class="text-muted"> project${myProjects.length !== 1 ? 's' : ''}</span>`);
-  if (paymentAlerts.length)  parts.push(`<span class="text-warm font-semibold">${paymentAlerts.length}</span><span class="text-muted"> payment alert${paymentAlerts.length !== 1 ? 's' : ''}</span>`);
-
   $('mw-stats').innerHTML = parts.length
     ? parts.join(' <span class="text-line mx-2">·</span> ')
     : '<span class="text-muted">Nothing needs your attention right now.</span>';
@@ -112,11 +110,6 @@ function renderMyWork(data) {
   // Active leads (SALES)
   if (activeLeads.length) {
     html += renderActiveLeads(activeLeads);
-  }
-
-  // Payment alerts (FINANCE / ADMIN / PM)
-  if (paymentAlerts.length) {
-    html += renderPaymentAlerts(paymentAlerts);
   }
 
   // Empty state
@@ -176,21 +169,12 @@ function renderMyProjects(projects, role) {
 
   const rows = projects.map(p => {
     const teamNames  = (p.capacityEntries || []).map(e => e.person.name).join(', ') || '—';
-    const docsAlert  = (p.accountingDocuments || []).filter(d => {
-      if (!d.dueDate) return false;
-      return daysUntil(d.dueDate) <= 14;
-    });
 
     return `<tr class="border-b border-line/60 hover:bg-panel2/50 transition-colors">
       <td class="py-2.5 px-3 text-xs font-semibold text-ink">${esc(p.name)}</td>
       <td class="py-2.5 px-3">${priChipMW(p.priority)}</td>
       <td class="py-2.5 px-3 text-[11px] text-muted">${mwDate(p.deadline)} ${dueBadge(p.deadline)}</td>
       <td class="py-2.5 px-3 text-[11px] text-muted max-w-[160px] truncate" title="${esc(teamNames)}">${esc(teamNames)}</td>
-      <td class="py-2.5 px-3">
-        ${docsAlert.length > 0
-          ? `<span class="text-warm text-[11px] font-semibold">${docsAlert.length} doc${docsAlert.length !== 1 ? 's' : ''} due</span>`
-          : ''}
-      </td>
     </tr>`;
   }).join('');
 
@@ -203,9 +187,7 @@ function renderMyProjects(projects, role) {
             <th class="text-left pb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Project</th>
             <th class="text-left pb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Pri</th>
             <th class="text-left pb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Deadline</th>
-            <th class="text-left pb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Team this week</th>
-            <th class="text-left pb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Billing</th>
-          </tr>
+            <th class="text-left pb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Team this week</th>          </tr>
         </thead>
         <tbody>${rows}</tbody>
       </table>
@@ -233,35 +215,6 @@ function renderActiveLeads(leads) {
             <th class="text-left pb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Account</th>
             <th class="text-left pb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Stage</th>
             <th class="text-left pb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Value</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </div>
-  </div>`;
-}
-
-function renderPaymentAlerts(docs) {
-  const rows = docs.map(d => `
-    <tr class="border-b border-line/60 hover:bg-panel2/50 transition-colors">
-      <td class="py-2.5 px-3 text-xs font-semibold text-ink">${esc(d.docNo)}</td>
-      <td class="py-2.5 px-3 text-[11px] text-muted">${esc(d.project?.name || d.debtorName || '—')}</td>
-      <td class="py-2.5 px-3 text-[11px] text-muted">${d.amount ? 'RM ' + d.amount.toLocaleString() : '—'}</td>
-      <td class="py-2.5 px-3">${dueBadge(d.dueDate)}</td>
-    </tr>`).join('');
-
-  return `<div class="bg-panel border border-line rounded-xl p-5 mb-5">
-    <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">
-      Payment Alerts <span class="text-warm">· Due within 14 days</span>
-    </h2>
-    <div class="overflow-x-auto -mx-5 px-5">
-      <table class="w-full min-w-[400px] text-sm">
-        <thead>
-          <tr class="border-b border-line">
-            <th class="text-left pb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Doc</th>
-            <th class="text-left pb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Project / Client</th>
-            <th class="text-left pb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Amount</th>
-            <th class="text-left pb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-muted">Due</th>
           </tr>
         </thead>
         <tbody>${rows}</tbody>

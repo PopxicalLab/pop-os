@@ -1,9 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { canSeeMoney, stripJobColumns } from '../common/roles';
-
-// How many days ahead to include in payment alerts for PM and Finance.
-const PAYMENT_ALERT_DAYS = 14;
+import { stripJobColumns } from '../common/roles';
 
 function thisMonday(): Date {
   const now = new Date();
@@ -60,14 +57,6 @@ export class MeService {
             include: { person: { select: { id: true, name: true } } },
             orderBy: { pctWeek: 'desc' },
           },
-          // Open invoices are money — only for job roles (TEAM_LEAD gets none).
-          ...(canSeeMoney(role) ? {
-            accountingDocuments: {
-              where:   { status: 'ACTIVE' as const },
-              select:  { id: true, docNo: true, docType: true, amount: true, dueDate: true, debtorName: true },
-              orderBy: { dueDate: 'asc' as const },
-            },
-          } : {}),
         },
         orderBy: [{ priority: 'asc' }, { deadline: 'asc' }],
       });
@@ -85,38 +74,8 @@ export class MeService {
         })
       : [];
 
-    // ── payment alerts (FINANCE / ADMIN / PM scoped) ──────────────
-    let paymentAlerts: any[] = [];
-    const alertCutoff = addDays(new Date(), PAYMENT_ALERT_DAYS);
-    if (['FINANCE', 'ADMIN'].includes(role)) {
-      paymentAlerts = await this.prisma.accountingDocument.findMany({
-        where: {
-          status:  'ACTIVE',
-          dueDate: { lte: alertCutoff },
-          docType: { in: ['QUOTATION', 'SALES_INVOICE'] },
-        },
-        include: {
-          project: { select: { id: true, name: true, producer: { select: { name: true } } } },
-        },
-        orderBy: { dueDate: 'asc' },
-      });
-    } else if (['PM', 'PRODUCER'].includes(role) && personId) {
-      // PM: docs on their assigned projects; PRODUCER: docs on their produced projects
-      const projectWhere = role === 'PM'
-        ? { pmId: personId }
-        : { producerId: personId };
-      paymentAlerts = await this.prisma.accountingDocument.findMany({
-        where: {
-          status:  'ACTIVE',
-          dueDate: { lte: alertCutoff },
-          project: projectWhere,
-        },
-        include: {
-          project: { select: { id: true, name: true } },
-        },
-        orderBy: { dueDate: 'asc' },
-      });
-    }
+    // Payment alerts were removed from My Work (Oct 2026) for every role —
+    // due / overdue invoices live on the Dashboard and the Financial tab.
 
     return {
       profile: {
@@ -129,7 +88,6 @@ export class MeService {
       myCapacity,
       myProjects,
       activeLeads,
-      paymentAlerts,
     };
   }
 }
