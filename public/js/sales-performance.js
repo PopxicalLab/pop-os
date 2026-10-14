@@ -690,5 +690,5 @@ async function removeTarget(id) {
 
 function fmtRM(n) {
   if (!n && n !== 0) return '<span class="text-muted">—</span>';
-  return 'RM ' + Number(n).toLocaleString('en-MY', { maximumFractionDigits: 0 });
+  return fmtMoney(n);
 }

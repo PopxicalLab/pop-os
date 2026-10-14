@@ -371,6 +371,13 @@ Extract with `new URL(header).searchParams.get('docNo')`.
 
 ---
 
+## UI pattern: money display
+
+Every ringgit amount goes through `fmtMoney(n)` in `shared.js` (whole →
+"RM 5,000", cents → "RM 44.70"). Never `Math.round(...)` or
+`maximumFractionDigits: 0` a money value — page-level helpers (`fmtMYR`,
+`fmtRM`, `rm`) only wrap `fmtMoney` with their own "—" for null.
+
 ## UI pattern: module summary strips
 
 Every module tab opens with a compact stats bar above the main content.

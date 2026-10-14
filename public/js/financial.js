@@ -5,12 +5,12 @@
 
 function fmtMYR(n) {
   if (n == null) return '<span class="text-muted">—</span>';
-  return 'RM ' + Math.round(n).toLocaleString('en-MY');
+  return fmtMoney(n);
 }
 
 function fmtMYRPlain(n) {
   if (n == null || n === 0) return 'RM 0';
-  return 'RM ' + Math.round(n).toLocaleString('en-MY');
+  return fmtMoney(n);
 }
 
 function healthBadge(health) {

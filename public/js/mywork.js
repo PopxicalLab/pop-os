@@ -202,7 +202,7 @@ function renderActiveLeads(leads) {
       <td class="py-2.5 px-3 text-xs font-semibold text-ink">${esc(l.name)}</td>
       <td class="py-2.5 px-3 text-[11px] text-muted">${esc(l.account?.name || '—')}</td>
       <td class="py-2.5 px-3">${leadStatusBadge(l.status)}</td>
-      <td class="py-2.5 px-3 text-[11px] text-muted">${l.estimatedValue ? 'RM ' + l.estimatedValue.toLocaleString() : '—'}</td>
+      <td class="py-2.5 px-3 text-[11px] text-muted">${l.estimatedValue ? fmtMoney(l.estimatedValue) : '—'}</td>
     </tr>`).join('');
 
   return `<div class="bg-panel border border-line rounded-xl p-5 mb-5">

@@ -179,6 +179,16 @@ const PRI_CLS = {
 const PPM_VALUE_MIDPOINT      = 50_000;
 const PPM_COMPLEXITY_THRESHOLD = 3;
 
+// The ONE way to show a ringgit amount, used by every page. Money is shown
+// as entered — never rounded to the ringgit: whole amounts stay "RM 5,000",
+// anything with cents shows exactly two decimals ("RM 44.70"). Callers
+// handle null / "—" themselves.
+function fmtMoney(n) {
+  const v = Number(n);
+  const cents = !Number.isInteger(Math.round(v * 100) / 100);
+  return 'RM ' + v.toLocaleString('en-MY', { minimumFractionDigits: cents ? 2 : 0, maximumFractionDigits: 2 });
+}
+
 function computePpm({ estimatedValue, complexityScore, clientTier, marginTarget }) {
   const valueScore  = estimatedValue  != null ? Math.min((estimatedValue / PPM_VALUE_MIDPOINT) * 50, 100) : null;
   const effortScore = complexityScore != null ? ((6 - complexityScore) / 5) * 100 : null;

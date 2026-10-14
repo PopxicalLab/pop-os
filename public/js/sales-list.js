@@ -236,7 +236,7 @@ function renderSalesList() {
       </tbody>
       <tfoot><tr class="text-[11px] text-muted">
         <td class="pt-2 px-1.5">${leads.length} lead${leads.length === 1 ? '' : 's'}</td>
-        ${cols.map(c => `<td class="pt-2 px-1.5 ${c.right ? 'text-right' : ''}">${c.id === 'value' ? 'RM ' + Math.round(total).toLocaleString('en-MY') : ''}</td>`).join('')}
+        ${cols.map(c => `<td class="pt-2 px-1.5 ${c.right ? 'text-right' : ''}">${c.id === 'value' ? fmtMoney(total) : ''}</td>`).join('')}
       </tr></tfoot>
     </table>`;
 }

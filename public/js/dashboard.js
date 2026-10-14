@@ -202,7 +202,7 @@ function renderDashboard(data) {
                    : daysLeft <= 3 ? 'text-warm font-semibold'
                    : 'text-yellow-400 font-semibold';
     const dueLabel = overdue ? `${Math.abs(daysLeft)}d overdue` : `due in ${daysLeft}d`;
-    const amt      = d.amount != null ? ` · RM ${Math.round(d.amount).toLocaleString('en-MY')}` : '';
+    const amt      = d.amount != null ? ` · ${fmtMoney(d.amount)}` : '';
     const DOC_LABEL = { QUOTATION: 'Quote', SALES_INVOICE: 'Invoice', PURCHASE_INVOICE: 'PO' };
 
     return `<div class="flex items-start gap-2 py-2.5 border-b border-line/60 last:border-0">
@@ -264,7 +264,7 @@ function renderPipelineSnapshot(leadsByStage, hotLeads) {
       <div class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${LEAD_STAGE_COLOR[s]}"></div>
       <span class="text-xs text-muted flex-1">${LEAD_STAGE_LABEL[s]}</span>
       <span class="text-xs text-ink font-semibold">${g.count}</span>
-      <span class="text-xs text-muted w-24 text-right">RM ${Math.round(g.value).toLocaleString('en-MY')}</span>
+      <span class="text-xs text-muted w-24 text-right">${fmtMoney(g.value)}</span>
     </div>`;
   }).join('');
 
@@ -280,7 +280,7 @@ function hotLeadsHtml(hotLeads) {
         </div>
         <div class="text-right shrink-0">
           <p class="text-xs ${LEAD_PRI_DASH_CLS[l.priority] || 'text-muted'}">${l.priority.replace('_',' ')}</p>
-          ${l.estimatedValue ? `<p class="text-[11px] text-muted">RM ${Math.round(l.estimatedValue).toLocaleString('en-MY')}</p>` : ''}
+          ${l.estimatedValue ? `<p class="text-[11px] text-muted">${fmtMoney(l.estimatedValue)}</p>` : ''}
         </div>
       </div>`).join('')
     : '<p class="text-xs text-muted">Nothing urgent — no high-priority deals stuck open.</p>';

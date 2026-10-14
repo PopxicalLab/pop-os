@@ -29,7 +29,7 @@ const EMP_LABEL = {
 
 function fmtMYR(n) {
   if (n == null) return '<span class="text-muted">—</span>';
-  return 'RM ' + Number(n).toLocaleString('en-MY', { maximumFractionDigits: 0 });
+  return fmtMoney(n);
 }
 
 // Lock icon SVG — filled green if linked, outline grey if not

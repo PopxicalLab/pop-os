@@ -11,11 +11,8 @@
 
 let _allJobs = [];
 
-// Same rule as the Job page: cents shown when there are any, never rounded away.
-const jobsRm   = v => v == null ? '—' : 'RM ' + Number(v).toLocaleString('en-MY', {
-  minimumFractionDigits: Number.isInteger(Math.round(v * 100) / 100) ? 0 : 2,
-  maximumFractionDigits: 2,
-});
+// Money display: fmtMoney (shared.js) — cents kept, never rounded.
+const jobsRm   = v => v == null ? '—' : fmtMoney(v);
 const jobsDate = d => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—';
 
 // "In progress" = production isn't finished and the deal isn't wrapped up.
