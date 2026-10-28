@@ -64,7 +64,7 @@ These work identically on Windows (PowerShell) and macOS (Terminal).
 
 ### First-time setup on a new machine
 1. Install Node.js (v18+) and Docker Desktop
-2. `git clone https://github.com/popxicalLab/pop-os.git`
+2. `git clone https://github.com/PopxicalLab/pop-os.git`
 3. Copy env file: `cp .env.example .env` (Mac) or `copy .env.example .env` (Windows)
 4. Fill in `.env` — at minimum `DATABASE_URL`, `JWT_SECRET`, Autocount vars, and `APP_URL` (used in welcome emails)
    Optional: `MATTERMOST_URL`, `MATTERMOST_BOT_TOKEN`, `MATTERMOST_TEAM` (see "Mattermost notifications" below; bot setup steps are in `README.md`)
