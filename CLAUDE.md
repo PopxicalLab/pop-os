@@ -21,18 +21,25 @@ not just describe.
 - **Database:** PostgreSQL 16, run via Docker (docker-compose.yml)
 - **UI Framework:** Tailwind CSS (CDN)
 - **Frontend:** vanilla JS, no framework, served by NestJS via `ServeStaticModule`.
-  `public/index.html` is a thin shell (HTML structure, shared utilities, theme,
-  tab switching, auth check, global fetch wrapper). Each tab's logic lives in its
-  own file under `public/js/`:
+  **Not an SPA** — every tab is its own standalone HTML page (`public/<name>.html`,
+  e.g. `projects.html`, `capacity.html`, `jobs.html`). `index.html` is just the
+  Dashboard page (`renderHeader('dashboard')`) — not a shell the others live
+  inside. `public/js/shared.js` is the one file every page loads: `$`/`esc`/
+  `fmtMoney`/`matchesFilter`, `renderHeader(activeTab)` (builds the nav —
+  reads `TAB_ACCESS` to show/hide items and acts as a **page guard**, redirecting
+  a role that isn't allowed on that tab to My Work), the company-filter state,
+  theme, and the global `fetch` override that injects the JWT. Each page's own
+  logic lives in `public/js/<name>.js`:
   `mywork.js`, `dashboard.js`, `jobs.js` (Jobs list), `job.js` (one job),
   `sales.js` (+ `sales-list.js`, the List sub-tab), `clients.js`, `sales-performance.js`,
-  `projects.js`, `production.js`,
-  `capacity.js`, `financial.js`, `people.js`, `staffing.js`, `admin.js`.
-  Adding a new tab = new file + one `<script src>` line in `index.html`.
-  Keep it framework-free.
+  `projects.js`, `production.js`, `capacity.js`, `financial.js`, `people.js`
+  (+ `person-profile.js`), `committees.js`, `staffing.js`, `admin.js` (+
+  `admin-notifications.js`).
+  Adding a new tab = new `public/<name>.html` page + `public/js/<name>.js` +
+  a `TAB_ACCESS` entry in `shared.js` + a nav link. Keep it framework-free.
 - **Auth:** JWT (`@nestjs/jwt`). Global `JwtAuthGuard` via `APP_GUARD`. Routes
   marked `@Public()` skip the guard. Token stored in `localStorage` as
-  `pop-os-token`. `window.fetch` is overridden in `index.html` to inject the
+  `pop-os-token`. `window.fetch` is overridden in `shared.js` to inject the
   Bearer token on every request — no changes needed in individual tab JS files.
 - **OS:** Windows (primary) and macOS (secondary). Windows path: `C:\Users\yys\dev\pop-os`.
 
@@ -118,10 +125,12 @@ Then:
 - add the model(s) to `prisma/schema.prisma`
 - import the new module in `src/app.module.ts`
 - run a migration (see workflow rule above)
-- add a `public/js/<name>.js` file for the tab's UI logic
-- add `<script src="/js/<name>.js"></script>` to `public/index.html`
-- add a tab button to the nav and a panel div in `index.html`
-- update `switchTab()` in `index.html` to include the new tab name
+- add `public/<name>.html` (copy an existing standalone page's shell — header
+  via `renderHeader('<name>')`, `<script src="/js/shared.js">` then
+  `<script src="/js/<name>.js">`) and `public/js/<name>.js` for the tab's UI logic
+- add `<name>` to the `TAB_ACCESS` map in `shared.js` (which roles can see it —
+  `renderHeader()` uses this both to hide the nav link and as a page guard)
+- add a nav link to the new page in `renderHeader()`'s markup in `shared.js`
 
 Conventions already in use (keep them consistent):
 - IDs are `String @id @default(cuid())`.
@@ -392,7 +401,8 @@ is its own mini-dashboard in context.
 - Production ▾ → Projects, Production engine, Capacity
 - Financial (direct — FINANCE + ADMIN only)
 - HR ▾ → People, Staffing
-- Admin (direct — ADMIN only) → Mattermost Notifications + Audit Log viewer
+- Admin ▾ (ADMIN only) → Notifications (`notifications.html`, Mattermost rules),
+  Audit Log (`audit.html`). Old `/admin.html` just redirects to Notifications.
 
 ---
 

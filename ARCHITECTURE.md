@@ -59,46 +59,65 @@ pop-os/
 │   └── seed-users.js          # Default login accounts (4 roles)
 │
 ├── public/
-│   ├── index.html             # Shell: HTML structure, nav, auth check, tab switching
+│   ├── index.html             # The Dashboard page itself — NOT an SPA shell;
+│   │                          #   every tab below is its own standalone page
 │   ├── login.html             # Animated login page (Lorrypop/Popxical branding)
 │   ├── guide.html             # Director's guide — roles, access, how-tos
+│   ├── jobs.html / job.html / sales.html / clients.html / sp.html /
+│   │   projects.html / production.html / capacity.html / financial.html /
+│   │   people.html / committees.html / staffing.html / admin.html /
+│   │   mywork.html / self-assess.html / skills-guide.html / changelog.html /
+│   │   reset-password.html    # One standalone page per tab, sharing shared.js
 │   └── js/
 │       ├── mywork.js               # My Work personal dashboard
 │       ├── dashboard.js            # Cross-module command centre
-│       ├── sales.js                # Sales pipeline (leads)
+│       ├── jobs.js / job.js        # Jobs list / one job (sales + production + money)
+│       ├── sales.js / sales-list.js    # Sales pipeline (kanban) / List sub-tab
 │       ├── clients.js              # Accounts + contacts
 │       ├── sales-performance.js    # Commission tracker — tiers, attainment, overrides
-│       ├── projects.js             # Projects (PPM) + Gantt timeline + project costs
+│       ├── projects.js             # Projects — production only (dates, team, skills, capacity)
 │       ├── production.js           # Production lane board
 │       ├── capacity.js             # Weekly capacity board
 │       ├── financial.js            # Financial engine + AR dashboard
-│       ├── people.js               # People / ELC tab
-│       └── staffing.js             # Staffing recommender
+│       ├── people.js / person-profile.js   # People / ELC tab / one person's profile
+│       ├── committees.js           # Committees — members, activities, attendees
+│       ├── staffing.js             # Staffing recommender
+│       ├── audit.js / admin-notifications.js   # Admin ▾ Audit Log / Mattermost notification rules
+│       └── shared.js               # $, esc, fmtMoney, matchesFilter, TAB_ACCESS, renderHeader, …
 │
 ├── src/
 │   ├── main.ts                # Bootstrap: starts NestJS, global ValidationPipe
 │   ├── app.module.ts          # Root module — imports all feature modules
 │   ├── prisma.service.ts      # Shared DB connection (injected into every service)
+│   ├── common/                # roles.ts (JOB_ROLES/FINANCE_ROLES/onlyRoles/canSeeMoney),
+│   │                          #   job.ts (JOB_FIELDS/withJobFields/ensureJobForProject), uploads.ts
 │   │
 │   ├── auth/                  # JWT auth — login, token issuance, @Public() decorator
 │   ├── users/                 # User accounts (admin only) — email, role, personId link
-│   ├── me/                    # Personal dashboard — capacity, projects, payment alerts
+│   ├── me/                    # Personal dashboard — capacity, projects
+│   ├── audit/                 # Immutable AuditLog — CREATE/UPDATE/DELETE across the app
 │   │
 │   ├── people/                # People / ELC — staff records, skills, profile
 │   ├── skills/                # Skill master list + PersonSkill ratings + audit trail
+│   ├── job-titles/            # Job title master list (Person.role picks from these)
+│   ├── departments/           # Department master list (Person.department)
+│   ├── software/              # Software-skill master list + per-person proficiency
+│   ├── self-assess/           # Self-assessment skill submissions (admin approve/reject)
+│   ├── committees/            # Committees — members, activities, attendee tracking
 │   │
-│   ├── projects/              # Projects (PPM) — priority, budget, Drain gate, startDate
-│   │
+│   ├── projects/              # Projects — production only: dates, team, priority, skills, capacity
 │   ├── capacity/              # Weekly allocation board (person × project × week)
 │   ├── production/            # Production lane routing
 │   │
 │   ├── accounts/              # Client companies (Autocount debtors)
 │   ├── contacts/              # Contacts at client companies
-│   ├── leads/                 # Sales leads + pipeline + lead→project conversion + wonAt timestamp
+│   ├── leads/                 # Sales leads + pipeline + ALL money/PPM + lead→project conversion
+│   ├── jobs/                  # Read-only: a won lead + its project, one money+production view
+│   ├── job-attachments/       # Files on a job (contract/PO/invoice/receipt) — disk + index row
 │   │
 │   ├── autocount/             # Autocount Cloud integration — push quotes + invoices
 │   │
-│   ├── project-costs/         # Per-project costs (warm pool, supplier, additional)
+│   ├── project-costs/         # Costs against a lead (warm pool, supplier, additional)
 │   ├── commission-tiers/      # Global attainment-based commission rate table
 │   ├── sales-targets/         # Quarterly targets per producer
 │   ├── sales-performance/     # Commission calculator — attainment, net profit, overrides
@@ -206,11 +225,11 @@ All routes are prefixed `/api` and JWT-guarded unless marked public.
 | Skills | POST | `/api/skills` | Create a skill |
 | Skills | DELETE | `/api/skills/:id` | Remove a skill |
 | Skills | POST | `/api/skills/:id/rate` | Add/update a person's skill rating |
-| Projects | GET | `/api/projects` | List all projects |
-| Projects | GET | `/api/projects/:id` | Get one project |
-| Projects | POST | `/api/projects` | Create a project |
-| Projects | PATCH | `/api/projects/:id` | Update a project |
-| Projects | DELETE | `/api/projects/:id` | Remove a project |
+| Projects | GET | `/api/projects` | List all projects — production fields only, no money/PPM for anyone |
+| Projects | GET | `/api/projects/:id` | Get one project (production only) |
+| Projects | POST | `/api/projects` | Create a project — gets an auto job (`job_<projectId>`) via `ensureJobForProject` |
+| Projects | PATCH | `/api/projects/:id` | Update a project — `UpdateProjectDto` has no money/PPM fields, so it can't write them |
+| Projects | DELETE | `/api/projects/:id` | Remove a project (deletes its auto job's upload folder too) |
 | Capacity | GET | `/api/capacity?week=` | Board for a week (defaults: this week) |
 | Capacity | POST | `/api/capacity` | Add an allocation |
 | Capacity | PATCH | `/api/capacity/:id` | Update role or % |
@@ -224,11 +243,18 @@ All routes are prefixed `/api` and JWT-guarded unless marked public.
 | Contacts | POST | `/api/contacts` | Create a contact |
 | Contacts | PATCH | `/api/contacts/:id` | Update a contact |
 | Contacts | DELETE | `/api/contacts/:id` | Remove a contact |
-| Leads | GET | `/api/leads` | List leads |
+| Leads | GET | `/api/leads` | List leads — job roles only (carries all money + PPM) |
 | Leads | POST | `/api/leads` | Create a lead |
-| Leads | PATCH | `/api/leads/:id` | Update a lead (status, stage, etc.) |
+| Leads | PATCH | `/api/leads/:id` | Update a lead (status, stage, money, PPM — `JOB_OWNED_FIELDS` also sync the mirror onto its Project) |
 | Leads | DELETE | `/api/leads/:id` | Remove a lead |
-| Leads | POST | `/api/leads/:id/convert` | Convert a WON lead to a Project |
+| Leads | POST | `/api/leads/:id/convert` | Convert a WON lead to a Project (refused for an un-approved DRAIN) |
+| Jobs | GET | `/api/jobs` | List every won deal — sales + production + money, job roles only |
+| Jobs | GET | `/api/jobs/:id` | One job (read-only — edit via `/api/leads`, `/api/projects`, `/api/project-costs`) |
+| Job Attachments | GET | `/api/job-attachments?leadId=` | List files on a job — job roles only |
+| Job Attachments | POST | `/api/job-attachments/:leadId` | Upload a file (multipart, 25 MB, extension-whitelisted) |
+| Job Attachments | GET | `/api/job-attachments/:id/file` | Download (`?inline=1` to preview PDF/image) |
+| Job Attachments | PATCH | `/api/job-attachments/:id` | Update category / note |
+| Job Attachments | DELETE | `/api/job-attachments/:id` | Remove a file (and its bytes on disk) |
 | Dashboard | GET | `/api/dashboard` | Aggregated stats + this week summary |
 | PPM | GET | `/api/ppm` | Score all active projects |
 | PPM | GET | `/api/ppm/:id` | Score one project |
@@ -274,18 +300,21 @@ Company (enum: LPS / PXL / GROUP)
      │     │         SkillRatingChange (audit trail)
      │     │
      │     ├──< Capacity >── Project
+     │     ├──< CommitteeMember >── Committee ──< CommitteeActivity ──< CommitteeActivityAttendee
      │     └── User? (login account)
      │
-     ├── Project
+     ├── Project  (production only — no money, no PPM)
      │     ├──< Capacity
      │     ├──< ProjectSkill >── Skill
-     │     ├──< ProjectCost
-     │     ├──< AccountingDocument
      │     └── Account? (client link)
+     │     one job ── Lead  (see "Job" below)
      │
      ├── Account ──< Contact
-     │     └──< Lead ──< AccountingDocument (quotations)
-     │           └── convertToProject → Project
+     │     └──< Lead  (ALL money + PPM live here)
+     │           ├──< AccountingDocument (quotations/invoices)
+     │           ├──< ProjectCost (warm pool / supplier / additional)
+     │           ├──< JobAttachment (contract/PO/invoice/receipt — bytes on disk)
+     │           └── convertToProject → Project (DRAIN blocked without both approvals)
      │
      ├── User ── Person? (optional link via personId)
      │
@@ -295,23 +324,29 @@ Company (enum: LPS / PXL / GROUP)
 ### Models
 
 - **Company** — enum `LPS` / `PXL` / `GROUP`. Required on Project; optional on Person, Account, Lead. Drives the global header filter; untagged and `GROUP` records always appear regardless of which company the filter is set to.
-- **Person** — one record per staff member. Fields: name, role, department, startDate, employmentType, warmPool, `commissionRateOverride` (optional flat rate that bypasses the global tier table), company, salary (monthly RM — ADMIN + FINANCE only).
+- **Person** — one record per staff member. Fields: name, role (from the JobTitle list), department (from the Department list), startDate, employmentType, warmPool, `commissionRateOverride` (optional flat rate that bypasses the global tier table), company, salary (monthly RM — ADMIN + FINANCE only), `showInCapacityReports` (false = left out of person-level capacity summaries — Mattermost weekly post, Dashboard, Capacity "unallocated" strip, staffing suggestions — but still bookable and still shown under a project).
 - **Skill** — studio-wide master list. Shared records, not free text.
 - **PersonSkill** — live current rating (1–5) for a person × skill pair.
 - **SkillRatingChange** — every score movement. First entry (source = INTERVIEW) is the candidate score.
-- **Project** — the spine. PPM quadrant, priority, status, startDate, deadline, budget, producer/PM links, Drain approval gate. Has a required `company` field (LPS/PXL/GROUP).
+- **JobTitle / Department / Software** — small master lists feeding Person's role, department, and tracked software-skill proficiency dropdowns. Admin-managed, not free text.
+- **SelfAssessmentRating** — a person's own skill self-assessment submission, admin approve/reject before it lands on PersonSkill.
+- **Committee / CommitteeMember / CommitteeActivity / CommitteeActivityAttendee** — committee membership (role, joined/left) and a log of sessions (meeting/audit/review) with attendance.
+- **"Job" — not a table, a role a Lead plays.** A won lead (WON / COMPLETED status, or any lead with a project) is the root of the deal: the Lead carries all the money (`estimatedValue`, `marginTarget`, `clientTier`, `invoicedPct`/`paidPct`, costs, Autocount docs) *and* the PPM assessment (`quadrant`, `complexityScore`, `estimatedDuration`, Drain approvals). The Project it spawns is production-only — dates, team, priority, skills, capacity, and a `quadrant` that's a read-only mirror of the job's (kept in sync by `LeadsService.update()` / `ensureJobForProject`). Every Project has exactly one job; one made directly on the Projects tab gets an auto job (`job_<projectId>`, no closer, never counted in commission). The Jobs tab/API is a read-only merged view over Lead + Project — edits still go through `/api/leads`, `/api/projects`, `/api/project-costs`. Job roles (ADMIN, PRODUCER, PM, FINANCE, SALES) see money; TEAM_LEAD/STAFF never do, not even in API responses — see `src/common/roles.ts` / `JOB_ROLES`.
+- **Project** — production only: PPM quadrant (mirrored from its job), priority, status, startDate, deadline, producer/PM links, Drain approval gate, required `company` (LPS/PXL/GROUP). Still has old `estimatedValue`/`marginTarget`/`clientTier`/`client`/`complexityScore`/`estimatedDuration`/Drain-approval columns and `ProjectCost.projectId` — unused since the Sept 2026 split, pending a cleanup migration (see CLAUDE.md "step 4").
 - **Capacity** — one row per person × project × week. Enforces ≤ 100% total per person per week. `weekStart` always Monday 00:00 UTC.
 - **Account** — client company. Has `autocountDebtorCode` for Autocount integration.
 - **Contact** — person at a client company. Linked to Account.
-- **Lead** — sales opportunity. Status: QUALIFICATION → PROPOSAL → NEGOTIATION → WON / LOST. `wonAt` is set automatically when status changes to WON — used to bucket deals into quarters for the commission report. `convertToProject` creates a Project from a WON lead.
+- **Lead** — sales opportunity *and* the money/PPM record for its job (see "Job" above). Status: QUALIFICATION → PROPOSAL → NEGOTIATION → WON → COMPLETED / LOST. `wonAt` is set automatically when status changes to WON — used to bucket deals into quarters for the commission report. `convertToProject` creates a Project from a WON lead.
+- **JobAttachment** — a file uploaded to a job (contract, PO, invoice, receipt, brief…). Bytes live on disk under `UPLOAD_DIR` (default `<app>/uploads`, git-ignored — **not** backed up by `pg_dump`), this row is just the index: category, original filename, random stored name, size, uploader. Job roles only.
 - **AccountingDocument** — one Autocount document per row (QUOTATION, SALES_INVOICE, PURCHASE_INVOICE). `dueDate` drives payment alerts and the Finance Dashboard overdue panel.
-- **ProjectCost** — a cost line item on a project. Type: `WARM_POOL` / `SUPPLIER` / `ADDITIONAL`. Added from the project detail view. Summed to calculate net profit in the commission report.
+- **ProjectCost** — a cost line item against a lead/job. Type: `WARM_POOL` / `SUPPLIER` / `ADDITIONAL`. Summed to calculate net profit in the commission report.
 - **SalesTarget** — quarterly revenue target per producer. Unique on `(personId, year, quarter)`. Used to calculate attainment %.
 - **CommissionTier** — global rate schedule. Each row has a `threshold` (fraction of target, e.g. `0.75` = 75%) and a `rate` (commission fraction, e.g. `0.025` = 2.5%). Seeded with four tiers (50 / 75 / 100 / 150%). Admin-editable from the Performance settings panel.
 - **PersonTierRate** — per-person override for a specific CommissionTier row. Takes precedence over the global tier rate for that person × tier combination.
 - **NotificationRule** — one Mattermost message the admin has set up. `event` (`CAPACITY_WEEKLY` / `LEAD_CREATED` / `LEAD_STATUS_CHANGED`), `enabled`, optional `company` scope, `dayOfWeek` (1=Mon) + `timeOfDay` (`HH:mm`, always GMT+8) for scheduled events only, event-specific `options` (JSON), and `lastRunAt` / `lastStatus` shown in the Admin UI.
 - **NotificationTarget** — a recipient of a rule: `CHANNEL` (Mattermost channel URL name) or `USER` (a Pop OS `userId`, DM'd via their login email, optional `mattermostUsername` override). Deleted with its rule.
 - **User** — login credential. Fields: email, name, password (bcrypt), role (7 values: ADMIN / PRODUCER / PM / TEAM_LEAD / FINANCE / SALES / STAFF), active, `personId` (optional FK to Person), `resetTokenHash` / `resetTokenExpiresAt` (self-service password reset — only the bcrypt hash of the token is stored, 1-hour expiry, cleared on use).
+- **AuditLog** — immutable CREATE/UPDATE/DELETE record across Leads, Projects, People, Users, AccountingDocuments, NotificationRules. Written fire-and-forget; never blocks a request.
 
 ---
 
@@ -322,9 +357,10 @@ Company (enum: LPS / PXL / GROUP)
 - Services throw `NotFoundException` / `ConflictException` / `BadRequestException` for clean HTTP errors.
 - DTOs validate at the boundary; services trust validated input.
 - `weekStart` in Capacity is always normalised to Monday 00:00 UTC — done in the service, not the client.
-- **Company filter** — global state `window._company` (null = both). The shared `matchesFilter(company)` in `index.html` is used by all module JS files.
+- **Company filter** — global state `window._company` (null = both). The shared `matchesFilter(company)` in `shared.js` is used by every page's JS.
 - **Module summary strips** — every module tab opens with a compact stats bar above the main content.
-- **Frontend modules** — each tab's JS lives in `public/js/<name>.js`. Adding a tab = new JS file + one `<script src>` line + tab button + panel div in `index.html`.
+- **Frontend pages** — every tab is its own standalone `public/<name>.html` page (not an SPA) sharing `public/js/shared.js` for header/nav/auth/theme/fetch. Adding a tab = new `<name>.html` + `<name>.js` + an entry in `shared.js`'s `TAB_ACCESS` map + a nav link.
+- **Money formatting** — every ringgit amount goes through `fmtMoney(n)` in `shared.js` (handles cents, not just whole ringgit). Never hand-roll `Math.round()` or `maximumFractionDigits: 0` on a money value.
 - **Salary visibility** — `canSeeSalary()` in `people.js` gates salary column, column toggle, and add-form field to ADMIN and FINANCE only.
 
 ---
@@ -337,6 +373,15 @@ Company (enum: LPS / PXL / GROUP)
 | 1 | People / ELC | Done |
 | 2 | Projects (PPM) | Done |
 | 3 | Capacity Board | Done |
+
+### People & org records (done)
+| Feature | Status |
+|---|---|
+| JobTitle / Department master lists — feed Person's role/department dropdowns | Done |
+| Software skill tracking — master list + per-person proficiency | Done |
+| Self-assessment — person submits a skill rating, admin approves/rejects | Done |
+| Committees — membership (role, joined/left) + logged activities with attendance | Done |
+| `showInCapacityReports` flag — excludes a person from capacity summaries, still bookable | Done |
 
 ### Intelligence layer (done)
 | # | Module | Status |
@@ -359,12 +404,24 @@ Company (enum: LPS / PXL / GROUP)
 ### Auth & access control (done)
 | Feature | Status |
 |---|---|
-| JWT auth — login page, 6 roles, global guard | Done |
+| JWT auth — login page, 7 roles, global guard | Done |
 | Users module — admin CRUD | Done |
 | Person ↔ User link — lock icon on People tab | Done |
 | canSignOff flag — per-person sign-off authority | Removed Sept 2026 |
 | Salary visibility restriction — ADMIN + FINANCE only | Done |
 | Password reset — self-service email flow + admin-initiated reset | Done |
+| Page guard — `renderHeader()` redirects a role to My Work on a tab it can't access | Done |
+
+### Job restructure (Sept 2026, done)
+| Feature | Status |
+|---|---|
+| Money split: Lead carries all money + PPM; Project is production-only | Done |
+| Project money/PPM columns dropped from `UpdateProjectDto` — API can't write them | Done |
+| `src/common/roles.ts` — `JOB_ROLES`/`FINANCE_ROLES`/`onlyRoles()`/`canSeeMoney()` | Done |
+| Jobs tab/API — read-only merged view of a won lead + its project | Done |
+| Auto job (`job_<projectId>`) for projects made directly on the Projects tab | Done |
+| Job Attachments — upload contracts/POs/invoices/receipts to a job, disk + index row | Done |
+| Pending: drop the now-unused money/PPM columns from `Project` in a later migration | Deferred |
 
 ### Growth & client layer (done)
 | # | Module | Status |

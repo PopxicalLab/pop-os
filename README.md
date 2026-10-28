@@ -200,7 +200,7 @@ One Pop OS install posts to a single team: every channel in your rules must
 belong to `MATTERMOST_TEAM`. (Direct messages are not tied to a team.)
 
 Restart the server (`npm run start:dev` locally, `pm2 restart pop-os` on the
-server). The Admin page shows **● Mattermost connected** when the vars are set.
+server). Admin → Notifications shows **● Mattermost connected** when the vars are set.
 
 Quick check that the token works (PowerShell):
 
@@ -296,16 +296,22 @@ This does not apply on macOS or Linux.
         <module>.controller.ts  HTTP endpoints
         <module>.module.ts      wires controller + service together
 
-    public/index.html           app shell — nav, auth check, tab switching
+    public/index.html           the Dashboard page — NOT an app shell; every
+                                 tab is its own standalone public/<name>.html page
     public/login.html           animated login page
     public/guide.html           director's guide — roles, access, how-tos
+    public/js/shared.js         $, esc, fmtMoney, matchesFilter, renderHeader
+                                 (nav + page guard), theme, the fetch/JWT override
     public/js/<module>.js       tab UI logic (one file per module)
 
 ---
 
 ## Server deployment (192.168.1.40)
 
-The server runs Debian. PostgreSQL runs natively (no Docker). PM2 manages the Node process.
+The server runs Debian. PostgreSQL 16 runs in a Docker container (`pop-os-db`,
+port 5432) — the app itself runs outside Docker, under PM2. There's no `psql`/
+`pg_dump` on the host; run them via `docker exec pop-os-db ...` (see CLAUDE.md
+"Deployment" for backup/restore commands).
 
 ```bash
 cd /opt/pop-os
