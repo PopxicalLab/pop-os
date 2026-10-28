@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════
-// ADMIN — Audit Log viewer
+// ADMIN — Audit Log viewer (audit.html)
 // Depends on: $, msg, esc  (shared.js)
 // ══════════════════════════════════════════════════════════════
 
@@ -12,7 +12,7 @@ const ACTION_CLS = {
 let _auditUsers = [];
 let _auditPage  = 1;
 
-async function initAdminTab() {
+async function initAuditPage() {
   _auditUsers = await fetch('/api/users').then(r => r.json()).catch(() => []);
   const sel = $('audit-actor-filter');
   if (sel) {

@@ -322,11 +322,11 @@ function renderSalesPipeline() {
   $('sales-stats').innerHTML =
     `<span class="text-ink font-semibold">${active.length}</span><span class="text-muted"> active leads</span>` +
     ` <span class="text-line mx-2">·</span> ` +
-    `<span class="text-ink font-semibold">RM ${pipeline.toLocaleString('en-MY')}</span><span class="text-muted"> pipeline value</span>` +
+    `<span class="text-ink font-semibold">${fmtMoney(pipeline)}</span><span class="text-muted"> pipeline value</span>` +
     ` <span class="text-line mx-2">·</span> ` +
     `<span class="text-emerald-400 font-semibold">${won.length} won</span>` +
     ` <span class="text-line mx-2">·</span> ` +
-    `<span class="text-emerald-400 font-semibold">RM ${wonValue.toLocaleString('en-MY')}</span><span class="text-muted"> closed</span>` +
+    `<span class="text-emerald-400 font-semibold">${fmtMoney(wonValue)}</span><span class="text-muted"> closed</span>` +
     ` <span class="text-line mx-2">·</span> ` +
     `<span class="text-slate-400 font-semibold">${completed.length}</span><span class="text-muted"> completed</span>`;
 
@@ -338,20 +338,33 @@ function renderSalesPipeline() {
   for (const s of PIPELINE_STAGES) byStage[s] = [];
   for (const l of filtered) { if (byStage[l.status]) byStage[l.status].push(l); }
 
+  // Board layout, Trello-style:
+  // - Wide screens (xl+): all six stages side by side in a grid, as before.
+  // - Phones / tablets: stages stay in ONE horizontal row. Swipe left/right
+  //   to move between stages (scroll-snap stops each column neatly at the
+  //   left edge, and the next column peeks in so you know there's more).
+  //   Each column has a capped height and scrolls its own cards, so the
+  //   board never grows downward — you never scroll the page to see a stage.
   $('sales-board').innerHTML =
-    `<div class="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-6 gap-3">` +
+    `<div class="flex gap-3 overflow-x-auto snap-x snap-mandatory overscroll-x-contain -mx-5 px-5 pb-2
+                 xl:grid xl:grid-cols-6 xl:overflow-visible xl:mx-0 xl:px-0 xl:pb-0">` +
     PIPELINE_STAGES.map(stage => {
       const cls   = LEAD_STATUS_CLS[stage];
       const items = byStage[stage];
       const total = items.reduce((s, l) => s + (l.estimatedValue || 0), 0);
 
-      return `<div class="flex flex-col gap-2 rounded-xl transition-colors" data-stage-drop="${stage}">
+      return `<div class="flex flex-col gap-2 rounded-xl transition-colors
+                          w-[80vw] max-w-[300px] shrink-0 snap-start bg-panel2/40 p-2
+                          xl:w-auto xl:max-w-none xl:bg-transparent xl:p-0" data-stage-drop="${stage}">
         <div class="flex items-center justify-between mb-1">
           <span class="badge border ${cls} text-[11px]">${LEAD_STATUS_LABEL[stage]}</span>
           <span class="text-[11px] text-muted">${items.length}</span>
         </div>
-        ${total > 0 ? `<p class="text-[11px] text-muted -mt-1 mb-1">RM ${total.toLocaleString('en-MY')}</p>` : ''}
-        ${items.length ? items.map(l => renderLeadCard(l)).join('') : '<p class="text-xs text-muted text-center py-4">—</p>'}
+        ${total > 0 ? `<p class="text-[11px] text-muted -mt-1 mb-1">${fmtMoney(total)}</p>` : ''}
+        <div class="flex flex-col gap-2 max-h-[65dvh] overflow-y-auto overscroll-contain
+                    xl:max-h-none xl:overflow-visible">
+          ${items.length ? items.map(l => renderLeadCard(l)).join('') : '<p class="text-xs text-muted text-center py-4">—</p>'}
+        </div>
       </div>`;
     }).join('') +
     `</div>`;

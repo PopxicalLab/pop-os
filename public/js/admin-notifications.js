@@ -1,6 +1,6 @@
 // ══════════════════════════════════════════════════════════════
 // ADMIN — Mattermost notification rules
-// Depends on: $, msg, esc  (shared.js)  and  _auditUsers  (admin.js)
+// Depends on: $, msg, esc  (shared.js)
 //
 // A rule = one message type + who receives it + when it is sent (GMT+8).
 // The list of message types comes from the server (EVENT_CATALOGUE), so a new
@@ -12,6 +12,7 @@ const DAY_NAMES = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 let _notif = { configured: false, events: [], rules: [] };
 let _notifEditId  = null;   // null = creating a new rule
 let _notifTargets = [];     // working copy of the targets being edited
+let _notifUsers   = [];     // login accounts, for the "Person (DM)" picker
 
 // Show a moment as Kuala Lumpur time, whatever the viewer's own timezone is.
 function fmtKL(iso) {
@@ -24,7 +25,12 @@ function fmtKL(iso) {
 
 async function loadNotifRules() {
   const el = $('notif-rules');
-  const res = await fetch('/api/notification-rules');
+  // Fetch the rules and the user list side by side — the DM picker needs users.
+  const [res, users] = await Promise.all([
+    fetch('/api/notification-rules'),
+    fetch('/api/users').then(r => r.json()).catch(() => []),
+  ]);
+  _notifUsers = Array.isArray(users) ? users : [];
   if (!res.ok) { el.innerHTML = '<p class="text-xs text-warm">Could not load notification rules.</p>'; return; }
   _notif = await res.json();
 
@@ -286,7 +292,7 @@ function renderNotifTargets() {
   const box = $('nr-targets');
   if (!_notifTargets.length) { box.innerHTML = '<p class="text-[11px] text-warm">Add at least one recipient.</p>'; return; }
   const userOpts = (sel) => '<option value="">Choose person…</option>' +
-    _auditUsers.filter(u => u.active).map(u => `<option value="${u.id}"${u.id === sel ? ' selected' : ''}>${esc(u.name)}</option>`).join('');
+    _notifUsers.filter(u => u.active).map(u => `<option value="${u.id}"${u.id === sel ? ' selected' : ''}>${esc(u.name)}</option>`).join('');
 
   box.innerHTML = _notifTargets.map((t, i) => t.type === 'CHANNEL'
     ? `<div data-t="${i}" class="flex items-center gap-2">

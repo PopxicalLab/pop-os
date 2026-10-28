@@ -65,7 +65,7 @@ pop-os/
 │   ├── guide.html             # Director's guide — roles, access, how-tos
 │   ├── jobs.html / job.html / sales.html / clients.html / sp.html /
 │   │   projects.html / production.html / capacity.html / financial.html /
-│   │   people.html / committees.html / staffing.html / admin.html /
+│   │   people.html / committees.html / staffing.html / notifications.html / audit.html /
 │   │   mywork.html / self-assess.html / skills-guide.html / changelog.html /
 │   │   reset-password.html    # One standalone page per tab, sharing shared.js
 │   └── js/

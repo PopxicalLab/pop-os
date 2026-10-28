@@ -260,7 +260,7 @@ const LEAD_STATUS_CLS = {
 };
 
 // ── tab switching (SPA shell only — no-op on a standalone tab page) ──
-const ALL_TABS = ['dashboard','mywork','jobs','sales','clients','sp','projects','production','capacity','financial','people','staffing','committees','admin'];
+const ALL_TABS = ['dashboard','mywork','jobs','sales','clients','sp','projects','production','capacity','financial','people','staffing','committees','notifications','audit'];
 
 // Which group each tab belongs to (for highlighting the group button)
 const TAB_GROUP = {
@@ -269,7 +269,7 @@ const TAB_GROUP = {
   projects: 'production', production: 'production', capacity: 'production',
   financial: null,
   people: 'hr', staffing: 'hr', committees: 'hr',
-  admin: null,
+  notifications: 'admin', audit: 'admin',
 };
 
 // Every tab now has its own standalone page (see CLAUDE.md "one module, one
@@ -290,7 +290,8 @@ const TAB_PAGE = {
   committees: '/committees.html',
   mywork:     '/mywork.html',
   jobs:       '/jobs.html',
-  admin:      '/admin.html',
+  notifications: '/notifications.html',
+  audit:         '/audit.html',
 };
 function hrefForTab(name) {
   return TAB_PAGE[name] || ('/index.html?tab=' + name);
@@ -323,8 +324,18 @@ function renderHeader(activeTab) {
 
   return `
   <header class="sticky top-0 z-50 bg-panel/95 backdrop-blur-sm border-b border-line">
-    <div class="max-w-7xl mx-auto px-5 h-13 flex items-center gap-4 py-3">
-      <div id="company-filter-bar" class="flex items-center gap-3 shrink-0">
+    <div class="max-w-7xl mx-auto px-3 sm:px-5 h-13 flex items-center gap-2 sm:gap-4 py-3">
+      <!-- Hamburger — only below the xl breakpoint, where the pill nav
+           doesn't fit on one line. Opens the slide-in drawer below. -->
+      <button id="mnav-btn" onclick="openMobileNav()" title="Menu" aria-label="Open menu"
+        aria-controls="mnav-panel" aria-expanded="false"
+        class="xl:hidden w-9 h-9 -ml-1 flex items-center justify-center rounded-lg text-ink
+               hover:bg-panel2 transition-colors cursor-pointer shrink-0">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+      </button>
+      <div id="company-filter-bar" class="flex items-center gap-2 sm:gap-3 shrink-0">
         <button id="filter-btn-LPS" onclick="setCompanyFilter('LPS')" title="Filter to Lorrypop Studio"
           class="rounded-lg p-0.5 cursor-pointer transition-all duration-150 hover:opacity-100">
           <img src="/lps-logo.png" class="h-7 w-auto object-contain" alt="LPS" />
@@ -334,13 +345,14 @@ function renderHeader(activeTab) {
           class="rounded-lg p-0.5 cursor-pointer transition-all duration-150 hover:opacity-100">
           <img src="/pxl-logo.png" class="h-7 w-auto object-contain" alt="PXL" />
         </button>
-        <div class="pl-1">
+        <div class="pl-1 hidden sm:block">
           <p class="text-sm font-bold text-ink leading-tight tracking-tight">Pop OS</p>
           <p class="text-[10px] text-muted leading-tight hidden sm:block">Pop Group Studio</p>
         </div>
       </div>
-      <!-- Grouped nav — 5 top-level items, sub-tabs in dropdowns -->
-      <nav class="flex items-center gap-1 bg-bg/80 rounded-full p-1 border border-line">
+      <!-- Grouped nav — 5 top-level items, sub-tabs in dropdowns.
+           Desktop only (xl+); smaller screens use the drawer instead. -->
+      <nav class="hidden xl:flex items-center gap-1 bg-bg/80 rounded-full p-1 border border-line">
 
         <!-- Dashboard (direct) -->
         <a id="tab-btn-dashboard" href="${hrefForTab('dashboard')}" class="${directCls('dashboard')}">Dashboard</a>
@@ -380,8 +392,18 @@ function renderHeader(activeTab) {
         <!-- Financial (direct — single item group) -->
         <a id="tab-btn-financial" href="${hrefForTab('financial')}" class="${directCls('financial')}">Financial</a>
 
-        <!-- Admin (direct — ADMIN only, hidden for all other roles) -->
-        <a id="tab-btn-admin" href="${hrefForTab('admin')}" class="${directCls('admin')}">Admin</a>
+        <!-- Admin group — ADMIN only, hidden for all other roles.
+             Two pages: setup (Mattermost rules) and history (Audit Log). -->
+        <div class="relative" id="grp-admin">
+          <button id="grp-btn-admin" onclick="toggleNavGroup('admin')" class="${groupBtnCls('admin')}">
+            Admin
+            ${chevron}
+          </button>
+          <div id="grp-drop-admin" class="hidden absolute left-0 top-full mt-1 w-36 bg-panel border border-line rounded-xl shadow-lg z-50 py-1">
+            <a id="tab-btn-notifications" href="${hrefForTab('notifications')}" class="${subCls('notifications')}">Notifications</a>
+            <a id="tab-btn-audit"         href="${hrefForTab('audit')}"         class="${subCls('audit')}">Audit Log</a>
+          </div>
+        </div>
 
         <!-- HR group -->
         <div class="relative" id="grp-hr">
@@ -416,7 +438,7 @@ function renderHeader(activeTab) {
         <button id="user-btn" onclick="toggleUserMenu()"
           class="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-line text-xs text-muted
                  hover:text-ink hover:bg-panel2 transition-colors cursor-pointer">
-          <span id="user-name-label">…</span>
+          <span id="user-name-label" class="hidden sm:inline max-w-[10rem] truncate">…</span>
           <span id="user-role-badge" class="badge text-[10px]"></span>
           <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
@@ -446,8 +468,82 @@ function renderHeader(activeTab) {
         </div>
       </div>
     </div>
-  </header>`;
+  </header>
+  ${renderMobileNav(activeTab)}`;
 }
+
+// ── Mobile nav drawer ─────────────────────────────────────────
+// Below the xl breakpoint the pill nav is too wide for the screen, so the
+// hamburger opens this left-side drawer instead: every tab as a full-width,
+// thumb-sized row, grouped under the same headings as the desktop dropdowns.
+// The drawer scrolls on its own, so a long menu never runs off the screen.
+// It's rendered OUTSIDE <header> on purpose — the header's backdrop-blur
+// would otherwise trap a position:fixed child inside the header's box.
+const MOBILE_NAV = [
+  { items: [['mywork', 'My Work'], ['dashboard', 'Dashboard'], ['jobs', 'Jobs']] },
+  { group: 'sales',      label: 'Sales',
+    items: [['sales', 'Sales pipeline'], ['clients', 'Clients'], ['sp', 'Performance']] },
+  { group: 'production', label: 'Production',
+    items: [['projects', 'Projects'], ['production', 'Lanes'], ['capacity', 'Capacity']] },
+  { group: 'hr',         label: 'HR',
+    items: [['people', 'People / ELC'], ['staffing', 'Staffing'], ['committees', 'Committees']] },
+  { items: [['financial', 'Financial']] },
+  { group: 'admin',      label: 'Admin',
+    items: [['notifications', 'Notifications'], ['audit', 'Audit Log']] },
+];
+
+function renderMobileNav(activeTab) {
+  // Links carry data-tab (not id — the desktop nav already owns tab-btn-<t>)
+  // so applyRoleVisibility() can hide the ones this role can't open.
+  const item = ([t, label]) => {
+    const on = t === activeTab;
+    return `<a data-tab="${t}" href="${hrefForTab(t)}" onclick="closeMobileNav()"
+      class="flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-colors
+             ${on ? 'bg-accent/15 text-accent font-semibold' : 'text-ink hover:bg-panel2'}">
+      <span class="w-1 h-4 rounded-full ${on ? 'bg-accent' : 'bg-transparent'}"></span>${label}</a>`;
+  };
+  const sections = MOBILE_NAV.map(s => `
+    <div ${s.group ? `data-group="${s.group}"` : ''} class="py-2 border-b border-line last:border-0">
+      ${s.label ? `<p class="px-4 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted">${s.label}</p>` : ''}
+      ${s.items.map(item).join('')}
+    </div>`).join('');
+
+  return `
+  <div id="mnav-overlay" onclick="closeMobileNav()"
+    class="hidden xl:hidden fixed inset-0 z-[90] bg-bg/60 backdrop-blur-sm"></div>
+  <aside id="mnav-panel" aria-label="Main menu"
+    class="xl:hidden fixed top-0 left-0 z-[95] h-[100dvh] w-72 max-w-[85vw] flex flex-col
+           bg-panel border-r border-line shadow-2xl
+           -translate-x-full transition-transform duration-200 ease-out">
+    <div class="flex items-center justify-between px-4 h-14 border-b border-line shrink-0">
+      <p class="text-sm font-bold text-ink">Menu</p>
+      <button onclick="closeMobileNav()" aria-label="Close menu"
+        class="w-9 h-9 flex items-center justify-center rounded-lg text-muted hover:text-ink hover:bg-panel2 cursor-pointer">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <nav class="flex-1 overflow-y-auto overscroll-contain px-2">${sections}</nav>
+  </aside>`;
+}
+
+function openMobileNav() {
+  $('mnav-overlay').classList.remove('hidden');
+  $('mnav-panel').classList.remove('-translate-x-full');
+  $('mnav-btn')?.setAttribute('aria-expanded', 'true');
+  document.body.style.overflow = 'hidden';   // stop the page scrolling behind the drawer
+}
+function closeMobileNav() {
+  $('mnav-overlay')?.classList.add('hidden');
+  $('mnav-panel')?.classList.add('-translate-x-full');
+  $('mnav-btn')?.setAttribute('aria-expanded', 'false');
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMobileNav(); });
+// Rotating a tablet to landscape can cross the xl breakpoint with the
+// drawer open — close it so the page doesn't stay scroll-locked.
+window.matchMedia('(min-width: 1280px)').addEventListener('change', e => { if (e.matches) closeMobileNav(); });
 
 function switchTab(name) {
   ALL_TABS.forEach(t => {
@@ -456,7 +552,7 @@ function switchTab(name) {
     $('tab-' + t)?.classList.toggle('hidden', t !== name);
   });
   // Highlight the active group button
-  ['sales','production','hr'].forEach(g => {
+  GROUPS.forEach(g => {
     const gbtn = $('grp-btn-' + g);
     if (!gbtn) return;
     const grpActive = TAB_GROUP[name] === g;
@@ -467,8 +563,8 @@ function switchTab(name) {
       ? ' bg-panel text-ink'
       : ' text-muted hover:text-ink';
   });
-  // Direct tabs (dashboard, mywork, financial, admin)
-  ['dashboard','mywork','financial','admin'].forEach(t => {
+  // Direct tabs (dashboard, mywork, financial)
+  ['dashboard','mywork','financial'].forEach(t => {
     const btn = $('tab-btn-' + t);
     if (!btn) return;
     btn.className = (name === t)
@@ -480,7 +576,7 @@ function switchTab(name) {
 }
 
 // ── group dropdown nav ────────────────────────────────────────
-const GROUPS = ['sales','production','hr'];
+const GROUPS = ['sales','production','hr','admin'];
 
 function toggleNavGroup(g) {
   const isOpen = !$('grp-drop-' + g).classList.contains('hidden');
@@ -630,7 +726,8 @@ const TAB_ACCESS = {
   people:      ['ADMIN','PRODUCER','PM','TEAM_LEAD'],
   staffing:    ['ADMIN','PRODUCER','PM','TEAM_LEAD'],
   committees:  ['ADMIN','PRODUCER','PM','TEAM_LEAD','FINANCE','STAFF'],
-  admin:       ['ADMIN'],
+  notifications: ['ADMIN'],
+  audit:         ['ADMIN'],
 };
 
 // Can the signed-in user open this tab? Used by the page guard in
@@ -695,11 +792,21 @@ function applyRoleVisibility(role) {
     sales:      ['sales','clients','sp'],
     production: ['projects','production','capacity'],
     hr:         ['people','staffing','committees'],
+    admin:      ['notifications','audit'],
   };
   GROUPS.forEach(g => {
     const anyVisible = (GROUP_TABS[g] || []).some(t => TAB_ACCESS[t]?.includes(role));
     const gbtn = $('grp-' + g);
     if (gbtn) gbtn.style.display = anyVisible ? '' : 'none';
+  });
+  // Same rules for the mobile drawer: hide each link, then any section
+  // (group heading included) left with nothing visible in it.
+  document.querySelectorAll('#mnav-panel [data-tab]').forEach(a => {
+    a.style.display = (TAB_ACCESS[a.dataset.tab]?.includes(role) ?? true) ? '' : 'none';
+  });
+  document.querySelectorAll('#mnav-panel nav > div').forEach(sec => {
+    const any = [...sec.querySelectorAll('[data-tab]')].some(a => a.style.display !== 'none');
+    sec.style.display = any ? '' : 'none';
   });
   // Show "Manage users" only to admins
   const manageBtn = $('user-manage-btn');

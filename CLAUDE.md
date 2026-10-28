@@ -33,8 +33,8 @@ not just describe.
   `mywork.js`, `dashboard.js`, `jobs.js` (Jobs list), `job.js` (one job),
   `sales.js` (+ `sales-list.js`, the List sub-tab), `clients.js`, `sales-performance.js`,
   `projects.js`, `production.js`, `capacity.js`, `financial.js`, `people.js`
-  (+ `person-profile.js`), `committees.js`, `staffing.js`, `admin.js` (+
-  `admin-notifications.js`).
+  (+ `person-profile.js`), `committees.js`, `staffing.js`, `audit.js` (Admin →
+  Audit Log), `admin-notifications.js` (Admin → Notifications).
   Adding a new tab = new `public/<name>.html` page + `public/js/<name>.js` +
   a `TAB_ACCESS` entry in `shared.js` + a nav link. Keep it framework-free.
 - **Auth:** JWT (`@nestjs/jwt`). Global `JwtAuthGuard` via `APP_GUARD`. Routes
