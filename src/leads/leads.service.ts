@@ -92,6 +92,11 @@ export class LeadsService {
       if (dto.quadrant && lead.projectId) {
         await tx.project.update({ where: { id: lead.projectId }, data: { quadrant: dto.quadrant } });
       }
+      // Client changed on the job (Sales card / List) → its project follows,
+      // so the Projects tab and the client's page agree with Sales.
+      if (dto.accountId !== undefined && lead.projectId) {
+        await tx.project.update({ where: { id: lead.projectId }, data: { accountId: dto.accountId ?? null } });
+      }
       return lead;
     });
 

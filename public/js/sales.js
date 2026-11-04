@@ -282,11 +282,16 @@ async function initSalesTab() {
     fetch('/api/autocount/debtors').then(r => r.json()).catch(() => []),
   ]);
 
+  _salesAccounts.sort((a, b) => a.name.localeCompare(b.name));
   const accSel = $('lead-account');
   if (accSel) {
-    accSel.innerHTML = '<option value="">— no account —</option>' +
-      _salesAccounts.sort((a, b) => a.name.localeCompare(b.name))
-        .map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('');
+    accSel.innerHTML = accountOptionsHtml('');
+    // "＋ New client…" in the Add-a-lead form: create it, then select it.
+    accSel.onchange = async () => {
+      if (accSel.value !== NEW_ACCOUNT) return;
+      const acc = await createAccountInline($('lead-company')?.value || null);
+      accSel.innerHTML = accountOptionsHtml(acc?.id || '');
+    };
   }
 
   const picSel = $('lead-closed-by');
@@ -295,6 +300,90 @@ async function initSalesTab() {
       _salesPeople.filter(p => p.status === 'ACTIVE')
         .map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
   }
+}
+
+// ── client (account) picker ──────────────────────────────────
+// One picker used in three places: the Add-a-lead form, each kanban card,
+// and the List view's Account column. The first option, "＋ New client…",
+// creates a client on the spot; it's added to _salesAccounts in memory, so
+// every picker on the page offers it straight away — no page refresh.
+
+const NEW_ACCOUNT = '__new__';
+
+function accountOptionsHtml(selectedId) {
+  return `<option value="${NEW_ACCOUNT}">＋ New client…</option>` +
+    '<option value=""' + (selectedId ? '' : ' selected') + '>— no client —</option>' +
+    _salesAccounts.map(a => `<option value="${a.id}"${a.id === selectedId ? ' selected' : ''}>${esc(a.name)}</option>`).join('');
+}
+
+// Ask for a name and create the client. If one with the same name already
+// exists, reuse it instead of making a duplicate. Returns the account, or
+// null if cancelled / failed.
+async function createAccountInline(company) {
+  const name = (prompt('New client name:') || '').trim();
+  if (!name) return null;
+  const existing = _salesAccounts.find(a => a.name.toLowerCase() === name.toLowerCase());
+  if (existing) { msg($('sales-msg'), `"${existing.name}" already exists — selected it.`, 'ok'); return existing; }
+
+  const res = await fetch('/api/accounts', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, company: company && company !== 'ALL' ? company : undefined }),
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    msg($('sales-msg'), [].concat(e.message || 'Could not create client').join(', '), 'err');
+    return null;
+  }
+  const acc = await res.json();
+  _salesAccounts.push(acc);
+  _salesAccounts.sort((a, b) => a.name.localeCompare(b.name));
+  // Keep the Add-a-lead form's picker current too (keep its selection).
+  const formSel = $('lead-account');
+  if (formSel) formSel.innerHTML = accountOptionsHtml(formSel.value === NEW_ACCOUNT ? '' : formSel.value);
+  // Point people to the Clients page to fill in industry, size, contacts…
+  // (new tab, so the Sales page stays put). Only if their role can open it.
+  const out = $('sales-msg');
+  out.className = 'text-xs text-accent mt-2 min-h-[18px]';
+  out.innerHTML = `Client "${esc(acc.name)}" created.` + (canAccessTab('clients')
+    ? ` <a href="/clients.html?open=${acc.id}" target="_blank" rel="noopener" class="underline font-semibold">Add details on the Clients page →</a>`
+    : '');
+  setTimeout(() => { if (out.innerHTML.includes(esc(acc.name))) out.innerHTML = ''; }, 12000);
+  return acc;
+}
+
+// Coming back to this tab (e.g. after editing a client on the Clients page
+// in another tab): reload the client list quietly so every picker is current.
+document.addEventListener('visibilitychange', async () => {
+  if (document.visibilityState !== 'visible' || !$('lead-account')) return;
+  const fresh = await fetch('/api/accounts').then(r => r.ok ? r.json() : null).catch(() => null);
+  if (!fresh) return;
+  _salesAccounts = fresh.sort((a, b) => a.name.localeCompare(b.name));
+  const formSel = $('lead-account');
+  formSel.innerHTML = accountOptionsHtml(formSel.value === NEW_ACCOUNT ? '' : formSel.value);
+  renderSalesPipeline();   // cards + list pick up renamed / new clients
+});
+
+// A lead's client changed (card or List view). The contact belongs to the
+// old client, so it's cleared. The server also moves the project's client.
+async function onLeadAccountChange(sel, leadId) {
+  const lead = _allLeads.find(l => l.id === leadId);
+  let accountId = sel.value || null;
+  if (accountId === NEW_ACCOUNT) {
+    const acc = await createAccountInline(lead?.company || null);
+    if (!acc) { sel.innerHTML = accountOptionsHtml(lead?.accountId || ''); return; }
+    accountId = acc.id;
+  }
+  if (lead && accountId === (lead.accountId || null)) { loadSales(); return; }
+  const body = { accountId };
+  if (lead?.contactId) body.contactId = null;
+  const res = await fetch('/api/leads/' + leadId, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    msg($('sales-msg'), [].concat(e.message || 'Save failed').join(', '), 'err');
+  }
+  loadSales();
 }
 
 async function loadSales() {
@@ -371,6 +460,10 @@ function renderSalesPipeline() {
 
   // Status can be changed two ways: the per-card dropdown (some people prefer
   // it) or dragging the card between columns (below). Both PATCH the same field.
+  $('sales-board').querySelectorAll('[data-lead-account]').forEach(sel => {
+    sel.onchange = () => onLeadAccountChange(sel, sel.dataset.leadAccount);
+  });
+
   $('sales-board').querySelectorAll('[data-lead-status]').forEach(sel => {
     sel.onchange = async () => {
       await fetch(`/api/leads/${sel.dataset.leadStatus}`, {
@@ -512,7 +605,6 @@ function renderSalesPipeline() {
 
 function renderLeadCard(l) {
   const priCls  = LEAD_PRI_CLS[l.priority]  || 'text-muted';
-  const accName = l.account?.name ? esc(l.account.name) : '<span class="text-muted">No account</span>';
 
   const payBadge = (l.invoicedPct || l.paidPct)
     ? `<p class="text-[11px] mt-1">
@@ -582,7 +674,11 @@ function renderLeadCard(l) {
          data-lead-name="${l.id}">${esc(l.name)}</p>
       <button class="btn-del shrink-0 text-[11px]" data-lead-del="${l.id}">×</button>
     </div>
-    <p class="text-[11px] text-muted">${accName}</p>
+    <select data-lead-account="${l.id}" draggable="false" title="Client"
+      class="w-full -mx-0.5 bg-transparent border border-transparent hover:border-line focus:border-accent/70
+             rounded px-0.5 py-0.5 text-[11px] ${l.accountId ? 'text-muted' : 'text-muted/60'} focus:outline-none cursor-pointer truncate">
+      ${accountOptionsHtml(l.accountId || '')}
+    </select>
     ${ppmLine}
     <div class="flex items-center gap-1.5">
       <span class="text-xs text-muted shrink-0">RM</span>
@@ -622,7 +718,7 @@ async function addLead() {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       name,
-      accountId:  $('lead-account').value   || undefined,
+      accountId:  [NEW_ACCOUNT, ''].includes($('lead-account').value) ? undefined : $('lead-account').value,
       status:     $('lead-status').value,
       priority:   $('lead-priority').value,
       estimatedValue: isNaN(val) ? undefined : val,

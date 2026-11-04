@@ -49,7 +49,9 @@ const SALES_LIST_COLS = [
     cell: l => slSelect(l, 'priority', 'str', Object.keys(SL_PRIORITY_LABEL), l.priority, p => SL_PRIORITY_LABEL[p]) },
   { id: 'account',  label: 'Account',     def: true,
     sort: l => l.account?.name?.toLowerCase() ?? '',
-    cell: l => l.account ? slClip(l.account.name, 130) : '<span class="text-muted">—</span>' },
+    // Client picker (shared with the kanban cards) — incl. "＋ New client…".
+    cell: l => `<select data-lead="${l.id}" data-field="accountId" data-kind="account" title="${esc(l.account?.name || '')}"
+                  class="${slInput} max-w-[150px] truncate">${accountOptionsHtml(l.accountId || '')}</select>` },
   { id: 'contact',  label: 'Contact',     def: true,
     sort: l => l.contact?.name?.toLowerCase() ?? '',
     cell: l => l.contact ? slClip(l.contact.name, 110) : '<span class="text-muted">—</span>' },
@@ -248,6 +250,7 @@ async function onSalesListChange(e) {
   const t = e.target.closest('[data-lead][data-field]');
   if (!t) return;
   const { lead: id, field, kind } = t.dataset;
+  if (kind === 'account') return onLeadAccountChange(t, id);   // sales.js — handles "＋ New client…"
   let value;
   if (kind === 'bool')      value = t.checked;
   else if (kind === 'num')  value = t.value === '' ? null : Number(t.value);
