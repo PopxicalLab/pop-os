@@ -239,7 +239,11 @@ login. Click (admin only) to create a login or view the linked account.
 
 - **Account** — client company. Has `autocountDebtorCode` (Autocount debtor
   account code — set once, reused for all quotes/invoices for that client).
-  Has many Contact, Lead, Project.
+  Has many Contact, Lead, Project. `industry` is plain text but picked from
+  `CLIENT_INDUSTRIES` in `shared.js` (edit the list there; old free-typed
+  values are kept as an extra option). Quick-create from Sales
+  (`createAccountInline` in `sales.js`, name only) → details filled on
+  Clients (`clients.html?open=<id>` → Edit details, PATCH `/api/accounts/:id`).
 
 - **Contact** — person at a client company. Linked to Account and Lead.
 

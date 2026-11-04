@@ -24,6 +24,35 @@ function msg(el, text, kind) {
   if (text) setTimeout(() => { if (el.textContent === text) el.textContent = ''; }, 4500);
 }
 
+// Client industries — one fixed list so "Property", "property" and
+// "Real estate" don't end up as three different industries. Stored on
+// Account.industry as plain text, so the list can change without a
+// migration. Edit here to add / rename.
+// Keep alphabetical, with 'Other' last.
+const CLIENT_INDUSTRIES = [
+  'Advertising & Agency', 'Agriculture & Plantation', 'Architecture & Interior Design',
+  'Arts, Culture & Museums', 'Automotive', 'Aviation & Aerospace',
+  'Banking & Finance', 'Beauty & Personal Care', 'Biotechnology & Life Sciences',
+  'Construction', 'Consulting & Professional Services', 'Creative & Design Studio',
+  'Deathcare & Memorial', 'E-commerce', 'Education', 'Energy, Oil & Gas',
+  'Engineering', 'Events & Venues', 'F&B', 'Fashion & Apparel',
+  'Fitness & Sports', 'Furniture & Home Living', 'Gaming & Esports',
+  'Government & GLC', 'Healthcare & Pharma', 'Hospitality & Tourism',
+  'Insurance', 'Jewellery & Luxury', 'Legal', 'Logistics & Transportation',
+  'Manufacturing', 'Media & Entertainment', 'Non-profit & NGO',
+  'Property & Real Estate', 'Retail & Consumer', 'Technology & Software',
+  'Telecommunications', 'Theme Parks & Attractions', 'Utilities',
+  'Other',
+];
+
+// <option>s for an industry <select>. A value saved before the list existed
+// (e.g. typed by hand) is kept as an extra option so it's never lost.
+function industryOptionsHtml(current) {
+  const list = current && !CLIENT_INDUSTRIES.includes(current) ? [current, ...CLIENT_INDUSTRIES] : CLIENT_INDUSTRIES;
+  return '<option value="">— not set —</option>' +
+    list.map(v => `<option${v === current ? ' selected' : ''}>${esc(v)}</option>`).join('');
+}
+
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])

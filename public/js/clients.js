@@ -99,7 +99,7 @@ async function showAccountDetail(id) {
     ? a.leads.map(l => {
         const cls   = (typeof LEAD_STATUS_CLS   !== 'undefined' ? LEAD_STATUS_CLS   : {})[l.status]   || 'bg-panel2 text-muted border-line';
         const label = (typeof LEAD_STATUS_LABEL !== 'undefined' ? LEAD_STATUS_LABEL : {})[l.status]  || l.status;
-        const val   = l.estimatedValue ? `RM ${Number(l.estimatedValue).toLocaleString('en-MY')}` : '—';
+        const val   = l.estimatedValue ? fmtMoney(l.estimatedValue) : '—';
         return `<div class="flex items-center gap-2 py-2 border-b border-line/40 last:border-0">
           <span class="badge border ${cls} text-[10px] shrink-0">${label}</span>
           <span class="text-xs text-ink flex-1">${esc(l.name)}</span>
@@ -166,6 +166,7 @@ async function showAccountDetail(id) {
         ${a.website ? `<a href="${esc(absoluteUrl(a.website))}" target="_blank" rel="noopener" class="text-xs text-accent hover:underline">${esc(a.website)}</a>` : ''}
       </div>
     </div>
+    ${editDetailsHtml(a)}
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
       <div>
         <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-2">Contacts (${a.contacts.length})</p>
@@ -184,6 +185,64 @@ async function showAccountDetail(id) {
 
   $('clients-list-panel').classList.add('hidden');
   $('client-detail').classList.remove('hidden');
+}
+
+// ── edit account details ──────────────────────────────────────
+// Clients made quickly from Sales ("＋ New client…") start with just a
+// name — this is where industry, size, website and company get filled in.
+// Opens already expanded when the client has no industry yet.
+
+const ACC_SIZES = ['1-10', '11-50', '51-100', '101-500', '501-1,000', '1,000+'];
+
+function editDetailsHtml(a) {
+  const opt = (list, cur, label = v => v) =>
+    list.map(v => `<option value="${esc(v)}"${v === cur ? ' selected' : ''}>${esc(label(v))}</option>`).join('');
+  return `<details class="mb-5 bg-panel2 border border-line rounded-xl px-4 py-3" ${a.industry ? '' : 'open'}>
+    <summary class="text-[11px] font-semibold uppercase tracking-widest text-muted cursor-pointer select-none">
+      Edit details ${a.industry ? '' : '<span class="text-warm normal-case tracking-normal font-medium ml-1">· industry not set</span>'}
+    </summary>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mt-3">
+      <div><label class="form-label" style="margin-top:0">Name</label>
+        <input id="ed-name" class="form-input" value="${esc(a.name)}" /></div>
+      <div><label class="form-label" style="margin-top:0">Industry</label>
+        <select id="ed-industry" class="form-input cursor-pointer">${industryOptionsHtml(a.industry || '')}</select></div>
+      <div><label class="form-label" style="margin-top:0">Size</label>
+        <select id="ed-size" class="form-input cursor-pointer"><option value="">— not set —</option>${opt(ACC_SIZES, a.size)}</select></div>
+      <div><label class="form-label" style="margin-top:0">Website</label>
+        <input id="ed-website" class="form-input" value="${esc(a.website || '')}" placeholder="example.com" /></div>
+      <div><label class="form-label" style="margin-top:0">Company</label>
+        <select id="ed-company" class="form-input cursor-pointer"><option value="">— none —</option>${opt(['LPS', 'PXL', 'GROUP'], a.company, v => v === 'GROUP' ? 'Group' : v)}</select></div>
+    </div>
+    <div class="flex items-center gap-3 mt-3">
+      <button onclick="saveAccountDetails('${a.id}')"
+        class="bg-accent text-bg text-xs font-semibold px-4 py-1.5 rounded-lg hover:brightness-110 transition-all cursor-pointer">Save details</button>
+      <span id="ed-msg" class="text-xs"></span>
+    </div>
+  </details>`;
+}
+
+async function saveAccountDetails(id) {
+  const name = $('ed-name').value.trim();
+  if (!name) { msg($('ed-msg'), 'Name is required.', 'err'); return; }
+  // Blank → null, which clears the field.
+  const body = {
+    name,
+    industry: $('ed-industry').value         || null,
+    size:     $('ed-size').value             || null,
+    website:  $('ed-website').value.trim()   || null,
+    company:  $('ed-company').value          || null,
+  };
+  const res = await fetch('/api/accounts/' + id, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    msg($('ed-msg'), [].concat(e.message || 'Save failed').join(', '), 'err');
+    return;
+  }
+  await showAccountDetail(id);   // re-render header with the new values
+  msg($('ed-msg'), 'Saved.', 'ok');
+  loadClients();
 }
 
 // ── add account ───────────────────────────────────────────────

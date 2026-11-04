@@ -192,7 +192,7 @@
       <label class="form-label" style="margin-top:0">Company name</label>
       <input id="acc-name" class="form-input" placeholder="e.g. Petronas" />
       <label class="form-label">Industry</label>
-      <input id="acc-industry" class="form-input" placeholder="e.g. Direct Client" />
+      <select id="acc-industry" class="form-input cursor-pointer"></select>
       <label class="form-label">Size</label>
       <select id="acc-size" class="form-input cursor-pointer">
         <option value="">— not set —</option>
@@ -307,7 +307,11 @@
   <script>
     initUserUI();
     window._reloadCurrentTab = loadClients; // so the company filter buttons reload this page's data
+    $('acc-industry').innerHTML = industryOptionsHtml('');
     loadClients();
+    // Deep link from Sales ("add details →"): /clients.html?open=<accountId>
+    const openId = new URLSearchParams(location.search).get('open');
+    if (openId) showAccountDetail(openId);
   </script>
 </body>
 </html>
