@@ -12,6 +12,9 @@ import { CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/commo
 export const JOB_ROLES     = ['ADMIN', 'PRODUCER', 'PM', 'FINANCE', 'SALES'];
 export const FINANCE_ROLES = ['ADMIN', 'FINANCE', 'PM'];   // Financial tab (PM gets its own view)
 export const ADMIN_ONLY    = ['ADMIN'];                    // Sales Performance, commission, targets
+// Who may change a deal's "Won on" date. It moves commission between
+// quarters, so the people who earn commission (Sales, Producers) can't.
+export const WON_DATE_EDITORS = ['ADMIN', 'FINANCE'];
 
 export function canSeeMoney(role?: string | null): boolean {
   return JOB_ROLES.includes(role ?? '');

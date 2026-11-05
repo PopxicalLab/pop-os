@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEnum, IsBoolean, IsNumber, IsInt, Min, Max } from 'class-validator';
+import { IsString, IsOptional, IsEnum, IsBoolean, IsNumber, IsInt, Min, Max, IsDateString } from 'class-validator';
 import { LeadStatus, LeadPriority, Company, ClientTier, ProjectQuadrant } from '@prisma/client';
 
 export class CreateLeadDto {
@@ -45,4 +45,8 @@ export class UpdateLeadDto {
   @IsOptional() @IsString()                      quadrantNote?: string | null;
   @IsOptional() @IsBoolean()                     drainApprovedByExec?: boolean;
   @IsOptional() @IsBoolean()                     drainApprovedByProducer?: boolean;
+  // The real closing date — decides which quarter the deal counts in on
+  // Sales Performance. Normally stamped automatically; editable by ADMIN /
+  // FINANCE (WON_DATE_EDITORS) to correct imported or late-entered deals.
+  @IsOptional() @IsDateString()                  wonAt?: string | null;
 }

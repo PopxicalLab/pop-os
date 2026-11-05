@@ -5,6 +5,10 @@ import { companyWhere } from '../common/company-filter';
 import { NotificationRulesService } from '../mattermost/notification-rules.service';
 import { PpmService } from '../ppm/ppm.service';
 import { removeJobUploads } from '../common/uploads';
+import { LeadStatus } from '@prisma/client';
+
+// Statuses that mean "the deal was won" (Completed = won and wrapped up).
+const WON_STATUSES: LeadStatus[] = ['WON', 'COMPLETED'];
 
 const WITH_RELATIONS = {
   account:  { select: { id: true, name: true, industry: true, autocountDebtorCode: true } },
@@ -61,6 +65,8 @@ export class LeadsService {
         company:        dto.company        ?? null,
         marginTarget:   dto.marginTarget   ?? null,
         clientTier:     dto.clientTier     ?? null,
+        // Added straight in as Won / Completed → it was won today.
+        wonAt:          WON_STATUSES.includes(dto.status as LeadStatus) ? new Date() : null,
       },
       include: WITH_RELATIONS,
     });
@@ -74,15 +80,24 @@ export class LeadsService {
 
   async update(id: string, dto: UpdateLeadDto) {
     const current = await this.findOne(id);
-    // Record the exact moment a lead becomes WON — used for quarterly commission bucketing.
-    const wonAt = dto.status === 'WON' && current.status !== 'WON' ? new Date() : undefined;
+    // wonAt decides the deal's quarter on Sales Performance.
+    //  • Typed in (ADMIN / FINANCE, checked in the controller) → use it; null clears.
+    //  • Otherwise stamp "now" the first time the deal reaches WON or COMPLETED.
+    //    Only when empty — moving Completed back to Won, or a status slip,
+    //    must not shift an already-dated deal into another quarter.
+    let wonAt: Date | null | undefined;
+    if (dto.wonAt !== undefined) {
+      wonAt = dto.wonAt ? new Date(dto.wonAt) : null;
+    } else if (dto.status && WON_STATUSES.includes(dto.status) && !current.wonAt) {
+      wonAt = new Date();
+    }
     const updated = await this.prisma.$transaction(async (tx) => {
       const lead = await tx.lead.update({
         where: { id },
         data: {
           ...dto,
           paymentDate: dto.paymentDate ? new Date(dto.paymentDate) : undefined,
-          ...(wonAt ? { wonAt } : {}),
+          wonAt,   // undefined = leave unchanged
         },
         include: WITH_RELATIONS,
       });

@@ -25,7 +25,7 @@ not just describe.
   e.g. `projects.html`, `capacity.html`, `jobs.html`). `index.html` is just the
   Dashboard page (`renderHeader('dashboard')`) — not a shell the others live
   inside. `public/js/shared.js` is the one file every page loads: `$`/`esc`/
-  `fmtMoney`/`matchesFilter`, `renderHeader(activeTab)` (builds the nav —
+  `fmtMoney`/`matchesFilter`/`toast` (corner pop-up message), `renderHeader(activeTab)` (builds the nav —
   reads `TAB_ACCESS` to show/hide items and acts as a **page guard**, redirecting
   a role that isn't allowed on that tab to My Work), the company-filter state,
   theme, and the global `fetch` override that injects the JWT. Each page's own
@@ -251,7 +251,11 @@ login. Click (admin only) to create a login or view the linked account.
   WON → COMPLETED / LOST. `convertToProject` endpoint creates a Project from a WON lead.
   Has many AccountingDocument (quotations pushed to Autocount).
   `closedById` FK → Person (who won/lost the deal). Set manually via inline
-  dropdown on each kanban card. `wonAt` auto-stamped when status changes to WON.
+  dropdown on each kanban card. `wonAt` = the quarter a deal counts in on Sales Performance (UTC
+  quarters). Auto-stamped "now" on create-as / first move to WON or
+  COMPLETED, only if empty (never re-stamped). Editable on the Job page by
+  `WON_DATE_EDITORS` (ADMIN, FINANCE — `src/common/roles.ts`; the
+  controller refuses `wonAt` from anyone else, since it moves commission).
 
 - **Job (Sept 2026 restructure) — not a table, a role a Lead plays.** A won lead
   (WON / COMPLETED, or any lead with a project) is the root of the deal:

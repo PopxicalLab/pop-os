@@ -320,10 +320,12 @@ function accountOptionsHtml(selectedId) {
 // exists, reuse it instead of making a duplicate. Returns the account, or
 // null if cancelled / failed.
 async function createAccountInline(company) {
+  _creatingAccount = true;   // the prompt steals focus — don't let refreshClientLists() fire mid-create
   const name = (prompt('New client name:') || '').trim();
+  _creatingAccount = false;
   if (!name) return null;
   const existing = _salesAccounts.find(a => a.name.toLowerCase() === name.toLowerCase());
-  if (existing) { msg($('sales-msg'), `"${existing.name}" already exists — selected it.`, 'ok'); return existing; }
+  if (existing) { toast(`"${esc(existing.name)}" already exists — selected it.`); return existing; }
 
   const res = await fetch('/api/accounts', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -331,7 +333,7 @@ async function createAccountInline(company) {
   });
   if (!res.ok) {
     const e = await res.json().catch(() => ({}));
-    msg($('sales-msg'), [].concat(e.message || 'Could not create client').join(', '), 'err');
+    toast(esc([].concat(e.message || 'Could not create client').join(', ')), 'err');
     return null;
   }
   const acc = await res.json();
@@ -340,28 +342,35 @@ async function createAccountInline(company) {
   // Keep the Add-a-lead form's picker current too (keep its selection).
   const formSel = $('lead-account');
   if (formSel) formSel.innerHTML = accountOptionsHtml(formSel.value === NEW_ACCOUNT ? '' : formSel.value);
-  // Point people to the Clients page to fill in industry, size, contacts…
-  // (new tab, so the Sales page stays put). Only if their role can open it.
-  const out = $('sales-msg');
-  out.className = 'text-xs text-accent mt-2 min-h-[18px]';
-  out.innerHTML = `Client "${esc(acc.name)}" created.` + (canAccessTab('clients')
-    ? ` <a href="/clients.html?open=${acc.id}" target="_blank" rel="noopener" class="underline font-semibold">Add details on the Clients page →</a>`
-    : '');
-  setTimeout(() => { if (out.innerHTML.includes(esc(acc.name))) out.innerHTML = ''; }, 12000);
+  // Pop-up (visible from the cards, the List view or the form) pointing to
+  // the Clients page to fill in industry, size, contacts… New tab, so Sales
+  // stays put. The link is only shown if this role can open Clients.
+  toast(`Client <b>${esc(acc.name)}</b> created.` + (canAccessTab('clients')
+    ? ` <a href="/clients.html?open=${acc.id}" target="_blank" rel="noopener" class="text-accent underline font-semibold whitespace-nowrap">Add details on the Clients page →</a>`
+    : ''), 'ok', 15000);
   return acc;
 }
 
-// Coming back to this tab (e.g. after editing a client on the Clients page
-// in another tab): reload the client list quietly so every picker is current.
-document.addEventListener('visibilitychange', async () => {
-  if (document.visibilityState !== 'visible' || !$('lead-account')) return;
+// Coming back to Sales (switching back to this browser tab, or clicking
+// into this window after editing a client on the Clients page beside it):
+// reload the client list quietly so every picker is current. Only
+// re-renders if something actually changed, and at most every 3 seconds.
+let _creatingAccount = false, _lastClientRefresh = 0;
+async function refreshClientLists() {
+  if (_creatingAccount || !$('lead-account') || Date.now() - _lastClientRefresh < 3000) return;
+  _lastClientRefresh = Date.now();
   const fresh = await fetch('/api/accounts').then(r => r.ok ? r.json() : null).catch(() => null);
   if (!fresh) return;
-  _salesAccounts = fresh.sort((a, b) => a.name.localeCompare(b.name));
+  fresh.sort((a, b) => a.name.localeCompare(b.name));
+  const sig = list => list.map(a => a.id + ':' + a.name).join('|');
+  if (sig(fresh) === sig(_salesAccounts)) return;
+  _salesAccounts = fresh;
   const formSel = $('lead-account');
   formSel.innerHTML = accountOptionsHtml(formSel.value === NEW_ACCOUNT ? '' : formSel.value);
-  renderSalesPipeline();   // cards + list pick up renamed / new clients
-});
+  loadSales();   // cards + list re-render with the renamed / new clients
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refreshClientLists(); });
+window.addEventListener('focus', refreshClientLists);
 
 // A lead's client changed (card or List view). The contact belongs to the
 // old client, so it's cleared. The server also moves the project's client.
@@ -381,7 +390,7 @@ async function onLeadAccountChange(sel, leadId) {
   });
   if (!res.ok) {
     const e = await res.json().catch(() => ({}));
-    msg($('sales-msg'), [].concat(e.message || 'Save failed').join(', '), 'err');
+    toast(esc([].concat(e.message || 'Save failed').join(', ')), 'err');
   }
   loadSales();
 }

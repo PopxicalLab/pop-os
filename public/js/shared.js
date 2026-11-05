@@ -53,6 +53,28 @@ function industryOptionsHtml(current) {
     list.map(v => `<option${v === current ? ' selected' : ''}>${esc(v)}</option>`).join('');
 }
 
+// A pop-up message in the bottom-right corner, visible wherever you are on
+// the page (unlike msg(), which writes into one fixed spot). `html` may
+// contain a link — escape any user text with esc() first. Click × to close;
+// it also closes by itself after `ms`.
+function toast(html, kind = 'ok', ms = 10000) {
+  let box = document.getElementById('toast-box');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'toast-box';
+    box.className = 'fixed bottom-4 right-4 left-4 sm:left-auto z-[100] flex flex-col gap-2 items-stretch sm:items-end pointer-events-none';
+    document.body.appendChild(box);
+  }
+  const t = document.createElement('div');
+  t.className = 'pointer-events-auto max-w-md bg-panel border rounded-xl shadow-lg px-4 py-3 text-xs flex items-start gap-3 '
+    + (kind === 'err' ? 'border-warm/50 text-warm' : 'border-accent/40 text-ink');
+  t.innerHTML = `<div class="flex-1 leading-relaxed">${html}</div>
+    <button class="text-muted hover:text-ink cursor-pointer text-sm leading-none" aria-label="Close">×</button>`;
+  t.querySelector('button').onclick = () => t.remove();
+  box.appendChild(t);
+  setTimeout(() => t.remove(), ms);
+}
+
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])

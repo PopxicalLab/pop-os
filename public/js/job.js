@@ -201,7 +201,12 @@ function renderJob() {
       <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
         ${lbl('Stage',     `<span class="badge border ${LEAD_STATUS_CLS[j.status] || ''} text-[11px]">${LEAD_STATUS_LABEL[j.status] || j.status}</span>`)}
         ${lbl('Closed by', val(j.closedBy ? esc(j.closedBy.name) : '—'))}
-        ${lbl('Won on',    val(fmtDate(j.wonAt)))}
+        ${lbl('Won on',    canEditWonDate()
+          // Input shows the UTC date — the same day Sales Performance buckets by.
+          ? `<input id="job-wonat" type="date" value="${j.wonAt ? new Date(j.wonAt).toISOString().split('T')[0] : ''}"
+               title="The real closing date — decides which quarter this deal counts in on Sales Performance"
+               class="${inputCls} cursor-pointer" />`
+          : val(fmtDate(j.wonAt)))}
         ${lbl('Client',    val(j.account ? esc(j.account.name) : '—'))}
         ${lbl('Contact',   val(j.contact ? esc(j.contact.name) + (j.contact.title ? ` <span class="text-muted">· ${esc(j.contact.title)}</span>` : '') : '—'))}
       </div>
@@ -520,6 +525,10 @@ async function removeJobFile(id) {
 
 // ── edits ─────────────────────────────────────────────────────
 
+// Mirrors WON_DATE_EDITORS in src/common/roles.ts: the won date moves
+// commission between quarters, so those who earn commission can't change it.
+function canEditWonDate() { return ['ADMIN', 'FINANCE'].includes(currentRole()); }
+
 // PATCH the job; on failure show the error and reload so the form matches the DB.
 async function patchJob(data) {
   const res = await fetch('/api/leads/' + _job.id, {
@@ -543,6 +552,16 @@ function wireMoneyInputs() {
   $('job-invoiced').onchange = e => patchJob({ invoicedPct:    Number(e.target.value) });
   $('job-paid').onchange     = e => patchJob({ paidPct:        Number(e.target.value) });
   $('job-paydate').onchange  = e => { if (e.target.value) patchJob({ paymentDate: e.target.value }); };
+  // Won date (ADMIN / FINANCE only — the API refuses others). Blank clears it,
+  // which drops the deal out of Sales Performance, so ask first.
+  const wonEl = $('job-wonat');
+  if (wonEl) wonEl.onchange = e => {
+    if (!e.target.value && !confirm('Clear the won date? The deal will drop out of Sales Performance until a date is set.')) {
+      e.target.value = _job.wonAt ? new Date(_job.wonAt).toISOString().split('T')[0] : '';
+      return;
+    }
+    patchJob({ wonAt: e.target.value || null });
+  };
 
   // PPM assessment. Each save reloads the page, so the recommendation and
   // Drain gate box refresh. A quadrant change also updates the project's copy

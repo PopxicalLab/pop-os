@@ -8,7 +8,7 @@ import { Controller, Get, Post, Patch, Delete, Param, Body, Req, UseGuards } fro
 import { LeadsService } from './leads.service';
 import { CreateLeadDto, UpdateLeadDto } from './lead.dto';
 import { AuditService } from '../audit/audit.service';
-import { JOB_ROLES, onlyRoles } from '../common/roles';
+import { JOB_ROLES, WON_DATE_EDITORS, onlyRoles, requireRole } from '../common/roles';
 
 // Leads are jobs — values, money, PPM. Job roles only (src/common/roles.ts).
 @UseGuards(onlyRoles(JOB_ROLES))
@@ -31,6 +31,8 @@ export class LeadsController {
 
   @Patch(':id')
   async update(@Param('id') id: string, @Body() dto: UpdateLeadDto, @Req() req: any) {
+    // The won date moves commission between quarters — only ADMIN / FINANCE.
+    if (dto.wonAt !== undefined) requireRole(req, WON_DATE_EDITORS);
     const before  = await this.leads.findOne(id);
     const result  = await this.leads.update(id, dto);
     this.audit.log(req.user, 'UPDATE', 'Lead', result.id, result.name, result, before);
