@@ -74,7 +74,12 @@ function renderMyWork(data) {
   if (profileBtn) {
     if (profile.hasPersonLink && profile.personId) {
       profileBtn.innerHTML =
-        `<button onclick="openPersonProfile('${profile.personId}')"
+        `<a href="/journey.html"
+           class="text-xs bg-accent/10 border border-accent/30 text-accent px-3 py-1.5 rounded-lg mr-1.5
+                  hover:bg-accent/20 transition-colors cursor-pointer">
+           My journey
+         </a>
+         <button onclick="openPersonProfile('${profile.personId}')"
            class="text-xs bg-panel2 border border-line text-ink px-3 py-1.5 rounded-lg
                   hover:border-accent/50 transition-colors cursor-pointer">
            My profile

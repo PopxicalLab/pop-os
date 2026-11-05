@@ -15,6 +15,11 @@ export const ADMIN_ONLY    = ['ADMIN'];                    // Sales Performance,
 // Who may change a deal's "Won on" date. It moves commission between
 // quarters, so the people who earn commission (Sales, Producers) can't.
 export const WON_DATE_EDITORS = ['ADMIN', 'FINANCE'];
+// Who may open SOMEONE ELSE's journey page (everyone may open their own).
+export const JOURNEY_VIEWERS = ['ADMIN', 'PRODUCER', 'PM'];
+// Who sees the RM value of a reward on a person's timeline — same rule as
+// salary. The person themself always sees their own.
+export const REWARD_VALUE_ROLES = ['ADMIN', 'FINANCE'];
 
 export function canSeeMoney(role?: string | null): boolean {
   return JOB_ROLES.includes(role ?? '');

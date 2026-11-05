@@ -183,6 +183,10 @@ model PersonEvent {
   title     String          // e.g. "Promoted to Senior 3D Artist"
   note      String?         // optional longer description
   eventDate DateTime        @default(now())
+  // Cash / gift value of a reward, in RM (ACHIEVEMENT events only, optional).
+  // Treated like salary: only the person themself, ADMIN and FINANCE ever
+  // receive it from the API — everyone else sees the award without the amount.
+  rewardValue Float?
   createdAt DateTime        @default(now())
 }
 

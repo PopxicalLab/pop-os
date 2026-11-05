@@ -7,6 +7,7 @@ import { CreatePersonDto, UpdatePersonDto, CreateOnboardDto } from './person.dto
 import { CreatePersonEventDto } from './person-profile.dto';
 import { companyWhere } from '../common/company-filter';
 import { NotificationsService } from '../notifications/notifications.service';
+import { computeBadges } from '../common/badges';
 
 @Injectable()
 export class PeopleService {
@@ -180,8 +181,28 @@ export class PeopleService {
       .filter(r => { if (seenProjects.has(r.projectId)) return false; seenProjects.add(r.projectId); return true; })
       .map(r => r.project);
 
-    // Computed badges
-    const badges = computeBadges(person, projects.length);
+    // Computed badges — same list as the journey page (src/common/badges.ts).
+    const [dealCount, committeeCount, ledProjects] = await Promise.all([
+      this.prisma.lead.count({ where: { closedById: id, status: { in: ['WON', 'COMPLETED'] } } }),
+      this.prisma.committeeMember.count({ where: { personId: id } }),
+      // Projects they ran as Producer / PM count too (same as the journey page).
+      this.prisma.project.findMany({
+        where:  { OR: [{ producerId: id }, { pmId: id }], status: { not: 'CANCELLED' } },
+        select: { id: true },
+      }),
+    ]);
+    const badgeProjectIds = new Set([
+      ...projects.filter(p => p.status !== 'CANCELLED').map(p => p.id),
+      ...ledProjects.map(p => p.id),
+    ]);
+    const badges = computeBadges({
+      startDate:      person.startDate,
+      skillRatings:   person.skills.map(s => s.rating),
+      projectCount:   badgeProjectIds.size,
+      dealCount,
+      committeeCount,
+      awardCount:     person.events.filter(e => e.type === 'ACHIEVEMENT').length,
+    });
 
     // Stats
     const skillRatings = person.skills.map(s => s.rating);
@@ -208,6 +229,8 @@ export class PeopleService {
         type: dto.type,
         title: dto.title,
         note: dto.note ?? null,
+        // A cash value only makes sense on an award/reward — ignore it on other types.
+        rewardValue: dto.type === 'ACHIEVEMENT' ? (dto.rewardValue ?? null) : null,
         eventDate: dto.eventDate ? new Date(dto.eventDate) : new Date(),
       },
     });
@@ -217,35 +240,4 @@ export class PeopleService {
   async removeEvent(eventId: string) {
     return this.prisma.personEvent.delete({ where: { id: eventId } });
   }
-}
-
-// Compute achievement badges from existing data — no extra DB queries.
-function computeBadges(person: any, projectCount: number) {
-  const badges: { id: string; label: string; icon: string; earned: boolean }[] = [];
-  const tenureDays = Math.floor((Date.now() - new Date(person.startDate).getTime()) / 86_400_000);
-
-  const add = (id: string, label: string, icon: string, earned: boolean) =>
-    badges.push({ id, label, icon, earned });
-
-  // Tenure
-  add('tenure-90',   '3 Months',   '🌱', tenureDays >= 90);
-  add('tenure-180',  '6 Months',   '🌿', tenureDays >= 180);
-  add('tenure-365',  '1 Year',     '⭐', tenureDays >= 365);
-  add('tenure-1095', '3 Years',    '🏅', tenureDays >= 1095);
-  add('tenure-1825', '5 Years',    '🏆', tenureDays >= 1825);
-
-  // Skills
-  const skillCount = person.skills.length;
-  const maxRating  = Math.max(0, ...person.skills.map((s: any) => s.rating));
-  add('skill-first',  'First Skill',    '🎯', skillCount >= 1);
-  add('skill-five',   '5 Skills',       '🧠', skillCount >= 5);
-  add('skill-ten',    '10 Skills',      '💡', skillCount >= 10);
-  add('skill-master', 'Skill Master',   '⚡', maxRating === 5);
-
-  // Projects
-  add('proj-first', 'First Project',  '🚀', projectCount >= 1);
-  add('proj-five',  '5 Projects',     '📦', projectCount >= 5);
-  add('proj-ten',   '10 Projects',    '🎬', projectCount >= 10);
-
-  return badges;
 }

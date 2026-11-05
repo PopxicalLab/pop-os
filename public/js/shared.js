@@ -340,6 +340,7 @@ const TAB_PAGE = {
   staffing:   '/staffing.html',
   committees: '/committees.html',
   mywork:     '/mywork.html',
+  journey:    '/journey.html',
   jobs:       '/jobs.html',
   notifications: '/notifications.html',
   audit:         '/audit.html',
@@ -504,6 +505,10 @@ function renderHeader(activeTab) {
             class="w-full text-left px-4 py-2 text-xs text-ink hover:bg-panel2 transition-colors cursor-pointer">
             Manage users
           </button>
+          <a href="/journey.html"
+            class="block w-full text-left px-4 py-2 text-xs text-ink hover:bg-panel2 transition-colors cursor-pointer">
+            My journey
+          </a>
           <a href="/guide.html" target="_blank" rel="noopener"
             class="block w-full text-left px-4 py-2 text-xs text-ink hover:bg-panel2 transition-colors cursor-pointer">
             User guide
@@ -764,6 +769,9 @@ function resetTheme() {
 const TAB_ACCESS = {
   dashboard:  ['ADMIN','PRODUCER','SALES','FINANCE','PM','TEAM_LEAD','STAFF'],
   mywork:     ['ADMIN','PRODUCER','SALES','FINANCE','PM','TEAM_LEAD','STAFF'],
+  // Everyone has their own journey page. Viewing SOMEONE ELSE's
+  // (?person=<id>) is checked by the API — JOURNEY_VIEWERS in roles.ts.
+  journey:    ['ADMIN','PRODUCER','SALES','FINANCE','PM','TEAM_LEAD','STAFF'],
   // Jobs show money (value, costs, net, invoices) — money roles only.
   // Keep in sync with JOB_ROLES in src/common/roles.ts (the API enforces it).
   jobs:       ['ADMIN','PRODUCER','PM','FINANCE','SALES'],

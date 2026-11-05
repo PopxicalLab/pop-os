@@ -466,7 +466,12 @@ function renderPeople() {
         ${isAdmin()
           ? `<button class="text-ink hover:text-accent transition-colors cursor-pointer text-left"
                onclick="openPersonProfile('${p.id}')">${esc(p.name)}</button>`
-          : esc(p.name)}${companyBadge}
+          // Producers / PMs can't open the full profile (salary etc.) but may
+          // see someone's journey — JOURNEY_VIEWERS in src/common/roles.ts.
+          : ['PRODUCER', 'PM'].includes(currentRole())
+            ? `<a href="/journey.html?person=${encodeURIComponent(p.id)}"
+                 class="text-ink hover:text-accent transition-colors">${esc(p.name)}</a>`
+            : esc(p.name)}${companyBadge}
       </td>
       <td data-pcol="role"   class="py-3 px-2 text-muted text-xs whitespace-nowrap">${esc(p.role)}</td>
       <td data-pcol="dept"   class="py-3 px-2 text-muted text-xs whitespace-nowrap">${esc(p.department)}</td>

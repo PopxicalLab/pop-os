@@ -92,12 +92,20 @@ function renderProfile(modal, data, personId, committees = []) {
         <span class="text-line">|</span>
         <span class="text-xs text-muted">Lifecycle Profile</span>
       </div>
-      ${admin ? `
-      <button onclick="openAddEventModal('${personId}')"
-        class="text-xs bg-panel2 border border-line text-ink px-3 py-1.5 rounded-lg
-               hover:border-accent/50 transition-colors cursor-pointer">
-        + Add event
-      </button>` : ''}
+      <div class="flex items-center gap-2">
+        <!-- Year-by-year work history, badges and awards (journey.html). -->
+        <a href="/journey.html?person=${encodeURIComponent(personId)}"
+          class="text-xs bg-accent/10 border border-accent/30 text-accent px-3 py-1.5 rounded-lg
+                 hover:bg-accent/20 transition-colors cursor-pointer">
+          View journey
+        </a>
+        ${admin ? `
+        <button onclick="openAddEventModal('${personId}')"
+          class="text-xs bg-panel2 border border-line text-ink px-3 py-1.5 rounded-lg
+                 hover:border-accent/50 transition-colors cursor-pointer">
+          + Add event
+        </button>` : ''}
+      </div>
     </div>
 
     <!-- hero -->
@@ -297,7 +305,9 @@ function renderTimeline(data, admin, personId) {
       icon: e.type === 'PROMOTION' ? '🏆' : e.type === 'ACHIEVEMENT' ? '⭐' : e.type === 'ROLE_CHANGE' ? '🔄' : e.type === 'DEPARTMENT_CHANGE' ? '🏢' : '📝',
       cls: EVENT_CLS[e.type] || 'bg-zinc-500/15 text-zinc-400',
       title: esc(e.title),
-      sub: e.note ? esc(e.note) : '',
+      // rewardValue only reaches the browser for the person, ADMIN and FINANCE.
+      sub: [e.note ? esc(e.note) : '', e.rewardValue != null ? `Reward: ${fmtMoney(e.rewardValue)}` : '']
+             .filter(Boolean).join(' · '),
       type: 'event',
       id: e.id,
     });
@@ -370,7 +380,8 @@ function openAddEventModal(personId) {
           <button onclick="closeAddEventModal()" class="text-muted hover:text-ink text-lg leading-none cursor-pointer">×</button>
         </div>
         <label class="block text-xs text-muted font-medium mb-1.5">Type</label>
-        <select id="ae-type" class="form-input text-xs cursor-pointer mb-3" style="margin-top:0">
+        <select id="ae-type" class="form-input text-xs cursor-pointer mb-3" style="margin-top:0"
+          onchange="$('ae-reward-wrap').classList.toggle('hidden', this.value !== 'ACHIEVEMENT')">
           <option value="PROMOTION">Promotion</option>
           <option value="ROLE_CHANGE">Role change</option>
           <option value="DEPARTMENT_CHANGE">Department change</option>
@@ -385,6 +396,13 @@ function openAddEventModal(personId) {
           class="w-full bg-bg border border-line rounded-lg px-3 py-2 text-xs text-ink placeholder-muted/60
                  focus:outline-none focus:ring-1 focus:ring-accent/70 resize-none mb-3"
           placeholder="Additional context…"></textarea>
+        <!-- Only for Achievement (awards / rewards). Seen by the person, ADMIN and FINANCE only. -->
+        <div id="ae-reward-wrap" class="hidden">
+          <label class="block text-xs text-muted font-medium mb-1.5">Reward value, RM (optional)</label>
+          <input id="ae-reward" type="number" min="0" step="0.01" class="form-input text-xs mb-1" style="margin-top:0"
+            placeholder="e.g. 500 for a cash bonus or voucher" />
+          <p class="text-[10px] text-muted mb-3">Only the person, Admin and Finance see the amount.</p>
+        </div>
         <label class="block text-xs text-muted font-medium mb-1.5">Date</label>
         <input id="ae-date" type="date" class="form-input text-xs mb-4" style="margin-top:0"
           value="${new Date().toISOString().slice(0,10)}" />
@@ -410,6 +428,8 @@ async function submitAddEvent(personId) {
     note:      $('ae-note').value.trim() || undefined,
     eventDate: $('ae-date').value || undefined,
   };
+  const reward = $('ae-reward').value;
+  if (body.type === 'ACHIEVEMENT' && reward !== '') body.rewardValue = Number(reward);
   if (!body.title) { msg($('ae-msg'), 'Title is required.', 'err'); return; }
 
   const res = await fetch(`/api/people/${personId}/events`, {
