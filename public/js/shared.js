@@ -40,7 +40,7 @@ const CLIENT_INDUSTRIES = [
   'Government & GLC', 'Healthcare & Pharma', 'Hospitality & Tourism',
   'Insurance', 'Jewellery & Luxury', 'Legal', 'Logistics & Transportation',
   'Manufacturing', 'Media & Entertainment', 'Non-profit & NGO',
-  'Property & Real Estate', 'Retail & Consumer', 'Technology & Software',
+  'Production House (Video, Sound & VFX)', 'Property & Real Estate', 'Retail & Consumer', 'Technology & Software',
   'Telecommunications', 'Theme Parks & Attractions', 'Utilities',
   'Other',
 ];
