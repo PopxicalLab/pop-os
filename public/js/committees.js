@@ -287,6 +287,7 @@ async function createCommittee() {
     $('cmte-new-name').value = '';
     $('cmte-new-purpose').value = '';
     msg($('cmte-create-msg'), 'Created!', 'ok');
+    foldAfterSave($('cmte-create-panel'), 'Committee created.');   // phones: fold the form away
     await loadCommittees();
     const created = COMMITTEES.find(c => c.name === name);
     if (created) openCommittee(created.id);

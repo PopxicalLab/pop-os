@@ -25,7 +25,10 @@ not just describe.
   e.g. `projects.html`, `capacity.html`, `jobs.html`). `index.html` is just the
   Dashboard page (`renderHeader('dashboard')`) — not a shell the others live
   inside. `public/js/shared.js` is the one file every page loads: `$`/`esc`/
-  `fmtMoney`/`matchesFilter`/`toast` (corner pop-up message), `renderHeader(activeTab)` (builds the nav —
+  `fmtMoney`/`matchesFilter`/`toast` (corner pop-up message), fold-away forms
+  on phones (mark a side-form panel `data-fold-mobile`; below `lg` it shows
+  only its first `<h2>` as a "+ …" bar; call `foldAfterSave(panel, text)`
+  after a successful add), `renderHeader(activeTab)` (builds the nav —
   reads `TAB_ACCESS` to show/hide items and acts as a **page guard**, redirecting
   a role that isn't allowed on that tab to My Work), the company-filter state,
   theme, and the global `fetch` override that injects the JWT. Each page's own

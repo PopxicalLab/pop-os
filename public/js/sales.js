@@ -72,6 +72,8 @@ function applySalesLayout() {
 function toggleSalesAddPanel() {
   _salesAddOpen = !_salesAddOpen;
   applySalesLayout();
+  // On phones the panel is also folded — open it, or this tap would only show the bar.
+  if (_salesAddOpen) foldOpen($('sales-add-panel'));
 }
 
 // 'month' (default) or 'quarter' — which period the "Leads over time" chart buckets by.
@@ -739,6 +741,7 @@ async function addLead() {
   if (res.ok) {
     $('lead-name').value = ''; $('lead-value').value = '';
     msg(msgEl, 'Lead added.', 'ok');
+    foldAfterSave($('sales-add-panel'), 'Lead added.');   // phones: fold the form away
     loadSales();
   } else {
     const e = await res.json().catch(() => ({}));

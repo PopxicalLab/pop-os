@@ -205,7 +205,8 @@
         </div>
 
         <!-- Create new committee (admin only) -->
-        <div id="cmte-create-panel" class="bg-panel border border-line rounded-xl p-4">
+        <!-- data-fold-mobile: on phones this folds into a "+ New Committee" bar (shared.js). -->
+        <div id="cmte-create-panel" data-fold-mobile class="bg-panel border border-line rounded-xl p-4">
           <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">New Committee</h2>
           <input id="cmte-new-name" class="form-input text-xs" placeholder="Name, e.g. Health &amp; Safety" />
           <input id="cmte-new-purpose" class="form-input text-xs" placeholder="Purpose (optional)" />

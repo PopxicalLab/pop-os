@@ -907,6 +907,7 @@ async function addProject() {
     ['p-name','p-client','p-start-date','p-deadline'].forEach(id => $(id).value = '');
     $('p-quadrant').value = 'GOLD';
     msg($('pmsg'), 'Project added.', 'ok');
+    foldAfterSave($('add-project-panel'), 'Project added.');   // phones: fold the form away
     loadProjects();
   } else {
     const e = await res.json().catch(() => ({}));

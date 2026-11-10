@@ -430,6 +430,7 @@ async function addAllocation() {
     $('cap-weekend').checked = false;
     $('cap-weekend-row').classList.add('hidden');
     msg(msgEl, 'Allocation added.', 'ok');
+    foldAfterSave($('add-allocation-panel'), 'Allocation added.');   // phones: fold the form away
     loadCapacityBoard();
   } else {
     const e = await res.json().catch(() => ({}));

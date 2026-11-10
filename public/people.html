@@ -197,7 +197,8 @@
         New Joiner
       </button>
 
-      <div class="bg-panel border border-line rounded-xl p-5">
+      <!-- data-fold-mobile: on phones this folds into a "+ Add a person" bar (shared.js). -->
+      <div id="add-person-panel" data-fold-mobile class="bg-panel border border-line rounded-xl p-5">
         <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-4">Add a person</h2>
         <label class="form-label" style="margin-top:0">Name</label>
         <input id="name" class="form-input" placeholder="e.g. Jia Jyn" />
@@ -244,7 +245,7 @@
         <div id="msg" class="text-xs mt-2 min-h-[18px]"></div>
       </div>
 
-      <div id="skill-master-panel" class="bg-panel border border-line rounded-xl p-5">
+      <div id="skill-master-panel" data-fold-mobile class="bg-panel border border-line rounded-xl p-5">
         <div class="flex items-center gap-2 mb-1">
           <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">Skill master list</h2>
           <a href="/skills-guide.html" target="_blank" title="View skill descriptions"
@@ -274,7 +275,7 @@
         <div id="skillMsg" class="text-xs mt-2 min-h-[18px]"></div>
       </div>
 
-      <div id="job-title-master-panel" class="bg-panel border border-line rounded-xl p-5">
+      <div id="job-title-master-panel" data-fold-mobile class="bg-panel border border-line rounded-xl p-5">
         <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-1">Job title master list</h2>
         <p class="text-xs text-muted mb-3">Studio-wide job titles shown in the new person form.</p>
         <div id="jobTitleList" class="flex flex-wrap gap-1.5 mb-3 min-h-[24px]"></div>
@@ -288,7 +289,7 @@
         <div id="jobTitleMsg" class="text-xs mt-2 min-h-[18px]"></div>
       </div>
 
-      <div id="dept-master-panel" class="bg-panel border border-line rounded-xl p-5">
+      <div id="dept-master-panel" data-fold-mobile class="bg-panel border border-line rounded-xl p-5">
         <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-1">Department master list</h2>
         <p class="text-xs text-muted mb-3">Studio-wide departments shown in the new person form.</p>
         <div id="deptList" class="flex flex-wrap gap-1.5 mb-3 min-h-[24px]"></div>
@@ -302,7 +303,7 @@
         <div id="deptMsg" class="text-xs mt-2 min-h-[18px]"></div>
       </div>
 
-      <div id="software-master-panel" class="bg-panel border border-line rounded-xl p-5">
+      <div id="software-master-panel" data-fold-mobile class="bg-panel border border-line rounded-xl p-5">
         <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-1">Software master list</h2>
         <p class="text-xs text-muted mb-3">Tools used in the studio. Tag people with the software they use.</p>
         <div id="softwareList" class="flex flex-wrap gap-1.5 mb-3 min-h-[24px]"></div>

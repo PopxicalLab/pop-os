@@ -75,6 +75,69 @@ function toast(html, kind = 'ok', ms = 10000) {
   setTimeout(() => t.remove(), ms);
 }
 
+// ── Fold-away forms on phones ────────────────────────────────
+// On a computer the "Add a lead / project / person…" forms sit in a narrow
+// column beside the list. On a phone that column stacks ON TOP of the list
+// and fills half the screen. Mark the form's panel with `data-fold-mobile`
+// and, below the `lg` breakpoint (1024px, where the layout stacks), it shows
+// only its heading as a "+ Add …" bar — tap to open, tap again to close.
+// Computers are untouched: the CSS below only applies inside the media query.
+// The panel's first <h2> is the bar; everything else in the panel hides.
+const FOLD_MQ = '(max-width: 1023.98px)';
+(function injectFoldCss() {
+  const css = `@media ${FOLD_MQ} {
+    [data-fold-mobile]:not(.fold-open) > :not(.fold-head) { display: none !important; }
+    [data-fold-mobile]:not(.fold-open) { padding-top: .75rem; padding-bottom: .75rem; }
+    [data-fold-mobile]:not(.fold-open) .fold-head,
+    [data-fold-mobile]:not(.fold-open) .fold-head h2 { margin-bottom: 0; }
+    [data-fold-mobile] .fold-head { cursor: pointer; user-select: none; }
+    [data-fold-mobile] .fold-head h2 { display: flex; align-items: center; gap: .4rem; }
+    [data-fold-mobile] .fold-head h2::before { content: '+'; font-size: 15px; line-height: 1; }
+    [data-fold-mobile].fold-open .fold-head h2::before { content: '−'; }
+    [data-fold-mobile] .fold-head h2::after { content: '▾'; margin-left: auto; font-size: 11px; }
+    [data-fold-mobile].fold-open .fold-head h2::after { content: '▴'; }
+  }`;
+  const s = document.createElement('style');
+  s.textContent = css;
+  document.head.appendChild(s);
+})();
+
+function isPhoneLayout() { return window.matchMedia(FOLD_MQ).matches; }
+
+// Wire every marked panel. The "head" is the panel's direct child that holds
+// the first <h2> (usually the h2 itself; sometimes a row with buttons in it).
+function initFoldPanels() {
+  document.querySelectorAll('[data-fold-mobile]').forEach(panel => {
+    if (panel.dataset.foldReady) return;
+    const h2 = panel.querySelector('h2');
+    if (!h2) return;
+    let head = h2;
+    while (head.parentElement !== panel) head = head.parentElement;
+    head.classList.add('fold-head');
+    h2.classList.add('max-lg:text-accent');   // phones: bar reads as a tappable action (theme colour)
+    panel.dataset.foldReady = '1';
+    head.addEventListener('click', e => {
+      if (!isPhoneLayout()) return;                 // computers: plain heading
+      if (e.target.closest('button, a, input, select')) return;   // buttons in the head still work
+      panel.classList.toggle('fold-open');
+    });
+  });
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initFoldPanels);
+else initFoldPanels();
+
+// Open a fold panel (e.g. the Sales List "+ Add lead" button).
+function foldOpen(panel) { if (panel) panel.classList.add('fold-open'); }
+
+// Call after a successful save. On a phone the form closes so the list comes
+// back, and `text` shows as a pop-up (the message inside the form would be
+// hidden). On a computer nothing changes.
+function foldAfterSave(panel, text) {
+  if (!panel || !isPhoneLayout()) return;
+  panel.classList.remove('fold-open');
+  if (text) toast(esc(text), 'ok', 4000);
+}
+
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])

@@ -563,6 +563,7 @@ async function addPerson() {
   if (res.ok) {
     ['name', 'role', 'department'].forEach(id => $(id).value = '');
     msg($('msg'), 'Person added.', 'ok');
+    foldAfterSave($('add-person-panel'), 'Person added.');   // phones: fold the form away
     load();
   } else {
     const e = await res.json().catch(() => ({}));

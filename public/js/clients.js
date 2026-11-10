@@ -266,6 +266,7 @@ async function addAccount() {
   if (res.ok) {
     $('acc-name').value = ''; $('acc-industry').value = ''; $('acc-website').value = '';
     msg(msgEl, 'Account added.', 'ok');
+    foldAfterSave($('add-account-panel'), 'Account added.');   // phones: fold the form away
     loadClients();
   } else {
     const e = await res.json().catch(() => ({}));
