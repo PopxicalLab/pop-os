@@ -51,6 +51,9 @@ function applySalesSubTab() {
     $('sales-pane-' + t).classList.toggle('hidden', _salesSubTab !== t);
   }
   applySalesLayout();
+  // A hidden chart can't be scrolled — jump to the newest months once it shows.
+  const scroller = $('sales-chart-scroll');
+  if (_salesSubTab === 'chart' && scroller) scroller.scrollLeft = scroller.scrollWidth;
 }
 
 // The List view needs every pixel for its columns: it goes full width and
@@ -226,13 +229,21 @@ function renderSalesChart(leads) {
   const PLOT_H   = 160; // px — the bars' shared baseline height
   const HEADROOM = 20;  // px reserved at the top so the tallest bar doesn't crowd the legend above it
   const SCALE_H  = PLOT_H - HEADROOM;
+  // Month label row under the bars: 14px label + 8px gap (gap-2). The chart
+  // box includes it — a scrolling box clips anything outside itself.
+  const LABEL_H  = 22;
 
   // Faint 25/50/75% gridlines — recessive, just enough to read relative height by eye.
+  // Measured from the bars' baseline, which sits LABEL_H above the box bottom.
   const gridlines = [25, 50, 75].map(pct =>
-    `<div class="absolute left-0 right-0 border-t border-line/40" style="bottom:${Math.round(pct / 100 * SCALE_H)}px"></div>`
+    `<div class="absolute left-0 right-0 border-t border-line/40" style="bottom:${LABEL_H + Math.round(pct / 100 * SCALE_H)}px"></div>`
   ).join('');
 
-  chartEl.innerHTML = `<div class="relative flex items-end gap-3" style="height:${PLOT_H}px">
+  // Outer box scrolls sideways; the inner row is at least as wide as its
+  // bars need (min-w-max) and fills the box when there's room (w-full).
+  // On a phone, many months don't fit — swipe instead of spilling off screen.
+  chartEl.innerHTML = `<div id="sales-chart-scroll" class="overflow-x-auto overscroll-x-contain pb-1">
+   <div class="relative flex items-end gap-1.5 sm:gap-3 min-w-max w-full" style="height:${PLOT_H + LABEL_H}px">
     ${gridlines}
     ${keys.map(k => {
       const b = buckets[k];
@@ -251,10 +262,15 @@ function renderSalesChart(leads) {
         <div class="w-full flex flex-col-reverse justify-start rounded-t-[4px] overflow-hidden bg-panel2/40" style="height:${PLOT_H}px" data-chart-bar="${k}">
           ${segs || ''}
         </div>
-        <span class="text-[10px] text-muted whitespace-nowrap">${b.label}</span>
+        <span class="text-[10px] leading-[14px] h-[14px] text-muted whitespace-nowrap">${b.label}</span>
       </div>`;
     }).join('')}
+   </div>
   </div>`;
+
+  // Start scrolled to the newest months (right end) — what people look at first.
+  const scroller = $('sales-chart-scroll');
+  if (scroller) scroller.scrollLeft = scroller.scrollWidth;
 
   chartEl.querySelectorAll('[data-chart-seg]').forEach(seg => {
     const status = seg.dataset.chartSeg, key = seg.dataset.chartPeriod;
