@@ -401,7 +401,7 @@ function renderSPSettings(data) {
           ${_spPeople.filter(p => p.status === 'ACTIVE').map(p => `<option value="${p.id}">${esc(p.name)}</option>`).join('')}
         </select>
       </div>
-      <div id="sp-ptr-rows"></div>
+      <div id="sp-ptr-rows" class="overflow-x-auto"></div>
     </div>
 
     <!-- Global commission tiers -->

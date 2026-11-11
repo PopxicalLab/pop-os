@@ -235,7 +235,7 @@ async function showProjectDetail(id) {
         <a href="/capacity.html?project=${encodeURIComponent(p.name)}"
           class="text-[11px] text-accent hover:underline cursor-pointer">Manage in Capacity tab →</a>
       </div>
-      <div id="proj-capacity-${p.id}" class="text-xs text-muted">Loading…</div>
+      <div id="proj-capacity-${p.id}" class="text-xs text-muted overflow-x-auto">Loading…</div>
     </div>
 
     ${jobLink('') ? `
@@ -967,7 +967,7 @@ function renderKanban() {
   const filterBar = `
     <div class="flex flex-wrap gap-2 mb-4">
       <input id="kb-search" type="text" placeholder="Search name or client…" value="${esc(_kbSearch)}"
-        class="bg-panel2 border border-line text-ink text-xs px-3 py-1.5 rounded-lg w-48
+        class="bg-panel2 border border-line text-ink text-xs px-3 py-1.5 rounded-lg w-full sm:w-48
                focus:outline-none focus:border-accent/60" />
       <select id="kb-filter-priority"
         class="bg-panel2 border border-line text-ink text-xs px-2 py-1.5 rounded-lg cursor-pointer

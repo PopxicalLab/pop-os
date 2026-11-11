@@ -255,9 +255,10 @@
       <!-- List pane — Airtable-style grid, one row per lead, cells editable in
            place. Columns can be shown / hidden per user (⚙ Columns). -->
       <div id="sales-pane-list" class="hidden">
-        <div class="flex items-center gap-2 mb-3">
+        <!-- Phones: search takes its own line, the two buttons wrap below it. -->
+        <div class="flex flex-wrap items-center gap-2 mb-3">
           <input id="sales-list-search" type="text" placeholder="Search leads, accounts, contacts…" autocomplete="off"
-            class="flex-1 bg-panel2 border border-line text-ink text-xs px-3 py-1.5 rounded-lg
+            class="w-full sm:w-auto sm:flex-1 min-w-0 bg-panel2 border border-line text-ink text-xs px-3 py-1.5 rounded-lg
                    focus:outline-none focus:border-accent/60" />
           <button id="sales-add-toggle" onclick="toggleSalesAddPanel()"
             class="text-xs bg-accent/15 border border-accent/30 text-accent hover:bg-accent/25 px-3 py-1.5 rounded-lg cursor-pointer whitespace-nowrap">

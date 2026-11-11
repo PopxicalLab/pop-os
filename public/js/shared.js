@@ -96,6 +96,16 @@ const FOLD_MQ = '(max-width: 1023.98px)';
     [data-fold-mobile].fold-open .fold-head h2::before { content: '−'; }
     [data-fold-mobile] .fold-head h2::after { content: '▾'; margin-left: auto; font-size: 11px; }
     [data-fold-mobile].fold-open .fold-head h2::after { content: '▴'; }
+
+    /* Keep everything inside the screen on phones.
+       By default a grid cell or flex item refuses to shrink below its
+       content (CSS "min-width: auto"), so one wide table or long name
+       stretches the whole panel past the edge. min-width: 0 lets them
+       shrink; wide tables then scroll sideways in their overflow-x-auto box.
+       Fixed-width boxes (w-48 search, w-64…) are capped to the space there is. */
+    .grid > * { min-width: 0; }
+    .flex > input, .flex > select { min-width: 0; }
+    input, select, textarea { max-width: 100%; }
   }`;
   const s = document.createElement('style');
   s.textContent = css;

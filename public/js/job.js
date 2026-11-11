@@ -250,7 +250,7 @@ function renderJob() {
 
     <div class="py-5 border-b border-line">
       <p class="text-[11px] font-semibold uppercase tracking-widest text-muted mb-3">Costs</p>
-      <div id="job-costs"></div>
+      <div id="job-costs" class="overflow-x-auto"></div>
       ${j.projectId ? `
       <form class="mt-3 flex flex-wrap gap-2 items-end" onsubmit="addJobCost(event)">
         <div class="flex flex-col gap-1">
@@ -291,7 +291,7 @@ function renderJob() {
           </button>` : ''}
         </div>
       </div>
-      <div id="job-docs"></div>
+      <div id="job-docs" class="overflow-x-auto"></div>
     </div>
 
     <!-- Files — contracts, POs, signed quotes, invoices, receipts. Stored on
@@ -311,10 +311,10 @@ function renderJob() {
           ${opts(Object.keys(JOB_FILE_LABEL), 'OTHER', v => JOB_FILE_LABEL[v])}
         </select>
         <input id="jf-note" type="text" maxlength="500" placeholder="Note (optional)"
-          class="bg-panel2 border border-line text-ink text-xs px-2 py-1 rounded-md w-56 focus:outline-none focus:border-accent/60" />
+          class="bg-panel2 border border-line text-ink text-xs px-2 py-1 rounded-md w-full sm:w-56 focus:outline-none focus:border-accent/60" />
         <span id="jf-msg" class="text-[11px]"></span>
       </div>
-      <div id="job-files" class="mt-3"></div>
+      <div id="job-files" class="mt-3 overflow-x-auto"></div>
     </div>`;
 
   renderCosts();
