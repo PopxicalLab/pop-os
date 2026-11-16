@@ -470,6 +470,11 @@ Every module listed here has shipped. Full build-order history (what, why,
 grouped by layer) moved to `CHANGELOG.md` → "Module build order (historical)"
 to keep this file focused on current contract, not a growing done-list.
 
+### To do
+- Skills distribution — how skills are spread across the team (e.g. people
+  per skill at each rating 1–5, gaps where few people are strong). Scope to
+  be agreed before building.
+
 ### Deferred
 - Kakitangan.com sync (payroll + leave).
 - `changedBy` on SkillRatingChange linking to a real Person.

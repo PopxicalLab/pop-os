@@ -104,17 +104,26 @@ export class ProjectsService {
   // (those are edited on the job), so the DTO whitelist already drops them.
   async update(id: string, dto: UpdateProjectDto) {
     await this.findOne(id);
-    await this.prisma.project.update({
-      where: { id },
-      data: {
-        ...dto,
-        startDate: dto.startDate !== undefined
-          ? (dto.startDate ? new Date(dto.startDate) : null)
-          : undefined,
-        deadline: dto.deadline !== undefined
-          ? (dto.deadline ? new Date(dto.deadline) : null)
-          : undefined,
-      },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.project.update({
+        where: { id },
+        data: {
+          ...dto,
+          startDate: dto.startDate !== undefined
+            ? (dto.startDate ? new Date(dto.startDate) : null)
+            : undefined,
+          deadline: dto.deadline !== undefined
+            ? (dto.deadline ? new Date(dto.deadline) : null)
+            : undefined,
+        },
+      });
+      // Company changed on the Projects tab → its job (the sales lead) follows,
+      // so Sales, Jobs and Projects all show the deal on the same side.
+      // (The reverse — Job page → project — lives in LeadsService.update.)
+      // updateMany: a project with no job yet (old seed data) is simply skipped.
+      if (dto.company !== undefined) {
+        await tx.lead.updateMany({ where: { projectId: id }, data: { company: dto.company } });
+      }
     });
     return this.findOne(id);
   }

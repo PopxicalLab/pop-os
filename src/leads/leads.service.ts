@@ -112,6 +112,13 @@ export class LeadsService {
       if (dto.accountId !== undefined && lead.projectId) {
         await tx.project.update({ where: { id: lead.projectId }, data: { accountId: dto.accountId ?? null } });
       }
+      // Company changed on the Job page → its project follows, so the header
+      // company filter shows the job and its production work on the same side.
+      // Project.company is required, so "not set" becomes GROUP (same rule as
+      // convertToProject).
+      if (dto.company !== undefined && lead.projectId) {
+        await tx.project.update({ where: { id: lead.projectId }, data: { company: dto.company ?? 'GROUP' } });
+      }
       return lead;
     });
 

@@ -207,6 +207,11 @@ function renderJob() {
                title="The real closing date — decides which quarter this deal counts in on Sales Performance"
                class="${inputCls} cursor-pointer" />`
           : val(fmtDate(j.wonAt)))}
+        ${lbl('Company',   `<select id="job-company" class="${inputCls} cursor-pointer"
+               title="Which side of the studio this deal belongs to — its project follows">
+               ${[['', '— not set —'], ['LPS', 'LPS'], ['PXL', 'PXL'], ['GROUP', 'Group (cross-company)']]
+                 .map(([v, t]) => `<option value="${v}"${(j.company || '') === v ? ' selected' : ''}>${t}</option>`).join('')}
+             </select>`)}
         ${lbl('Client',    val(j.account ? esc(j.account.name) : '—'))}
         ${lbl('Contact',   val(j.contact ? esc(j.contact.name) + (j.contact.title ? ` <span class="text-muted">· ${esc(j.contact.title)}</span>` : '') : '—'))}
       </div>
@@ -552,6 +557,8 @@ function wireMoneyInputs() {
   $('job-invoiced').onchange = e => patchJob({ invoicedPct:    Number(e.target.value) });
   $('job-paid').onchange     = e => patchJob({ paidPct:        Number(e.target.value) });
   $('job-paydate').onchange  = e => { if (e.target.value) patchJob({ paymentDate: e.target.value }); };
+  // Company — the server moves the linked project to the same company.
+  $('job-company').onchange  = e => patchJob({ company: e.target.value || null });
   // Won date (ADMIN / FINANCE only — the API refuses others). Blank clears it,
   // which drops the deal out of Sales Performance, so ask first.
   const wonEl = $('job-wonat');

@@ -288,14 +288,24 @@
         </div>
       </div>
 
-      <!-- Leads over time pane — bucketed on the lead's created date -->
-      <div id="sales-pane-chart">
+      <!-- Leads over time pane — bucketed on the lead's created date (sales-chart.js).
+           relative: the tooltip is positioned inside this pane. -->
+      <div id="sales-pane-chart" class="relative">
         <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
-          <div class="flex text-xs bg-panel2 border border-line rounded-lg p-0.5">
-            <button id="sales-chart-month" onclick="setSalesChartPeriod('month')"
-              class="px-2.5 py-1 rounded-md cursor-pointer transition-colors">Month</button>
-            <button id="sales-chart-quarter" onclick="setSalesChartPeriod('quarter')"
-              class="px-2.5 py-1 rounded-md cursor-pointer transition-colors">Quarter</button>
+          <div class="flex flex-wrap gap-2">
+            <div class="flex text-xs bg-panel2 border border-line rounded-lg p-0.5">
+              <button id="sales-chart-month" onclick="setSalesChartPeriod('month')"
+                class="px-2.5 py-1 rounded-md cursor-pointer transition-colors">Month</button>
+              <button id="sales-chart-quarter" onclick="setSalesChartPeriod('quarter')"
+                class="px-2.5 py-1 rounded-md cursor-pointer transition-colors">Quarter</button>
+            </div>
+            <!-- What a bar's height measures: number of leads, or their RM value. -->
+            <div class="flex text-xs bg-panel2 border border-line rounded-lg p-0.5">
+              <button id="sales-chart-count" onclick="setSalesChartMeasure('count')"
+                class="px-2.5 py-1 rounded-md cursor-pointer transition-colors">Count</button>
+              <button id="sales-chart-value" onclick="setSalesChartMeasure('value')"
+                class="px-2.5 py-1 rounded-md cursor-pointer transition-colors">RM value</button>
+            </div>
           </div>
           <div class="flex text-xs bg-panel2 border border-line rounded-lg p-0.5">
             <button id="sales-chart-view-chart" onclick="setSalesChartView('chart')"
@@ -304,8 +314,12 @@
               class="px-2.5 py-1 rounded-md cursor-pointer transition-colors">Table</button>
           </div>
         </div>
-        <div id="sales-chart-legend" class="flex flex-wrap gap-x-5 gap-y-2 pb-4 mb-5 border-b border-line/60 text-[11px]"></div>
+        <!-- Legend doubles as the stage filter: tap a stage to hide / show it. -->
+        <div id="sales-chart-legend" class="flex flex-wrap items-center gap-x-5 gap-y-2 pb-4 mb-5 border-b border-line/60 text-[11px]"></div>
         <div id="sales-chart" class="pt-1"></div>
+        <p class="text-[10px] text-muted/70 mt-2">Tap a bar to see its leads · tap a stage above to hide or show it</p>
+        <!-- Leads of the period whose bar was tapped. -->
+        <div id="sales-chart-leads" class="hidden mt-4 pt-3 border-t border-line/60"></div>
         <div id="sales-chart-tooltip"
           class="hidden absolute z-20 pointer-events-none bg-panel2 border border-line rounded-lg px-2.5 py-1.5 text-[11px] text-ink shadow-lg whitespace-nowrap"></div>
       </div>
@@ -404,6 +418,7 @@
     </div>
   </div>
 
+  <script src="/js/sales-chart.js"></script>
   <script src="/js/sales.js"></script>
   <script src="/js/sales-list.js"></script>
   <script>
