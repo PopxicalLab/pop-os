@@ -7,8 +7,14 @@ import { MattermostService } from './mattermost.service';
 import { CreateRuleDto, TargetDto, UpdateRuleDto } from './notification-rules.dto';
 import {
   CAPACITY_SECTIONS, EVENT_CATALOGUE, KL_OFFSET_MS, LEAD_STATUSES, LeadEventPayload,
-  buildLeadMessage, buildMessage, capacityOptions, leadOptions, leadRuleMatches, samplePayload, toKL,
+  PROJECT_STATUSES, ProjectEventPayload,
+  buildLeadMessage, buildMessage, buildProjectMessage, capacityOptions, leadOptions, leadRuleMatches,
+  projectOptions, projectRuleMatches, sampleProjectPayload, samplePayload, toKL,
 } from './notification-events';
+
+// The two lead events share one payload shape and matching/formatting logic;
+// everything else triggered (today just PROJECT_STATUS_CHANGED) gets its own.
+const LEAD_EVENTS = new Set(['LEAD_CREATED', 'LEAD_STATUS_CHANGED']);
 
 // How long after its scheduled minute a rule may still fire. This is what makes
 // a server restart at 09:00 harmless: when the server comes back at 09:04 it
@@ -112,47 +118,71 @@ export class NotificationRulesService implements OnModuleInit, OnModuleDestroy {
   }
 
   // ── Triggered events ───────────────────────────────────────────
+  // Sends `textFor(rule)` to each matching rule and records the outcome.
+  // Shared by every triggered event — only how `matching` and `textFor` are
+  // built differs per event (see emit() below).
+  private async fireRules(matching: any[], textFor: (rule: any) => string) {
+    for (const rule of matching) {
+      const text = textFor(rule);
+      const { sent, errors } = await this.deliver(rule, text, await this.userEmails(rule.targets));
+      const status = this.statusText(sent, rule.targets.length, errors);
+      if (errors.length) this.logger.warn(`Rule ${rule.id}: ${status}`);
+      await this.prisma.notificationRule.update({
+        where: { id: rule.id },
+        data: { lastRunAt: new Date(), lastStatus: status.slice(0, 500) },
+      });
+    }
+  }
+
   // Called by app code when something happens (e.g. leads.service.ts after a
-  // lead is saved). Finds the rules listening for `event`, applies their
-  // filters, sends, and records the outcome on each rule. Never throws — the
-  // caller is in the middle of a user's request and must not be affected —
-  // and callers should not await it.
-  async emit(event: 'LEAD_CREATED' | 'LEAD_STATUS_CHANGED', payload: LeadEventPayload): Promise<void> {
+  // lead is saved, projects.service.ts after a status change). Finds the
+  // rules listening for `event`, applies their filters, sends, and records
+  // the outcome on each rule. Never throws — the caller is in the middle of
+  // a user's request and must not be affected — and callers should not await it.
+  async emit(
+    event: 'LEAD_CREATED' | 'LEAD_STATUS_CHANGED' | 'PROJECT_STATUS_CHANGED',
+    payload: LeadEventPayload | ProjectEventPayload,
+  ): Promise<void> {
     if (!this.mattermost.isConfigured()) return;
     try {
       const rules = await this.prisma.notificationRule.findMany({
         where: { event, enabled: true },
         include: { targets: true },
       });
-      const matching = rules.filter((r) => leadRuleMatches(r, event, payload));
-      if (!matching.length) return;
 
-      // Who closed the deal — looked up once, shared by every matching rule.
-      let closerName: string | null = null;
-      let closerUsername: string | null = null;
-      if (payload.lead.closedById) {
-        const person = await this.prisma.person.findUnique({
-          where: { id: payload.lead.closedById },
-          select: { name: true, user: { select: { email: true } } },
-        });
-        closerName = person?.name ?? null;
-        // Mattermost account found via login email; null (plain name) if not found.
-        if (person?.user?.email && matching.some((r) => leadOptions(r.options).mentionCloser)) {
-          closerUsername = await this.mattermost.findUsernameByEmail(person.user.email);
+      if (LEAD_EVENTS.has(event)) {
+        const leadPayload = payload as LeadEventPayload;
+        const matching = rules.filter((r) => leadRuleMatches(r, event, leadPayload));
+        if (!matching.length) return;
+
+        // Who closed the deal — looked up once, shared by every matching rule.
+        let closerName: string | null = null;
+        let closerUsername: string | null = null;
+        if (leadPayload.lead.closedById) {
+          const person = await this.prisma.person.findUnique({
+            where: { id: leadPayload.lead.closedById },
+            select: { name: true, user: { select: { email: true } } },
+          });
+          closerName = person?.name ?? null;
+          // Mattermost account found via login email; null (plain name) if not found.
+          if (person?.user?.email && matching.some((r) => leadOptions(r.options).mentionCloser)) {
+            closerUsername = await this.mattermost.findUsernameByEmail(person.user.email);
+          }
         }
+
+        await this.fireRules(matching, (rule) => {
+          const opts = leadOptions(rule.options);
+          const closer = closerName ? (opts.mentionCloser && closerUsername ? `@${closerUsername}` : closerName) : null;
+          return buildLeadMessage(event, leadPayload, opts, closer);
+        });
+        return;
       }
 
-      for (const rule of matching) {
-        const opts = leadOptions(rule.options);
-        const closer = closerName ? (opts.mentionCloser && closerUsername ? `@${closerUsername}` : closerName) : null;
-        const text = buildLeadMessage(event, payload, opts, closer);
-        const { sent, errors } = await this.deliver(rule, text, await this.userEmails(rule.targets));
-        const status = this.statusText(sent, rule.targets.length, errors);
-        if (errors.length) this.logger.warn(`Rule ${rule.id}: ${status}`);
-        await this.prisma.notificationRule.update({
-          where: { id: rule.id },
-          data: { lastRunAt: new Date(), lastStatus: status.slice(0, 500) },
-        });
+      if (event === 'PROJECT_STATUS_CHANGED') {
+        const projectPayload = payload as ProjectEventPayload;
+        const matching = rules.filter((r) => projectRuleMatches(r, projectPayload));
+        if (!matching.length) return;
+        await this.fireRules(matching, (rule) => buildProjectMessage(projectPayload, projectOptions(rule.options)));
       }
     } catch (err) {
       this.logger.error(`emit ${event} failed: ${err.message}`);
@@ -193,11 +223,14 @@ export class NotificationRulesService implements OnModuleInit, OnModuleDestroy {
     if (!this.mattermost.isConfigured()) throw new BadRequestException('Mattermost is not configured on the server (.env).');
     const info = EVENT_CATALOGUE.find((e) => e.key === rule.event);
     // A triggered rule has nothing to "run", so its test shows what a real
-    // message will look like, built from sample data (no real lead is touched).
-    const text = info?.kind === 'TRIGGERED'
-      ? `🧪 **Test — sample data, no real lead changed** (rule "${rule.name}")\n\n` +
-        buildLeadMessage(rule.event, samplePayload(rule.event), leadOptions(rule.options), 'Sample Person')
-      : `🔔 **Pop OS test message** — rule "${rule.name}". If you can read this, notifications reach you.`;
+    // message will look like, built from sample data (nothing real is touched).
+    const text = rule.event === 'PROJECT_STATUS_CHANGED'
+      ? `🧪 **Test — sample data, no real project changed** (rule "${rule.name}")\n\n` +
+        buildProjectMessage(sampleProjectPayload(), projectOptions(rule.options))
+      : info?.kind === 'TRIGGERED'
+        ? `🧪 **Test — sample data, no real lead changed** (rule "${rule.name}")\n\n` +
+          buildLeadMessage(rule.event, samplePayload(rule.event), leadOptions(rule.options), 'Sample Person')
+        : `🔔 **Pop OS test message** — rule "${rule.name}". If you can read this, notifications reach you.`;
     const { sent, errors } = await this.deliver(rule, text, await this.userEmails(rule.targets));
     return { sent, total: rule.targets.length, errors };
   }
@@ -240,6 +273,7 @@ export class NotificationRulesService implements OnModuleInit, OnModuleDestroy {
       events: EVENT_CATALOGUE,
       capacitySections: CAPACITY_SECTIONS,
       leadStatuses: LEAD_STATUSES,
+      projectStatuses: PROJECT_STATUSES,
       departments,
       rules: rules.map((r) => this.decorate(r, names)),
     };
@@ -279,6 +313,7 @@ export class NotificationRulesService implements OnModuleInit, OnModuleDestroy {
     const form = EVENT_CATALOGUE.find((e) => e.key === event)?.optionsForm;
     if (form === 'CAPACITY') return capacityOptions(raw);
     if (form === 'LEAD') return leadOptions(raw);
+    if (form === 'PROJECT') return projectOptions(raw);
     return undefined;
   }
 

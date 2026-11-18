@@ -5,6 +5,7 @@ import { companyWhere } from '../common/company-filter';
 import { autoJobId, isAutoJob } from '../common/job';
 import { stripJobColumns } from '../common/roles';
 import { removeJobUploads } from '../common/uploads';
+import { NotificationRulesService } from '../mattermost/notification-rules.service';
 
 // ── Projects = production only ─────────────────────────────────────
 // Everyone who works on a project (incl. TEAM_LEAD / STAFF) can read it, so
@@ -36,7 +37,7 @@ function toProjectView<T extends { lead: JobLink }>(row: T) {
 
 @Injectable()
 export class ProjectsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private notifications: NotificationRulesService) {}
 
   async findAll(personId?: string, company?: string | null) {
     const co = companyWhere(company);
@@ -103,7 +104,7 @@ export class ProjectsService {
   // Production fields only — UpdateProjectDto has no money / PPM fields
   // (those are edited on the job), so the DTO whitelist already drops them.
   async update(id: string, dto: UpdateProjectDto) {
-    await this.findOne(id);
+    const current = await this.findOne(id);
     await this.prisma.$transaction(async (tx) => {
       await tx.project.update({
         where: { id },
@@ -125,7 +126,23 @@ export class ProjectsService {
         await tx.lead.updateMany({ where: { projectId: id }, data: { company: dto.company } });
       }
     });
-    return this.findOne(id);
+    const updated = await this.findOne(id);
+
+    // Announce a status change to Mattermost (forward or backward — the rule
+    // decides which statuses it cares about). Fire-and-forget: emit() never
+    // throws, and the request must not wait on chat.
+    if (dto.status && dto.status !== current.status) {
+      void this.notifications.emit('PROJECT_STATUS_CHANGED', {
+        project: {
+          id: updated.id, name: updated.name, status: updated.status, company: updated.company,
+          producer: updated.producer ? { name: updated.producer.name } : null,
+          pm: updated.pm ? { name: updated.pm.name } : null,
+        },
+        from: current.status,
+      });
+    }
+
+    return updated;
   }
 
   // Deleting a project also deletes its auto job (it only existed to hold

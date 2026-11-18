@@ -18,7 +18,7 @@ export interface EventInfo {
   label: string;
   kind: EventKind;
   description: string;
-  optionsForm?: 'CAPACITY' | 'LEAD';
+  optionsForm?: 'CAPACITY' | 'LEAD' | 'PROJECT';
 }
 
 export const EVENT_CATALOGUE: EventInfo[] = [
@@ -42,6 +42,13 @@ export const EVENT_CATALOGUE: EventInfo[] = [
     kind: 'TRIGGERED',
     description: 'Posts when a lead moves to another pipeline stage. Choose which stages to be told about.',
     optionsForm: 'LEAD',
+  },
+  {
+    key: 'PROJECT_STATUS_CHANGED',
+    label: 'Project status changed',
+    kind: 'TRIGGERED',
+    description: 'Posts when a project moves to another status — forward or backward. Choose which statuses to be told about.',
+    optionsForm: 'PROJECT',
   },
 ];
 
@@ -93,6 +100,30 @@ export function leadOptions(raw: unknown): LeadOptions {
     statuses: Array.isArray(o.statuses) ? o.statuses.filter((s) => LEAD_STATUSES.includes(s)) : [],
     includeValue: o.includeValue !== false,     // default ON
     mentionCloser: o.mentionCloser !== false,   // default ON
+  };
+}
+
+// ── Project event options (stored as JSON on the rule) ───────────
+// Values mirror the ProjectStatus enum in schema.prisma.
+export const PROJECT_STATUSES = ['BRIEF', 'IN_PROGRESS', 'INTERNAL_REVIEW', 'DELIVERED', 'ON_HOLD', 'CANCELLED'];
+
+// Same display strings as STATUS_LABEL in public/js/shared.js — kept in sync
+// by hand since the backend can't import a frontend file.
+const PROJECT_STATUS_LABEL: Record<string, string> = {
+  BRIEF: 'Brief', IN_PROGRESS: 'In progress', INTERNAL_REVIEW: 'Internal review',
+  DELIVERED: 'Delivered', ON_HOLD: 'On hold', CANCELLED: 'Cancelled',
+};
+
+export interface ProjectOptions {
+  statuses: string[];    // PROJECT_STATUS_CHANGED: which NEW statuses notify. Empty = any (either direction).
+  includeTeam: boolean;  // show the producer and PM names
+}
+
+export function projectOptions(raw: unknown): ProjectOptions {
+  const o = (raw && typeof raw === 'object' ? raw : {}) as Partial<ProjectOptions>;
+  return {
+    statuses: Array.isArray(o.statuses) ? o.statuses.filter((s) => PROJECT_STATUSES.includes(s)) : [],
+    includeTeam: o.includeTeam !== false, // default ON
   };
 }
 
@@ -330,5 +361,66 @@ export function samplePayload(event: string): LeadEventPayload {
   return {
     lead: { name: 'Sample lead', status: event === 'LEAD_CREATED' ? 'QUALIFICATION' : 'WON', company: null, estimatedValue: 25000, account: { name: 'Sample Client' }, closedById: null },
     from: 'NEGOTIATION',
+  };
+}
+
+// ── Triggered events: projects ────────────────────────────────────
+// What projects.service.ts hands to NotificationRulesService.emit().
+export interface ProjectEventPayload {
+  project: {
+    id: string;
+    name: string;
+    status: string;
+    company: string;                              // Project.company is required, unlike Lead's
+    producer: { name: string } | null;
+    pm: { name: string } | null;
+  };
+  from: string; // the status it moved away from
+}
+
+// Does this rule want this event? Company scope (Group/untagged rule scope
+// matches everything, same convention as the lead/capacity rules) + the
+// rule's status filter, if any.
+export function projectRuleMatches(
+  rule: { company: string | null; options?: unknown },
+  payload: ProjectEventPayload,
+): boolean {
+  const c = payload.project.company;
+  if (rule.company && rule.company !== 'GROUP' && c !== 'GROUP' && c !== rule.company) return false;
+  const { statuses } = projectOptions(rule.options);
+  if (statuses.length && !statuses.includes(payload.project.status)) return false;
+  return true;
+}
+
+const PROJECT_STATUS_EMOJI: Record<string, string> = {
+  DELIVERED: '✅', CANCELLED: '❌', ON_HOLD: '⏸️', INTERNAL_REVIEW: '👀', IN_PROGRESS: '🚧',
+};
+
+export function buildProjectMessage(payload: ProjectEventPayload, opts: ProjectOptions): string {
+  const { project } = payload;
+  const appUrl = process.env.APP_URL || 'http://192.168.1.40:3000';
+  const emoji = PROJECT_STATUS_EMOJI[project.status] ?? '📊';
+  const fromLabel = PROJECT_STATUS_LABEL[payload.from] ?? payload.from;
+  const toLabel = PROJECT_STATUS_LABEL[project.status] ?? project.status;
+  const team = opts.includeTeam
+    ? [project.producer ? `Producer: ${md(project.producer.name)}` : null, project.pm ? `PM: ${md(project.pm.name)}` : null]
+        .filter(Boolean).join(' · ') || null
+    : null;
+  return [
+    `${emoji} **Project status changed** — ${md(project.name)}`,
+    `${fromLabel} → **${toLabel}**`,
+    team,
+    `[Open the project](${appUrl}/projects.html?open=${project.id})`,
+  ].filter(Boolean).join('\n');
+}
+
+// Realistic-looking data for the "Send test" button.
+export function sampleProjectPayload(): ProjectEventPayload {
+  return {
+    project: {
+      id: 'sample', name: 'Sample Project', status: 'DELIVERED', company: 'LPS',
+      producer: { name: 'Sample Producer' }, pm: { name: 'Sample PM' },
+    },
+    from: 'INTERNAL_REVIEW',
   };
 }

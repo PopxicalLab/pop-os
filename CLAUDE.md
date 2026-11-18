@@ -446,21 +446,27 @@ channels and DMs). Lives in `src/mattermost/`; UI in `public/js/admin-notificati
 - API (`/api/notification-rules`, ADMIN only): list, create, patch, delete,
   `:id/test`, `:id/run`.
 - **Triggered events** (`kind: 'TRIGGERED'`, e.g. `LEAD_CREATED`,
-  `LEAD_STATUS_CHANGED`): app code calls `NotificationRulesService.emit(event,
-  payload)` — fire-and-forget (`void this.notifications.emit(...)`), it never
-  throws and does nothing if Mattermost isn't configured. `emit` loads enabled
-  rules for the event, filters with `leadRuleMatches()` (company scope, stage
-  list), builds the text, sends, and records `lastRunAt`/`lastStatus`. Triggered
-  rules never have a schedule (forced null) and "Run now" is refused; "Send
-  test" posts sample data. `LeadOptions`: `statuses[]` (empty = any),
+  `LEAD_STATUS_CHANGED`, `PROJECT_STATUS_CHANGED`): app code calls
+  `NotificationRulesService.emit(event, payload)` — fire-and-forget (`void
+  this.notifications.emit(...)`), it never throws and does nothing if Mattermost
+  isn't configured. `emit` loads enabled rules for the event, filters with
+  `leadRuleMatches()` / `projectRuleMatches()` (company scope, stage/status
+  list), builds the text via a shared `fireRules()` loop, sends, and records
+  `lastRunAt`/`lastStatus`. Triggered rules never have a schedule (forced null)
+  and "Run now" is refused; "Send test" posts sample data (`samplePayload()` /
+  `sampleProjectPayload()`). `LeadOptions`: `statuses[]` (empty = any),
   `includeValue`, `mentionCloser` (looks up the closer's Mattermost username by
-  their login email, falls back to plain name). Hook points today:
-  `leads.service.ts` create() and update() (status change only). The old
-  WhatsApp lead messages were retired in Sept 2026 (module, `whatsapp-web.js` /
-  Puppeteer deps and `WHATSAPP_*` env vars all removed) — do not reintroduce
-  them; Mattermost replaces them. To add an event: enum value + catalogue
-  entry + formatter + one `emit()` call at the place the change is saved. Do NOT
-  emit from bulk import scripts (would flood channels).
+  their login email, falls back to plain name). `ProjectOptions` (project status
+  changed — forward or backward, e.g. Internal Review back to In Progress):
+  `statuses[]` (empty = any status either direction), `includeTeam` (show
+  Producer + PM names). Hook points today: `leads.service.ts` create() and
+  update() (status change only); `projects.service.ts` update() (status change
+  only, any direction — captures the pre-update status before the transaction).
+  The old WhatsApp lead messages were retired in Sept 2026 (module,
+  `whatsapp-web.js` / Puppeteer deps and `WHATSAPP_*` env vars all removed) —
+  do not reintroduce them; Mattermost replaces them. To add an event: enum
+  value + catalogue entry + formatter + one `emit()` call at the place the
+  change is saved. Do NOT emit from bulk import scripts (would flood channels).
 
 ---
 

@@ -96,6 +96,14 @@ function optionsSummary(r) {
     ].filter(Boolean);
     return `<p class="text-[11px] text-muted mt-0.5">${esc(parts.join(' · '))}</p>`;
   }
+  if (r.event === 'PROJECT_STATUS_CHANGED') {
+    const o = r.options || { statuses: [], includeTeam: true };
+    const parts = [
+      o.statuses.length ? 'Moves to: ' + o.statuses.map(x => x.charAt(0) + x.slice(1).toLowerCase().replace(/_/g, ' ')).join(', ') : 'Any status',
+      o.includeTeam ? 'shows producer & PM' : '',
+    ].filter(Boolean);
+    return `<p class="text-[11px] text-muted mt-0.5">${esc(parts.join(' · '))}</p>`;
+  }
   if (r.event !== 'CAPACITY_WEEKLY') return '';
   const o = r.options || { sections: ['PER_PERSON'], week: 'CURRENT', departments: [], includeUnbooked: false };
   const labels = (_notif.capacitySections || []).filter(s => o.sections.includes(s.key)).map(s => s.label);
@@ -173,6 +181,7 @@ function openNotifEditor(id) {
   // per-person, booked people only.
   const form = r ? _notif.events.find(e => e.key === r.event)?.optionsForm : null;
   fillLeadOptions(form === 'LEAD' ? r.options : undefined);
+  fillProjectOptions(form === 'PROJECT' ? r.options : undefined);
   fillCapacityOptions(
     !r ? undefined
     : form === 'CAPACITY' ? (r.options || { includeUnbooked: false })
@@ -198,13 +207,18 @@ function onNotifEventChange() {
   $('nr-lead-opts').classList.toggle('hidden', ev?.optionsForm !== 'LEAD');
   // "Which stages" only makes sense when a lead MOVES; a new lead has just one stage.
   $('nr-lead-statuses-wrap').classList.toggle('hidden', $('nr-event').value !== 'LEAD_STATUS_CHANGED');
+  $('nr-project-opts').classList.toggle('hidden', ev?.optionsForm !== 'PROJECT');
 
-  // The company filter means "people" for capacity but "leads" for lead events.
+  // The company filter means "people" for capacity, "leads" for lead events,
+  // "projects" for project events.
   const leads = ev?.optionsForm === 'LEAD';
-  $('nr-company-label').textContent = leads ? 'Only include leads from' : 'Only include people from';
-  $('nr-company-all').textContent   = leads ? 'All companies' : 'Everyone';
+  const projects = ev?.optionsForm === 'PROJECT';
+  $('nr-company-label').textContent = leads ? 'Only include leads from' : projects ? 'Only include projects from' : 'Only include people from';
+  $('nr-company-all').textContent   = (leads || projects) ? 'All companies' : 'Everyone';
   $('nr-company-note').textContent  = leads
     ? 'Leads tagged Group, or with no company, are always included.'
+    : projects
+    ? 'Group projects are always included.'
     : 'People tagged Group, or with no company, are always included.';
 }
 
@@ -227,6 +241,25 @@ function readLeadOptions() {
     statuses: [...document.querySelectorAll('#nr-lead-statuses [data-lead-status]:checked')].map(i => i.dataset.leadStatus),
     includeValue: $('nr-lead-value').checked,
     mentionCloser: $('nr-lead-mention').checked,
+  };
+}
+
+// Project event settings. `o` = the rule's saved options (undefined/null for a
+// new rule -> defaults: any status, show the producer & PM).
+function fillProjectOptions(o) {
+  const cur = { statuses: [], includeTeam: true, ...(o || {}) };
+  if (!Array.isArray(cur.statuses)) cur.statuses = [];
+  $('nr-project-statuses').innerHTML = (_notif.projectStatuses || []).map(st => `
+    <label class="flex items-center gap-1.5 text-xs text-ink cursor-pointer">
+      <input type="checkbox" data-project-status="${st}" ${cur.statuses.includes(st) ? 'checked' : ''} /> ${esc(st.charAt(0) + st.slice(1).toLowerCase().replace(/_/g, ' '))}
+    </label>`).join('');
+  $('nr-project-team').checked = cur.includeTeam;
+}
+
+function readProjectOptions() {
+  return {
+    statuses: [...document.querySelectorAll('#nr-project-statuses [data-project-status]:checked')].map(i => i.dataset.projectStatus),
+    includeTeam: $('nr-project-team').checked,
   };
 }
 
@@ -326,7 +359,10 @@ async function saveNotifRule() {
   if (!targets.length) { msg(msgEl, 'Add at least one recipient.', 'err'); return; }
 
   const capacity = ev?.optionsForm === 'CAPACITY';
-  const options = capacity ? readCapacityOptions() : ev?.optionsForm === 'LEAD' ? readLeadOptions() : null;
+  const options = capacity ? readCapacityOptions()
+    : ev?.optionsForm === 'LEAD' ? readLeadOptions()
+    : ev?.optionsForm === 'PROJECT' ? readProjectOptions()
+    : null;
   if (capacity && !options.sections.length) { msg(msgEl, 'Tick at least one section to include.', 'err'); return; }
 
   const scheduled = ev?.kind === 'SCHEDULED';

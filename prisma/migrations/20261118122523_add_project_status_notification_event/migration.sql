@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "NotificationEvent" ADD VALUE 'PROJECT_STATUS_CHANGED';

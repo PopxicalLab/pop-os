@@ -246,6 +246,15 @@
         </label>
       </div>
 
+      <!-- Project event settings — shown for the project status changed event. -->
+      <div id="nr-project-opts" class="hidden mt-1">
+        <label class="form-label">Tell me when a project moves to <span class="text-muted/70">(none ticked = any status, either direction)</span></label>
+        <div id="nr-project-statuses" class="flex flex-wrap gap-x-4 gap-y-1.5"></div>
+        <label class="flex items-center gap-2 mt-3 text-xs text-ink cursor-pointer">
+          <input id="nr-project-team" type="checkbox" checked /> Show the producer &amp; PM
+        </label>
+      </div>
+
       <!-- Capacity board settings — shown only for the capacity event. -->
       <div id="nr-capacity-opts" class="hidden mt-1">
         <label class="form-label">Include these sections</label>
