@@ -10,12 +10,14 @@ The operating system for Pop Group (Lorrypop Studio + Popxical Lab). Replaces ad
 
 | Module | What it does |
 |---|---|
-| My Work | Personal dashboard — capacity, my projects, payment alerts per role |
-| Dashboard | Cross-module command centre — active projects, capacity alerts, payment due alerts |
-| Sales | Lead pipeline (Qualification → Proposal → Negotiation → Won/Lost), lead-to-project conversion |
-| Clients | Account + contact management; linked leads and projects per client |
+| My Work | Personal dashboard — capacity, my projects; links to My Journey |
+| My Journey | Each person's own record — this year, coming up, year-by-year history, timeline, badges, awards |
+| Dashboard | Cross-module command centre — active projects, capacity alerts, sales summary, payment due alerts |
+| Jobs | Every won deal in one place — sales + production + money; Job page with costs, Autocount documents (push, link existing, unlink) and file attachments |
+| Sales | Lead pipeline (Qualification → Proposal → Negotiation → Won → Completed / Lost), List view, interactive Leads-over-time chart, lead-to-project conversion |
+| Clients | Account + contact management (industry from a fixed list); linked leads and projects per client |
 | Performance | Sales commission tracker — quarterly attainment, tier-based rates, per-person overrides |
-| Projects (PPM) | Project spine — priority, budget, Drain gate, producer/PM links, Gantt timeline, project costs |
+| Projects | Production only — dates, team, priority, required skills, capacity (money + PPM live on the job) |
 | Production Engine | Lane routing — projects grouped by PPM quadrant with lane rules |
 | Capacity | Weekly board — person × project × week allocation (100% cap enforced) |
 | Financial | Man-day costing, AR position, overdue invoices, pipeline by stage, project health |
@@ -99,12 +101,17 @@ Change these passwords after first login. PM and TEAM_LEAD accounts must be crea
 | Role | Access |
 |---|---|
 | ADMIN | Everything — users, all tabs, Autocount push, salary data |
-| PRODUCER | My Work, Dashboard, Projects, Capacity, Production, People, Staffing |
-| PM | Same as PRODUCER |
+| PRODUCER | My Work, Dashboard, Jobs, Sales pipeline, Projects, Capacity, Production, People, Staffing |
+| PM | Same as PRODUCER minus the Sales pipeline (reaches deals via Jobs) |
 | TEAM_LEAD | My Work, Dashboard, Projects (read), Production, Capacity, People (read) |
-| FINANCE | My Work, Financial tab, Projects (read), salary data |
-| SALES | My Work, Sales pipeline + Clients only |
+| FINANCE | My Work, Jobs, Financial tab, Projects (read), salary data |
+| SALES | My Work, Jobs, Sales pipeline, Clients only |
 | STAFF | My Work, Dashboard, Projects (read), Production, Capacity, People (read) |
+
+**Money** (value, margin, costs, invoices, PPM) is visible only to the job roles —
+ADMIN, PRODUCER, PM, FINANCE, SALES. TEAM_LEAD and STAFF see production only,
+and the API never sends them money. Opening a page your role can't use (typed
+URL or old link) sends you to My Work.
 
 Deliverables, creative sign-off and client change requests are tracked in the studio's external project-management tool, not in Pop OS.
 
@@ -116,8 +123,12 @@ Deliverables, creative sign-off and client change requests are tracked in the st
 
 Pop OS pushes documents into Pop Group's Autocount Cloud accounting system. Autocount remains the source of truth for all financial data (double-entry, tax, bank reconciliation).
 
-- WON lead → creates a Quotation in Autocount
-- Project → creates a Sales Invoice in Autocount
+- WON lead → creates a Quotation in Autocount (one line: the job's Value)
+- Project → creates a Sales Invoice in Autocount (for the full job Value)
+- Documents made directly in Autocount can be **linked** to a job (Job page →
+  🔗 Link existing): pick from loose documents, **Sync now** (this year), or
+  **Look up** one document number (any year). Wrongly linked ones are removed
+  with **Unlink** (Job page) or **×** (Sales card). Linking never writes to Autocount.
 - Documents are tracked locally as `AccountingDocument` records with due dates
 - Finance Dashboard shows AR position, overdue alerts, and due-soon panel
 - `PATCH /api/autocount/documents/:id/status` marks documents PAID or VOID
@@ -151,7 +162,7 @@ Pop OS can post to Mattermost channels and send private messages, using one
 the feature stays off. Which messages go where is configured in the app
 (**Admin → Mattermost Notifications**), not in `.env`.
 
-Messages available: the **weekly capacity board** (scheduled), and **lead created** / **lead status changed** (sent the moment it happens).
+Messages available: the **weekly capacity board** (scheduled), and **lead created** / **lead status changed** / **project status changed** (sent the moment it happens).
 
 ### One-time setup (needs a Mattermost admin)
 
@@ -233,6 +244,16 @@ a lead is added or moves stage in the Sales pipeline:
 | Leads from | Company filter (Group / untagged leads always match) |
 | Show the estimated value | Untick if the channel is wider than who should see deal sizes |
 | @mention the closer | Pings whoever closed the deal, if their Mattermost account is found by their Pop OS login email; otherwise their name is shown without a ping |
+
+**Project status changed** also posts immediately — whenever a project moves
+to another status, forwards *or* backwards (e.g. Internal Review back to In
+Progress):
+
+| Setting | Options |
+|---|---|
+| Statuses | Only tell me when a project moves *to* these statuses. None ticked = any status, either direction. |
+| Projects from | Company filter (Group projects always match) |
+| Show Producer & PM | Adds the project's Producer and PM names to the message |
 
 **Send test** on these rules posts a sample message (clearly marked as sample
 data) so you can see the layout; **Run now** doesn't apply because the rule

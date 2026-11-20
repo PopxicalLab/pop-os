@@ -5,6 +5,66 @@ user-facing summary — internal refactors, dependency bumps, and doc-only
 commits are omitted. The in-app version of this page is linked from the
 user menu (top right, after login) → **What's new**.
 
+## 2026-11
+
+- **Jobs:** quotations and invoices made directly in Autocount can now be
+  attached to a deal — **🔗 Link existing** on the Job page (or **Link
+  existing quotation** on a Sales card). The client's own documents show
+  first; search by number, **Sync now** for the latest, or **Look up in
+  Autocount** to find one from any year. Wrongly linked documents are removed
+  with **Unlink** (Job page) or **×** (Sales card). Nothing changes in
+  Autocount. **Use as Value** copies a linked quotation's amount to the deal.
+- **Admin:** new **Project status changed** Mattermost notification — posts
+  when a project moves to another status, forwards or backwards. Choose
+  statuses, company, and whether Producer & PM names show.
+- **Sales:** the **Leads over time** chart is interactive — hover for
+  per-stage numbers, click a bar to list its leads (each linking to its Job
+  page), click a stage name to hide/show it, and switch between **Count** and
+  **RM value**.
+- **Jobs:** a deal's company (LPS / PXL / Group) can be changed after it's
+  created, on the Job page. Its project follows, and changing a project's
+  company updates its deal too.
+- **Phones:** search boxes take their own line and wide tables scroll
+  sideways inside their box instead of stretching the page; the monthly
+  Leads-over-time chart opens on the newest months.
+- **Phones:** the **Add** forms (lead, account, project, person, allocation,
+  committee, People master lists) fold into a tappable **+ bar** and fold
+  away again after saving.
+- **My Journey:** new page with each person's own record — this year,
+  coming up, year-by-year history, a lifetime timeline, and automatic
+  **badges** for milestones. Awards can carry an optional **reward value in
+  RM**, visible only to the person, Admin and Finance.
+- **Clients:** new industry option **Production House (Video, Sound & VFX)**.
+- **Jobs:** a deal's **Won on** date can be corrected on the Job page (Admin
+  and Finance only) — it decides the Sales Performance quarter. Deals created
+  as Won or moved straight to Completed now get a won date too.
+- **Clients:** clients can be **edited** after creation (name, industry,
+  size, website, company); **industry** is picked from a fixed list.
+- **Sales:** pick or create a lead's **client** straight from a Pipeline
+  card, the List view or the Add form (**＋ New client…**), without a page
+  refresh; duplicates by name reuse the existing client.
+
+## 2026-10
+
+- **Admin:** Admin is now a menu with two pages — Notifications and Audit
+  Log. Old Admin links open Notifications.
+- **Sales:** pipeline totals show cents exactly instead of rounding.
+- **Sales:** on phones and tablets the pipeline stages sit side by side and
+  you swipe between them, scrolling inside a busy column.
+- **All tabs:** on phones and tablets the menu opens from a **☰** button as
+  a side drawer, grouped under Sales, Production and HR.
+- **All tabs:** ringgit amounts with cents show exactly everywhere (RM 44.70
+  stays RM 44.70); whole amounts still show without decimals.
+- **My Work:** payment alerts removed from My Work for everyone — still on
+  the Dashboard and Financial tab.
+- **Access:** pages check your role when they open; a link or typed address
+  to a page your role can't use goes to My Work, and links you can't follow
+  are hidden.
+- **Jobs:** costs, totals, invoices and the Jobs list show cents as entered.
+- **Jobs:** **attach files to a job** (contracts, POs, signed quotes,
+  invoices, receipts, briefs) — up to 25 MB each, tagged with a type and
+  note, PDF / image preview. Money roles only.
+
 ## 2026-09
 
 - **Sales pipeline:** the WhatsApp group messages for new leads and lead

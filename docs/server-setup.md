@@ -17,11 +17,16 @@
 | Framework | NestJS | 10 | REST API + static file serving |
 | Language | TypeScript | 5.6 | Compiled to JS before running — `npm run build` required |
 | ORM | Prisma | 5 | Schema + migrations + query client |
-| Database | PostgreSQL | 16 | Runs natively on the server (NOT Docker) |
+| Database | PostgreSQL | 16 | In a Docker container named `pop-os-db` (port 5432) |
 | Frontend | Vanilla JS + Tailwind CSS | — | No build step; served as static files |
 | Process manager | PM2 | Latest | Keeps the app alive after reboot |
 
-> **Important:** Docker is used for local development only (developer's machine). The production server runs PostgreSQL natively via the system package manager.
+> **Important — how 192.168.1.40 actually runs today:** PostgreSQL runs in a
+> Docker container called `pop-os-db`; only the database is in Docker — the app
+> itself runs on the host under PM2. There is no `psql` / `pg_dump` on the host,
+> so run them inside the container (`docker exec pop-os-db ...`, see Backup below).
+> Step 1 (native PostgreSQL) is kept as an alternative for a fresh server that
+> doesn't use Docker — skip it if the `pop-os-db` container is already running.
 
 ---
 
@@ -29,7 +34,9 @@
 
 ```
 Debian Server (192.168.1.40)
-├── PostgreSQL 16 (native, system service)  ← data stored on disk
+├── Docker
+│   └── pop-os-db  (PostgreSQL 16, port 5432)  ← data in a Docker volume
+├── /opt/pop-os/uploads                       ← job attachments (files on disk, NOT in the DB)
 └── Node.js (host)
     └── NestJS app (compiled dist/main.js)  ← managed by PM2, port 3000
 ```
@@ -38,7 +45,7 @@ The NestJS app serves both the API (`/api/*`) and the frontend (`public/` folder
 
 ---
 
-## Step 1 — Install PostgreSQL 16 (native)
+## Step 1 — Install PostgreSQL 16 (native — alternative to the Docker container)
 
 ```bash
 # Add PostgreSQL APT repository
@@ -279,33 +286,54 @@ Use PuTTY or the built-in `ssh` command:
 ssh yeo@192.168.1.40
 ```
 
-For scripted/automated commands (e.g. from Claude Code):
+For scripted/automated commands (e.g. from Claude Code), use **SSH key
+authentication** — never put the password on the command line or in a file.
+Once your public key is in `~/.ssh/authorized_keys` on the server (and loaded
+in the Windows `ssh-agent`), commands run without a prompt:
 
-```bash
-"/c/Program Files/PuTTY/plink" -ssh -pw "password" \
-  -hostkey "SHA256:ChVivbVTuIHZIW6fWYS6I6agIyOuWIo5H1ZUBXT0Hrk" \
-  yeo@192.168.1.40 "command here"
+```powershell
+ssh yeo@192.168.1.40 "command here"
+```
+
+Multi-line scripts are easiest to send base64-encoded from PowerShell (avoids
+quoting and Windows line-ending problems):
+
+```powershell
+$b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes(($script -replace "`r","")))
+ssh yeo@192.168.1.40 "echo $b64 | base64 -d | bash"
 ```
 
 ---
 
 ## Backup — PostgreSQL Data
 
-The database runs natively. Back it up with pg_dump:
+The database runs in the `pop-os-db` container, so `pg_dump` runs inside it.
+Back up before any migration that drops data:
 
 ```bash
-# Create a backup
-pg_dump -U pop_user -h localhost pop_os > backup_$(date +%Y%m%d).sql
-
-# Or with password prompt suppressed (add to .pgpass or use PGPASSWORD)
-PGPASSWORD=your_password pg_dump -U pop_user -h localhost pop_os > backup_$(date +%Y%m%d).sql
+mkdir -p ~/backups
+docker exec pop-os-db pg_dump -U postgres pop_os > ~/backups/pop_os-$(date +%F).sql
 ```
 
-To restore:
+**Job attachments are files on disk, not in the database** — `pg_dump` does not
+include them. Back up the uploads folder too (default `/opt/pop-os/uploads`, or
+`UPLOAD_DIR` if set):
 
 ```bash
-PGPASSWORD=your_password psql -U pop_user -h localhost pop_os < backup_20260616.sql
+tar czf ~/backups/uploads-$(date +%F).tgz -C /opt/pop-os uploads
 ```
+
+To restore: stop the app (`pm2 stop pop-os`), drop and recreate an **empty**
+`pop_os` database, then load the file:
+
+```bash
+docker exec -i pop-os-db psql -U postgres pop_os < ~/backups/pop_os-2026-11-20.sql
+tar xzf ~/backups/uploads-2026-11-20.tgz -C /opt/pop-os
+pm2 start pop-os
+```
+
+(Native-PostgreSQL install instead of Docker? Use `pg_dump -U pop_user -h localhost pop_os`
+with the password in `~/.pgpass`, not on the command line.)
 
 ---
 
@@ -362,8 +390,8 @@ sudo ufw enable
 | Problem | What to check |
 |---|---|
 | App not starting | `pm2 logs pop-os` |
-| Database not connecting | `sudo systemctl status postgresql` — is it running? |
-| `ECONNREFUSED localhost:5432` | PostgreSQL not running — `sudo systemctl start postgresql` |
+| Database not connecting | `docker ps` — is `pop-os-db` running? (native install: `sudo systemctl status postgresql`) |
+| `ECONNREFUSED localhost:5432` | Database not running — `docker start pop-os-db` (native: `sudo systemctl start postgresql`) |
 | Port 3000 not reachable | `sudo ufw status` — is the port open? |
 | Migrations failing | Check `DATABASE_URL` in `.env` matches the database credentials |
 | Old code running after update | You forgot `npm run build` — rebuild and `pm2 restart pop-os` |

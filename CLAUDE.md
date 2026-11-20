@@ -33,8 +33,9 @@ not just describe.
   a role that isn't allowed on that tab to My Work), the company-filter state,
   theme, and the global `fetch` override that injects the JWT. Each page's own
   logic lives in `public/js/<name>.js`:
-  `mywork.js`, `dashboard.js`, `jobs.js` (Jobs list), `job.js` (one job),
-  `sales.js` (+ `sales-list.js`, the List sub-tab), `clients.js`, `sales-performance.js`,
+  `mywork.js`, `journey.js` (My Journey), `dashboard.js`, `jobs.js` (Jobs list), `job.js` (one job),
+  `sales.js` (+ `sales-list.js`, the List sub-tab, and `sales-chart.js`, the
+  Leads-over-time chart), `clients.js`, `sales-performance.js`,
   `projects.js`, `production.js`, `capacity.js`, `financial.js`, `people.js`
   (+ `person-profile.js`), `committees.js`, `staffing.js`, `audit.js` (Admin →
   Audit Log), `admin-notifications.js` (Admin → Notifications).
@@ -214,6 +215,15 @@ login. Click (admin only) to create a login or view the linked account.
   Still bookable on the Capacity board, and still listed under a project in
   the post's By project section when booked). Has many PersonSkill, Capacity,
   PersonTierRate, and optionally one User.
+
+- **PersonEvent** — manual timeline entry on a person (ROLE_CHANGE /
+  DEPARTMENT_CHANGE / PROMOTION / ACHIEVEMENT / NOTE). `rewardValue` (RM,
+  optional, ACHIEVEMENT only) is treated like salary: only the person
+  themself, ADMIN and FINANCE ever receive it. Feeds the People profile and
+  **My Journey** (`journey.html`, `GET /api/me/journey` for yourself,
+  `/api/me/journey/:personId` for ADMIN / PRODUCER / PM) — lifetime record,
+  coming up, year-by-year, timeline and auto-computed badges. Deal values on
+  a journey only for roles that already see money.
 
 - **Skill / PersonSkill / SkillRatingChange** — see Skills design decisions below.
 
