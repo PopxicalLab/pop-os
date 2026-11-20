@@ -472,6 +472,7 @@ Company (enum: LPS / PXL / GROUP)
 | Feature | Status |
 |---|---|
 | ☰ side-menu drawer; swipeable Sales pipeline columns | Done |
+| TailAdmin-style look (`theme.js`) + left side menu, collapsible to icons (all screen sizes) | Done |
 | Fold-away "Add" forms (`data-fold-mobile`, `foldAfterSave`) | Done |
 | Search boxes on their own line; wide tables scroll sideways inside their box | Done |
 

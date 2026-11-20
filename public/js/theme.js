@@ -131,14 +131,6 @@
     .badge {
       @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium;
     }
-    .nav-sub-item {
-      @apply block w-full text-left px-3 py-2 mx-1 rounded-lg text-xs font-medium text-muted
-             hover:text-ink hover:bg-panel2 transition-colors duration-150 cursor-pointer;
-      width: calc(100% - 0.5rem);
-    }
-    .nav-sub-item.active {
-      @apply text-accent bg-accent/10 font-semibold;
-    }
     /* Open dropdown lists: some in-table selects are transparent, so without
        this the browser paints the options on white with the theme's text
        colour — unreadable in night mode. Give every option the panel colours. */

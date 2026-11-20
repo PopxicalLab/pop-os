@@ -3,7 +3,7 @@
 // Loaded by every page (index.html today; standalone tab pages as they're
 // split out — see CLAUDE.md "one module, one page" migration).
 // Depends on markup already being on the page: header (#mode-btn,
-// #user-menu, #user-menu-wrap, nav tab buttons with id="tab-btn-<name>"),
+// #user-menu, #user-menu-wrap, the side menu #sidebar with data-tab links),
 // the settings drawer (#settings-overlay/#settings-panel/#rows-colors),
 // the company filter bar (#company-filter-bar, #filter-btn-LPS/PXL), and
 // the User Manager modal (#user-mgr-overlay, #user-list, etc).
@@ -387,23 +387,9 @@ const LEAD_STATUS_CLS = {
   LOST:          'bg-warm/15 border-warm/30 text-warm',
 };
 
-// ── tab switching (SPA shell only — no-op on a standalone tab page) ──
-const ALL_TABS = ['dashboard','mywork','jobs','sales','clients','sp','projects','production','capacity','financial','people','staffing','committees','notifications','audit'];
-
-// Which group each tab belongs to (for highlighting the group button)
-const TAB_GROUP = {
-  dashboard: null, mywork: null, jobs: null,
-  sales: 'sales', clients: 'sales', sp: 'sales',
-  projects: 'production', production: 'production', capacity: 'production',
-  financial: null,
-  people: 'hr', staffing: 'hr', committees: 'hr',
-  notifications: 'admin', audit: 'admin',
-};
-
-// Every tab now has its own standalone page (see CLAUDE.md "one module, one
-// page" migration) — index.html itself is just the Dashboard page now.
-// hrefForTab() falls back to /index.html?tab=<name> for any future tab added
-// here before its own page exists.
+// ── Navigation ───────────────────────────────────────────────
+// Every tab has its own standalone page. hrefForTab() falls back to
+// /index.html?tab=<name> for any future tab added here before its page exists.
 const TAB_PAGE = {
   dashboard:  '/index.html',
   projects:   '/projects.html',
@@ -426,50 +412,126 @@ function hrefForTab(name) {
   return TAB_PAGE[name] || ('/index.html?tab=' + name);
 }
 
-// Builds the full app header — logo, company filter, nav, mode/settings
-// buttons, user menu — as an HTML string. `activeTab` is the tab this page
-// represents; on index.html that's whichever tab is currently switched to,
-// on a standalone page (e.g. projects.html) it's always that page's own tab.
-// Direct tabs and group sub-tabs render as real <a href> links so pages not
-// yet split still work as a normal link, and once-split pages navigate
-// straight there instead of trying to switchTab() a panel that no longer
-// exists on this page.
-// Nav item look (TailAdmin style): flat items, the current one tinted with
-// the accent colour. Shared by renderHeader() and switchTab().
-const NAV_CLS = {
-  base: 'px-3 py-2 rounded-lg text-[13px] font-medium transition-colors duration-150 ',
-  on:   'bg-accent/10 text-accent',
-  off:  'text-muted hover:text-ink hover:bg-panel2',
-};
+// The side menu, top to bottom: a heading per section, then its pages as
+// [tab, label, icon]. To add a page to the menu, add a row here (plus its
+// TAB_PAGE and TAB_ACCESS entries). Sections whose pages the role can't open
+// hide themselves — see applyRoleVisibility().
+const NAV = [
+  { label: 'Menu', items: [
+      ['mywork',    'My Work',   'user'],
+      ['dashboard', 'Dashboard', 'grid'],
+      ['jobs',      'Jobs',      'briefcase'] ] },
+  { label: 'Sales', items: [
+      ['sales',   'Sales pipeline', 'funnel'],
+      ['clients', 'Clients',        'building'],
+      ['sp',      'Performance',    'chart'] ] },
+  { label: 'Production', items: [
+      ['projects',   'Projects', 'folder'],
+      ['production', 'Lanes',    'columns'],
+      ['capacity',   'Capacity', 'calendar'] ] },
+  { label: 'Finance', items: [
+      ['financial', 'Financial', 'wallet'] ] },
+  { label: 'HR', items: [
+      ['people',     'People / ELC', 'users'],
+      ['staffing',   'Staffing',     'sparkles'],
+      ['committees', 'Committees',   'chat'] ] },
+  { label: 'Admin', items: [
+      ['notifications', 'Notifications', 'bell'],
+      ['audit',         'Audit Log',     'clipboard'] ] },
+];
 
+// Menu icons — outline icons from Heroicons (MIT licence, heroicons.com),
+// drawn at 24×24 with a 1.5 stroke. Just the SVG path data, keyed by name.
+const NAV_ICONS = {
+  user:      'M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z',
+  grid:      'M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z',
+  briefcase: 'M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 00.75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 00-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0112 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 01-.673-.38m0 0A2.18 2.18 0 013 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 013.413-.387m7.5 0V5.25A2.25 2.25 0 0013.5 3h-3a2.25 2.25 0 00-2.25 2.25v.894m7.5 0a48.667 48.667 0 00-7.5 0M12 12.75h.008v.008H12v-.008z',
+  funnel:    'M12 3c2.755 0 5.455.232 8.083.678.533.09.917.556.917 1.096v1.044a2.25 2.25 0 01-.659 1.591l-5.432 5.432a2.25 2.25 0 00-.659 1.591v2.927a2.25 2.25 0 01-1.244 2.013L9.75 21v-6.568a2.25 2.25 0 00-.659-1.591L3.659 7.409A2.25 2.25 0 013 5.818V4.774c0-.54.384-1.006.917-1.096A48.32 48.32 0 0112 3z',
+  building:  'M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z',
+  chart:     'M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z',
+  folder:    'M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z',
+  columns:   'M9 4.5v15m6-15v15m-10.875 0h15.75c.621 0 1.125-.504 1.125-1.125V5.625c0-.621-.504-1.125-1.125-1.125H4.125C3.504 4.5 3 5.004 3 5.625v12.75c0 .621.504 1.125 1.125 1.125z',
+  calendar:  'M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5',
+  wallet:    'M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3',
+  users:     'M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z',
+  sparkles:  'M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z',
+  chat:      'M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155',
+  bell:      'M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0',
+  clipboard: 'M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z',
+  collapse:  'M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5',
+};
+const navIcon = (name, cls) =>
+  `<svg class="${cls}" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" aria-hidden="true">
+     <path stroke-linecap="round" stroke-linejoin="round" d="${NAV_ICONS[name]}"/></svg>`;
+
+// ── Side menu layout ──────────────────────────────────────────
+// Wide screens (xl, 1280px+): the menu is fixed down the left side and the
+// page is pushed right by the same width — 260px, or 80px when collapsed to
+// icons. The collapsed choice is remembered per browser (localStorage).
+// Smaller screens: the same menu becomes a slide-in drawer, opened by the
+// ☰ button in the header and closed by tapping outside it.
+// Plain CSS (not Tailwind classes) because it switches on classes on
+// <html>: has-sidebar (this page has the menu) and sb-collapsed.
+const SIDEBAR_KEY = 'pop-os-sidebar';
+(function injectSidebarCss() {
+  const s = document.createElement('style');
+  s.textContent = `
+    @media (min-width: 1280px) {
+      html.has-sidebar body { padding-left: 260px; }
+      html.has-sidebar.sb-collapsed body { padding-left: 80px; }
+      #sidebar { width: 260px; max-width: none; }
+      html.sb-collapsed #sidebar { width: 80px; }
+      html.sb-collapsed #sidebar .sb-text,
+      html.sb-collapsed #sidebar .sb-label { display: none; }
+      html.sb-collapsed #sidebar .sb-sep { display: block; }
+      html.sb-collapsed #sidebar .sb-item { justify-content: center; padding-left: 0; padding-right: 0; }
+      html.sb-collapsed #sidebar .sb-head { justify-content: center; padding-left: 0; padding-right: 0; }
+      html.sb-collapsed #sidebar .sb-collapse-icon { transform: rotate(180deg); }
+      /* Animate only when the user clicks collapse — not on every page load. */
+      html.sb-anim body, html.sb-anim #sidebar { transition: padding-left .2s ease, width .2s ease; }
+    }`;
+  document.head.appendChild(s);
+})();
+
+// Collapse / expand on wide screens.
+function toggleSidebar() {
+  const html = document.documentElement;
+  html.classList.add('sb-anim');
+  const collapsed = html.classList.toggle('sb-collapsed');
+  try { localStorage.setItem(SIDEBAR_KEY, collapsed ? 'collapsed' : 'expanded'); } catch (e) {}
+  setTimeout(() => html.classList.remove('sb-anim'), 250);
+}
+
+// Builds the side menu + the top bar (company filter, day/night, theme
+// settings, user menu) as an HTML string. `activeTab` is this page's own
+// tab — it's highlighted in the menu. Every menu item is a real <a href>.
 function renderHeader(activeTab) {
-  // Page guard: hiding nav buttons isn't enough — a link or a typed URL can
+  // Page guard: hiding menu items isn't enough — a link or a typed URL can
   // still reach a page. If this role can't use this tab, go to My Work
   // instead. (The API has its own role checks; this keeps the UI honest.)
   if (!canAccessTab(activeTab)) {
     window.location.replace('/mywork.html');
     return '';
   }
-  const directCls = (t) => NAV_CLS.base + (t === activeTab ? NAV_CLS.on : NAV_CLS.off);
-  const groupBtnCls = (g) => 'flex items-center gap-1 ' + NAV_CLS.base + (TAB_GROUP[activeTab] === g ? NAV_CLS.on : NAV_CLS.off);
-  const subCls = (t) => 'nav-sub-item' + (t === activeTab ? ' active' : '');
-  const chevron = `<svg class="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/>
-    </svg>`;
+  // Set the layout classes now, before the page body paints, so the
+  // content is already in the right place (no jump on load).
+  const html = document.documentElement;
+  html.classList.add('has-sidebar');
+  try { if (localStorage.getItem(SIDEBAR_KEY) === 'collapsed') html.classList.add('sb-collapsed'); } catch (e) {}
 
   return `
-  <header class="sticky top-0 z-50 bg-panel/95 backdrop-blur-sm border-b border-line shadow-sm">
-    <div class="max-w-7xl mx-auto px-3 sm:px-5 h-16 flex items-center gap-2 sm:gap-4">
-      <!-- Hamburger — only below the xl breakpoint, where the pill nav
-           doesn't fit on one line. Opens the slide-in drawer below. -->
+  <header class="sticky top-0 z-50 bg-panel/95 backdrop-blur-sm border-b border-line">
+    <div class="px-3 sm:px-6 h-16 flex items-center gap-2 sm:gap-4">
+      <!-- Hamburger — below xl only, where the side menu is a drawer. -->
       <button id="mnav-btn" onclick="openMobileNav()" title="Menu" aria-label="Open menu"
-        aria-controls="mnav-panel" aria-expanded="false"
-        class="xl:hidden w-9 h-9 -ml-1 flex items-center justify-center rounded-lg text-ink
-               hover:bg-panel2 transition-colors cursor-pointer shrink-0">
+        aria-controls="sidebar" aria-expanded="false"
+        class="xl:hidden w-10 h-10 -ml-1 flex items-center justify-center rounded-lg border border-line text-muted
+               hover:text-ink hover:bg-panel2 transition-colors cursor-pointer shrink-0">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
         </svg>
       </button>
+      <!-- Company filter — click a logo to show only that company's work. -->
       <div id="company-filter-bar" class="flex items-center gap-2 sm:gap-3 shrink-0">
         <button id="filter-btn-LPS" onclick="setCompanyFilter('LPS')" title="Filter to Lorrypop Studio"
           class="rounded-lg p-0.5 cursor-pointer transition-all duration-150 hover:opacity-100">
@@ -480,202 +542,130 @@ function renderHeader(activeTab) {
           class="rounded-lg p-0.5 cursor-pointer transition-all duration-150 hover:opacity-100">
           <img src="/pxl-logo.png" class="h-7 w-auto object-contain" alt="PXL" />
         </button>
-        <div class="pl-1 hidden sm:block">
-          <p class="text-sm font-bold text-ink leading-tight tracking-tight">Pop OS</p>
-          <p class="text-[10px] text-muted leading-tight hidden sm:block">Pop Group Studio</p>
-        </div>
       </div>
-      <!-- Grouped nav — 5 top-level items, sub-tabs in dropdowns.
-           Desktop only (xl+); smaller screens use the drawer instead. -->
-      <nav class="hidden xl:flex items-center gap-0.5">
-
-        <!-- Dashboard (direct) -->
-        <a id="tab-btn-dashboard" href="${hrefForTab('dashboard')}" class="${directCls('dashboard')}">Dashboard</a>
-
-        <!-- My Work (direct — personal dashboard for the logged-in user) -->
-        <a id="tab-btn-mywork" href="${hrefForTab('mywork')}" class="${directCls('mywork')}">My Work</a>
-
-        <!-- Jobs (direct — every won deal: sales + production + money in one place) -->
-        <a id="tab-btn-jobs" href="${hrefForTab('jobs')}" class="${directCls('jobs')}">Jobs</a>
-
-        <!-- Sales group -->
-        <div class="relative" id="grp-sales">
-          <button id="grp-btn-sales" onclick="toggleNavGroup('sales')" class="${groupBtnCls('sales')}">
-            Sales
-            ${chevron}
-          </button>
-          <div id="grp-drop-sales" class="hidden absolute left-0 top-full mt-1 w-36 bg-panel border border-line rounded-xl shadow-lg z-50 py-1">
-            <a id="tab-btn-sales"   href="${hrefForTab('sales')}"   class="${subCls('sales')}">Sales pipeline</a>
-            <a id="tab-btn-clients" href="${hrefForTab('clients')}" class="${subCls('clients')}">Clients</a>
-            <a id="tab-btn-sp"      href="${hrefForTab('sp')}"      class="${subCls('sp')}">Performance</a>
-          </div>
-        </div>
-
-        <!-- Production group -->
-        <div class="relative" id="grp-production">
-          <button id="grp-btn-production" onclick="toggleNavGroup('production')" class="${groupBtnCls('production')}">
-            Production
-            ${chevron}
-          </button>
-          <div id="grp-drop-production" class="hidden absolute left-0 top-full mt-1 w-36 bg-panel border border-line rounded-xl shadow-lg z-50 py-1">
-            <a id="tab-btn-projects"   href="${hrefForTab('projects')}"   class="${subCls('projects')}">Projects</a>
-            <a id="tab-btn-production" href="${hrefForTab('production')}" class="${subCls('production')}">Lanes</a>
-            <a id="tab-btn-capacity"   href="${hrefForTab('capacity')}"   class="${subCls('capacity')}">Capacity</a>
-          </div>
-        </div>
-
-        <!-- Financial (direct — single item group) -->
-        <a id="tab-btn-financial" href="${hrefForTab('financial')}" class="${directCls('financial')}">Financial</a>
-
-        <!-- Admin group — ADMIN only, hidden for all other roles.
-             Two pages: setup (Mattermost rules) and history (Audit Log). -->
-        <div class="relative" id="grp-admin">
-          <button id="grp-btn-admin" onclick="toggleNavGroup('admin')" class="${groupBtnCls('admin')}">
-            Admin
-            ${chevron}
-          </button>
-          <div id="grp-drop-admin" class="hidden absolute left-0 top-full mt-1 w-36 bg-panel border border-line rounded-xl shadow-lg z-50 py-1">
-            <a id="tab-btn-notifications" href="${hrefForTab('notifications')}" class="${subCls('notifications')}">Notifications</a>
-            <a id="tab-btn-audit"         href="${hrefForTab('audit')}"         class="${subCls('audit')}">Audit Log</a>
-          </div>
-        </div>
-
-        <!-- HR group -->
-        <div class="relative" id="grp-hr">
-          <button id="grp-btn-hr" onclick="toggleNavGroup('hr')" class="${groupBtnCls('hr')}">
-            HR
-            ${chevron}
-          </button>
-          <div id="grp-drop-hr" class="hidden absolute left-0 top-full mt-1 w-36 bg-panel border border-line rounded-xl shadow-lg z-50 py-1">
-            <a id="tab-btn-people"     href="${hrefForTab('people')}"     class="${subCls('people')}">People / ELC</a>
-            <a id="tab-btn-staffing"   href="${hrefForTab('staffing')}"   class="${subCls('staffing')}">Staffing</a>
-            <a id="tab-btn-committees" href="${hrefForTab('committees')}" class="${subCls('committees')}">Committees</a>
-          </div>
-        </div>
-
-      </nav>
 
       <!-- Day / night toggle -->
       <button id="mode-btn" onclick="toggleMode()" title="Toggle day / night"
-        class="ml-auto w-8 h-8 flex items-center justify-center rounded-lg text-muted
+        class="ml-auto w-10 h-10 flex items-center justify-center rounded-full border border-line text-muted
                hover:text-ink hover:bg-panel2 transition-colors cursor-pointer shrink-0"></button>
       <!-- Settings trigger -->
       <button onclick="openSettings()" title="Theme settings"
-        class="w-8 h-8 flex items-center justify-center rounded-lg text-muted
+        class="w-10 h-10 flex items-center justify-center rounded-full border border-line text-muted
                hover:text-ink hover:bg-panel2 transition-colors cursor-pointer shrink-0">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
             d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/>
         </svg>
       </button>
-      <!-- User badge + logout -->
+      <!-- User badge + menu -->
       <div class="relative shrink-0" id="user-menu-wrap">
         <button id="user-btn" onclick="toggleUserMenu()"
-          class="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-line text-xs text-muted
-                 hover:text-ink hover:bg-panel2 transition-colors cursor-pointer">
-          <span id="user-name-label" class="hidden sm:inline max-w-[10rem] truncate">…</span>
+          class="flex items-center gap-2 px-3 py-2 rounded-full border border-line text-sm text-ink
+                 hover:bg-panel2 transition-colors cursor-pointer">
+          <span id="user-name-label" class="hidden sm:inline max-w-[10rem] truncate font-medium">…</span>
           <span id="user-role-badge" class="badge text-[10px]"></span>
-          <svg class="w-3 h-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-3 h-3 shrink-0 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
           </svg>
         </button>
         <div id="user-menu"
-          class="hidden absolute right-0 top-full mt-1 w-52 bg-panel border border-line rounded-xl shadow-lg z-50 py-1">
-          <div class="px-4 py-2 border-b border-line">
-            <p id="user-email-label" class="text-[11px] text-muted truncate"></p>
+          class="hidden absolute right-0 top-full mt-2 w-56 bg-panel border border-line rounded-xl shadow-lg z-50 p-1.5">
+          <div class="px-3 py-2 mb-1 border-b border-line">
+            <p id="user-email-label" class="text-xs text-muted truncate"></p>
           </div>
           <button id="user-manage-btn" onclick="openUserManager()" style="display:none"
-            class="w-full text-left px-4 py-2 text-xs text-ink hover:bg-panel2 transition-colors cursor-pointer">
+            class="w-full text-left px-3 py-2 rounded-lg text-sm text-ink hover:bg-panel2 transition-colors cursor-pointer">
             Manage users
           </button>
           <a href="/journey.html"
-            class="block w-full text-left px-4 py-2 text-xs text-ink hover:bg-panel2 transition-colors cursor-pointer">
+            class="block w-full text-left px-3 py-2 rounded-lg text-sm text-ink hover:bg-panel2 transition-colors cursor-pointer">
             My journey
           </a>
           <a href="/guide.html" target="_blank" rel="noopener"
-            class="block w-full text-left px-4 py-2 text-xs text-ink hover:bg-panel2 transition-colors cursor-pointer">
+            class="block w-full text-left px-3 py-2 rounded-lg text-sm text-ink hover:bg-panel2 transition-colors cursor-pointer">
             User guide
           </a>
           <a href="/changelog.html" target="_blank" rel="noopener"
-            class="block w-full text-left px-4 py-2 text-xs text-ink hover:bg-panel2 transition-colors cursor-pointer">
+            class="block w-full text-left px-3 py-2 rounded-lg text-sm text-ink hover:bg-panel2 transition-colors cursor-pointer">
             What's new
           </a>
           <button onclick="logout()"
-            class="w-full text-left px-4 py-2 text-xs text-warm hover:bg-panel2 transition-colors cursor-pointer">
+            class="w-full text-left px-3 py-2 rounded-lg text-sm text-warm hover:bg-panel2 transition-colors cursor-pointer">
             Sign out
           </button>
         </div>
       </div>
     </div>
   </header>
-  ${renderMobileNav(activeTab)}`;
+  ${renderSidebar(activeTab)}`;
 }
 
-// ── Mobile nav drawer ─────────────────────────────────────────
-// Below the xl breakpoint the pill nav is too wide for the screen, so the
-// hamburger opens this left-side drawer instead: every tab as a full-width,
-// thumb-sized row, grouped under the same headings as the desktop dropdowns.
-// The drawer scrolls on its own, so a long menu never runs off the screen.
-// It's rendered OUTSIDE <header> on purpose — the header's backdrop-blur
-// would otherwise trap a position:fixed child inside the header's box.
-const MOBILE_NAV = [
-  { items: [['mywork', 'My Work'], ['dashboard', 'Dashboard'], ['jobs', 'Jobs']] },
-  { group: 'sales',      label: 'Sales',
-    items: [['sales', 'Sales pipeline'], ['clients', 'Clients'], ['sp', 'Performance']] },
-  { group: 'production', label: 'Production',
-    items: [['projects', 'Projects'], ['production', 'Lanes'], ['capacity', 'Capacity']] },
-  { group: 'hr',         label: 'HR',
-    items: [['people', 'People / ELC'], ['staffing', 'Staffing'], ['committees', 'Committees']] },
-  { items: [['financial', 'Financial']] },
-  { group: 'admin',      label: 'Admin',
-    items: [['notifications', 'Notifications'], ['audit', 'Audit Log']] },
-];
-
-function renderMobileNav(activeTab) {
-  // Links carry data-tab (not id — the desktop nav already owns tab-btn-<t>)
-  // so applyRoleVisibility() can hide the ones this role can't open.
-  const item = ([t, label]) => {
+// The side menu. Rendered OUTSIDE <header> on purpose — the header's
+// backdrop-blur would otherwise trap a position:fixed child inside the
+// header's box. Links carry data-tab so applyRoleVisibility() can hide the
+// ones this role can't open.
+function renderSidebar(activeTab) {
+  const item = ([t, label, icon]) => {
     const on = t === activeTab;
-    return `<a data-tab="${t}" href="${hrefForTab(t)}" onclick="closeMobileNav()"
-      class="flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-colors
-             ${on ? 'bg-accent/15 text-accent font-semibold' : 'text-ink hover:bg-panel2'}">
-      <span class="w-1 h-4 rounded-full ${on ? 'bg-accent' : 'bg-transparent'}"></span>${label}</a>`;
+    return `<a data-tab="${t}" href="${hrefForTab(t)}" onclick="closeMobileNav()" title="${label}"
+      ${on ? 'aria-current="page"' : ''}
+      class="sb-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
+             ${on ? 'bg-accent/10 text-accent' : 'text-ink/80 hover:bg-panel2 hover:text-ink'}">
+      ${navIcon(icon, 'w-5 h-5 shrink-0 ' + (on ? 'text-accent' : 'text-muted'))}
+      <span class="sb-text truncate">${label}</span></a>`;
   };
-  const sections = MOBILE_NAV.map(s => `
-    <div ${s.group ? `data-group="${s.group}"` : ''} class="py-2 border-b border-line last:border-0">
-      ${s.label ? `<p class="px-4 pt-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-muted">${s.label}</p>` : ''}
-      ${s.items.map(item).join('')}
+  const sections = NAV.map((s, i) => `
+    <div data-section class="${i ? 'mt-5' : ''}">
+      <p class="sb-label px-3 mb-2 text-[11px] font-medium uppercase tracking-wider text-muted/80">${s.label}</p>
+      ${i ? '<div class="sb-sep hidden mx-3 mb-3 border-t border-line"></div>' : ''}
+      <div class="space-y-0.5">${s.items.map(item).join('')}</div>
     </div>`).join('');
 
   return `
-  <div id="mnav-overlay" onclick="closeMobileNav()"
-    class="hidden xl:hidden fixed inset-0 z-[90] bg-bg/60 backdrop-blur-sm"></div>
-  <aside id="mnav-panel" aria-label="Main menu"
-    class="xl:hidden fixed top-0 left-0 z-[95] h-[100dvh] w-72 max-w-[85vw] flex flex-col
-           bg-panel border-r border-line shadow-2xl
-           -translate-x-full transition-transform duration-200 ease-out">
-    <div class="flex items-center justify-between px-4 h-14 border-b border-line shrink-0">
-      <p class="text-sm font-bold text-ink">Menu</p>
+  <div id="sb-overlay" onclick="closeMobileNav()"
+    class="hidden xl:hidden fixed inset-0 z-[90] bg-black/40 backdrop-blur-sm"></div>
+  <aside id="sidebar" aria-label="Main menu"
+    class="fixed top-0 left-0 z-[95] xl:z-40 h-[100dvh] w-72 max-w-[85vw] flex flex-col
+           bg-panel border-r border-line shadow-2xl xl:shadow-none
+           -translate-x-full xl:translate-x-0 transition-transform duration-200 ease-out">
+    <div class="sb-head flex items-center gap-3 h-16 px-5 border-b border-line shrink-0">
+      <a href="${hrefForTab('mywork')}" title="Pop OS" class="w-9 h-9 rounded-xl bg-accent text-white text-base font-bold
+             flex items-center justify-center shrink-0">P</a>
+      <div class="sb-text min-w-0">
+        <p class="text-[15px] font-semibold text-ink leading-tight">Pop OS</p>
+        <p class="text-[11px] text-muted leading-tight">Pop Group Studio</p>
+      </div>
       <button onclick="closeMobileNav()" aria-label="Close menu"
-        class="w-9 h-9 flex items-center justify-center rounded-lg text-muted hover:text-ink hover:bg-panel2 cursor-pointer">
+        class="xl:hidden ml-auto w-9 h-9 flex items-center justify-center rounded-lg text-muted hover:text-ink hover:bg-panel2 cursor-pointer">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
         </svg>
       </button>
     </div>
-    <nav class="flex-1 overflow-y-auto overscroll-contain px-2">${sections}</nav>
+    <nav class="flex-1 overflow-y-auto overscroll-contain px-3 py-5">${sections}</nav>
+    <!-- Collapse to icons — wide screens only. -->
+    <div class="hidden xl:block border-t border-line p-3 shrink-0">
+      <button onclick="toggleSidebar()" title="Collapse / expand menu"
+        class="sb-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted
+               hover:bg-panel2 hover:text-ink transition-colors cursor-pointer">
+        ${navIcon('collapse', 'sb-collapse-icon w-5 h-5 shrink-0 transition-transform duration-200')}
+        <span class="sb-text">Collapse menu</span>
+      </button>
+    </div>
   </aside>`;
 }
 
+// Drawer open / close (below xl). Above xl the menu is always visible and
+// these only matter if a resize crosses the breakpoint mid-way.
 function openMobileNav() {
-  $('mnav-overlay').classList.remove('hidden');
-  $('mnav-panel').classList.remove('-translate-x-full');
+  $('sb-overlay')?.classList.remove('hidden');
+  $('sidebar')?.classList.remove('-translate-x-full');
   $('mnav-btn')?.setAttribute('aria-expanded', 'true');
   document.body.style.overflow = 'hidden';   // stop the page scrolling behind the drawer
 }
 function closeMobileNav() {
-  $('mnav-overlay')?.classList.add('hidden');
-  $('mnav-panel')?.classList.add('-translate-x-full');
+  $('sb-overlay')?.classList.add('hidden');
+  $('sidebar')?.classList.add('-translate-x-full');
   $('mnav-btn')?.setAttribute('aria-expanded', 'false');
   document.body.style.overflow = '';
 }
@@ -683,53 +673,6 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMobileN
 // Rotating a tablet to landscape can cross the xl breakpoint with the
 // drawer open — close it so the page doesn't stay scroll-locked.
 window.matchMedia('(min-width: 1280px)').addEventListener('change', e => { if (e.matches) closeMobileNav(); });
-
-function switchTab(name) {
-  ALL_TABS.forEach(t => {
-    const btn = $('tab-btn-' + t);
-    if (btn) btn.classList.toggle('active', t === name);
-    $('tab-' + t)?.classList.toggle('hidden', t !== name);
-  });
-  // Highlight the active group button
-  GROUPS.forEach(g => {
-    const gbtn = $('grp-btn-' + g);
-    if (!gbtn) return;
-    const grpActive = TAB_GROUP[name] === g;
-    gbtn.className = 'flex items-center gap-1 ' + NAV_CLS.base + (grpActive ? NAV_CLS.on : NAV_CLS.off);
-  });
-  // Direct tabs (dashboard, mywork, financial)
-  ['dashboard','mywork','financial'].forEach(t => {
-    const btn = $('tab-btn-' + t);
-    if (!btn) return;
-    btn.className = NAV_CLS.base + (name === t ? NAV_CLS.on : NAV_CLS.off);
-  });
-  if (name === 'dashboard')  loadDashboard();
-  // Every other tab has its own page now — see TAB_PAGE above. switchTab() only ever runs for 'dashboard' on index.html.
-}
-
-// ── group dropdown nav ────────────────────────────────────────
-const GROUPS = ['sales','production','hr','admin'];
-
-function toggleNavGroup(g) {
-  const isOpen = !$('grp-drop-' + g).classList.contains('hidden');
-  closeAllNavGroups();
-  if (!isOpen) $('grp-drop-' + g).classList.remove('hidden');
-}
-
-function closeAllNavGroups() {
-  GROUPS.forEach(g => $('grp-drop-' + g)?.classList.add('hidden'));
-}
-
-function pickNavTab(name) {
-  closeAllNavGroups();
-  switchTab(name);
-}
-
-// Close dropdowns when clicking outside
-document.addEventListener('click', function(e) {
-  const inNav = e.target.closest('nav');
-  if (!inNav) closeAllNavGroups();
-});
 
 // ══════════════════════════════════════════════════════════════
 // THEME SETTINGS
@@ -919,32 +862,14 @@ window.fetch = function(url, opts = {}) {
   });
 };
 
-// Apply role-based tab visibility — hides individual sub-items AND
-// the whole group button if the role has no access to any tab in that group.
+// Apply role-based menu visibility — hides each side-menu page this role
+// can't open, then any section (heading included) left with nothing in it,
+// e.g. the whole Admin section for non-admins.
 function applyRoleVisibility(role) {
-  ALL_TABS.forEach(t => {
-    const allowed = TAB_ACCESS[t]?.includes(role) ?? true;
-    const btn = $('tab-btn-' + t);
-    if (btn) btn.style.display = allowed ? '' : 'none';
-  });
-  // Hide the group button if all its tabs are hidden for this role
-  const GROUP_TABS = {
-    sales:      ['sales','clients','sp'],
-    production: ['projects','production','capacity'],
-    hr:         ['people','staffing','committees'],
-    admin:      ['notifications','audit'],
-  };
-  GROUPS.forEach(g => {
-    const anyVisible = (GROUP_TABS[g] || []).some(t => TAB_ACCESS[t]?.includes(role));
-    const gbtn = $('grp-' + g);
-    if (gbtn) gbtn.style.display = anyVisible ? '' : 'none';
-  });
-  // Same rules for the mobile drawer: hide each link, then any section
-  // (group heading included) left with nothing visible in it.
-  document.querySelectorAll('#mnav-panel [data-tab]').forEach(a => {
+  document.querySelectorAll('#sidebar [data-tab]').forEach(a => {
     a.style.display = (TAB_ACCESS[a.dataset.tab]?.includes(role) ?? true) ? '' : 'none';
   });
-  document.querySelectorAll('#mnav-panel nav > div').forEach(sec => {
+  document.querySelectorAll('#sidebar [data-section]').forEach(sec => {
     const any = [...sec.querySelectorAll('[data-tab]')].some(a => a.style.display !== 'none');
     sec.style.display = any ? '' : 'none';
   });

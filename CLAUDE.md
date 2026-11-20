@@ -30,12 +30,12 @@ not just describe.
   when defaults change so saved colours reset), the self-hosted Outfit font
   (`public/fonts/`, OFL), softer shadows, `rounded-xl` = 16px, and the shared
   component classes (`.form-input`, `.form-label`, `.btn-del`, `.btn-edit`,
-  `.badge`, `.nav-sub-item`). Change the look there, never per page.
+  `.badge`). Change the look there, never per page.
   `public/js/shared.js` is the one file every page loads: `$`/`esc`/
   `fmtMoney`/`matchesFilter`/`toast` (corner pop-up message), fold-away forms
   on phones (mark a side-form panel `data-fold-mobile`; below `lg` it shows
   only its first `<h2>` as a "+ …" bar; call `foldAfterSave(panel, text)`
-  after a successful add), `renderHeader(activeTab)` (builds the nav —
+  after a successful add), `renderHeader(activeTab)` (builds the top bar + side menu —
   reads `TAB_ACCESS` to show/hide items and acts as a **page guard**, redirecting
   a role that isn't allowed on that tab to My Work), the company-filter state,
   theme, and the global `fetch` override that injects the JWT. Each page's own
@@ -47,7 +47,7 @@ not just describe.
   (+ `person-profile.js`), `committees.js`, `staffing.js`, `audit.js` (Admin →
   Audit Log), `admin-notifications.js` (Admin → Notifications).
   Adding a new tab = new `public/<name>.html` page + `public/js/<name>.js` +
-  a `TAB_ACCESS` entry in `shared.js` + a nav link. Keep it framework-free.
+  a `TAB_ACCESS` entry in `shared.js` + a row in `NAV` (side menu). Keep it framework-free.
 - **Auth:** JWT (`@nestjs/jwt`). Global `JwtAuthGuard` via `APP_GUARD`. Routes
   marked `@Public()` skip the guard. Token stored in `localStorage` as
   `pop-os-token`. `window.fetch` is overridden in `shared.js` to inject the
@@ -142,7 +142,8 @@ Then:
   `<script src="/js/<name>.js">`) and `public/js/<name>.js` for the tab's UI logic
 - add `<name>` to the `TAB_ACCESS` map in `shared.js` (which roles can see it —
   `renderHeader()` uses this both to hide the nav link and as a page guard)
-- add a nav link to the new page in `renderHeader()`'s markup in `shared.js`
+- add the page to the side menu: a `[tab, label, icon]` row in `NAV` in
+  `shared.js` (plus `TAB_PAGE`; add an icon to `NAV_ICONS` if none fits)
 
 Conventions already in use (keep them consistent):
 - IDs are `String @id @default(cuid())`.
@@ -428,15 +429,22 @@ Every module tab opens with a compact stats bar above the main content.
 The global Dashboard is the cross-module command centre. Each module's strip
 is its own mini-dashboard in context.
 
-**Navigation** uses grouped dropdowns:
-- My Work (direct — personal dashboard for all roles)
-- Dashboard (direct — cross-module command centre)
-- Jobs (direct — every won deal: sales + production + money; money roles only)
-- Sales ▾ → Sales pipeline, Clients, Sales Performance (admin only)
-- Production ▾ → Projects, Production engine, Capacity
-- Financial (direct — FINANCE + ADMIN only)
-- HR ▾ → People, Staffing
-- Admin ▾ (ADMIN only) → Notifications (`notifications.html`, Mattermost rules),
+**Navigation** is a TailAdmin-style **side menu** (Nov 2026; replaced the top
+pill nav + dropdowns). Built by `renderSidebar()` in `shared.js` from the `NAV`
+array (sections → `[tab, label, icon]`, icons in `NAV_ICONS`, Heroicons MIT).
+xl+ (1280px): fixed on the left, 260px, or 80px icons-only via "Collapse menu"
+(`toggleSidebar()`, remembered in localStorage `pop-os-sidebar`; layout via
+classes `has-sidebar` / `sb-collapsed` on `<html>`). Below xl: the same
+`#sidebar` is a slide-in drawer (☰ → `openMobileNav()` / `closeMobileNav()`).
+`applyRoleVisibility()` hides pages the role can't open and any section left
+empty. The top bar keeps the company filter, day/night, theme settings and
+user menu. Sections:
+- Menu → My Work, Dashboard, Jobs (money roles only)
+- Sales → Sales pipeline, Clients, Performance (admin only)
+- Production → Projects, Lanes, Capacity
+- Finance → Financial (FINANCE + ADMIN only)
+- HR → People / ELC, Staffing, Committees
+- Admin (ADMIN only) → Notifications (`notifications.html`, Mattermost rules),
   Audit Log (`audit.html`). Old `/admin.html` just redirects to Notifications.
 
 ---
