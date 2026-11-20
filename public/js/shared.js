@@ -90,11 +90,13 @@ const FOLD_MQ = '(max-width: 1023.98px)';
     [data-fold-mobile]:not(.fold-open) .fold-head,
     [data-fold-mobile]:not(.fold-open) .fold-head h2 { margin-bottom: 0; }
     [data-fold-mobile] .fold-head { cursor: pointer; user-select: none; }
-    [data-fold-mobile] .fold-head h2 { display: flex; align-items: center; gap: .4rem; }
-    [data-fold-mobile] .fold-head h2::before { content: '+'; font-size: 15px; line-height: 1; }
-    [data-fold-mobile].fold-open .fold-head h2::before { content: '−'; }
-    [data-fold-mobile] .fold-head h2::after { content: '▾'; margin-left: auto; font-size: 11px; }
-    [data-fold-mobile].fold-open .fold-head h2::after { content: '▴'; }
+    /* The bar's heading is either the head itself (h2.fold-head) or an h2
+       inside a head row (.fold-head h2) — :is() matches both. */
+    [data-fold-mobile] :is(.fold-head h2, h2.fold-head) { display: flex; align-items: center; gap: .4rem; }
+    [data-fold-mobile] :is(.fold-head h2, h2.fold-head)::before { content: '+'; font-size: 15px; line-height: 1; }
+    [data-fold-mobile].fold-open :is(.fold-head h2, h2.fold-head)::before { content: '−'; }
+    [data-fold-mobile] :is(.fold-head h2, h2.fold-head)::after { content: '▾'; margin-left: auto; font-size: 11px; }
+    [data-fold-mobile].fold-open :is(.fold-head h2, h2.fold-head)::after { content: '▴'; }
 
     /* Keep everything inside the screen on phones.
        By default a grid cell or flex item refuses to shrink below its

@@ -76,7 +76,7 @@ function renderFinanceDashboard(d) {
   const kpiCard = (label, value, valueCls, sub) =>
     `<div class="bg-panel2 border border-line rounded-xl p-5 flex flex-col gap-1">
        <p class="text-[11px] font-semibold uppercase tracking-widest text-muted">${label}</p>
-       <p class="text-2xl font-bold ${valueCls}">${value}</p>
+       <p class="text-xl sm:text-2xl font-bold ${valueCls}">${value}</p>
        ${sub ? `<p class="text-xs text-muted">${sub}</p>` : ''}
      </div>`;
 

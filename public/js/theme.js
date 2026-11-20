@@ -87,6 +87,18 @@
         // grows from 12px to 16px here instead of editing ~100 class lists.
         borderRadius: { xl: '1rem' },
         boxShadow: SHADOW,
+        // Bigger text. Most body text here is text-xs (12px) or text-sm
+        // (14px) — small next to TailAdmin's 14px body. Each step grows
+        // ~1px here, so every page gets bigger without editing ~1,000 class
+        // lists. (The tiny hand-picked sizes, text-[10px] / text-[11px],
+        // are bumped in the plain CSS below.)
+        fontSize: {
+          xs: ['0.84375rem', { lineHeight: '1.25rem' }],   // 12px → 13.5px
+          sm: ['0.9375rem',  { lineHeight: '1.375rem' }],  // 14px → 15px
+        },
+        // Pages sit in a max-w-7xl box (1280px). With the side menu taking
+        // 260px, big monitors left wide empty margins — allow up to 1536px.
+        maxWidth: { '7xl': '96rem' },
       },
     },
   };
@@ -106,6 +118,17 @@
     src: url('/fonts/outfit-latin-wght-normal.woff2') format('woff2');
   }
   body { background-color: ${theme.bg}; }
+
+  /* Bump the hand-picked tiny sizes one step (see fontSize above).
+     "html " in front makes these win over Tailwind's own rule. */
+  html .text-\\[9px\\], html .text-\\[10px\\] { font-size: 11.5px; }
+  html .text-\\[11px\\] { font-size: 12.5px; }
+
+  /* Phones: iPhone Safari zooms the whole page in when you tap a field whose
+     text is smaller than 16px — and doesn't zoom back out. 16px stops that. */
+  @media (max-width: 767.98px) {
+    input:not([type=checkbox]):not([type=radio]):not([type=color]), select, textarea { font-size: 16px !important; }
+  }
 </style>
 <style type="text/tailwindcss">
   @layer components {
