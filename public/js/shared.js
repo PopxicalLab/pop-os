@@ -313,10 +313,12 @@ const PPM_COMPLEXITY_THRESHOLD = 3;
 // as entered — never rounded to the ringgit: whole amounts stay "RM 5,000",
 // anything with cents shows exactly two decimals ("RM 44.70"). Callers
 // handle null / "—" themselves.
+// The space after "RM" is a non-breaking space ( ), so a narrow column
+// never splits "RM" and the number onto two lines.
 function fmtMoney(n) {
   const v = Number(n);
   const cents = !Number.isInteger(Math.round(v * 100) / 100);
-  return 'RM ' + v.toLocaleString('en-MY', { minimumFractionDigits: cents ? 2 : 0, maximumFractionDigits: 2 });
+  return 'RM ' + v.toLocaleString('en-MY', { minimumFractionDigits: cents ? 2 : 0, maximumFractionDigits: 2 });
 }
 
 function computePpm({ estimatedValue, complexityScore, clientTier, marginTarget }) {
@@ -611,14 +613,14 @@ function renderSidebar(activeTab) {
     const on = t === activeTab;
     return `<a data-tab="${t}" href="${hrefForTab(t)}" onclick="closeMobileNav()" title="${label}"
       ${on ? 'aria-current="page"' : ''}
-      class="sb-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors
+      class="sb-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] font-medium transition-colors
              ${on ? 'bg-accent/10 text-accent' : 'text-ink/80 hover:bg-panel2 hover:text-ink'}">
       ${navIcon(icon, 'w-5 h-5 shrink-0 ' + (on ? 'text-accent' : 'text-muted'))}
       <span class="sb-text truncate">${label}</span></a>`;
   };
   const sections = NAV.map((s, i) => `
     <div data-section class="${i ? 'mt-5' : ''}">
-      <p class="sb-label px-3 mb-2 text-[11px] font-medium uppercase tracking-wider text-muted/80">${s.label}</p>
+      <p class="sb-label px-3 mb-2 text-[12.5px] font-medium uppercase tracking-wider text-muted/80">${s.label}</p>
       ${i ? '<div class="sb-sep hidden mx-3 mb-3 border-t border-line"></div>' : ''}
       <div class="space-y-0.5">${s.items.map(item).join('')}</div>
     </div>`).join('');
@@ -635,7 +637,7 @@ function renderSidebar(activeTab) {
              flex items-center justify-center shrink-0">P</a>
       <div class="sb-text min-w-0">
         <p class="text-[15px] font-semibold text-ink leading-tight">Pop OS</p>
-        <p class="text-[11px] text-muted leading-tight">Pop Group Studio</p>
+        <p class="text-[12.5px] text-muted leading-tight">Pop Group Studio</p>
       </div>
       <button onclick="closeMobileNav()" aria-label="Close menu"
         class="xl:hidden ml-auto w-9 h-9 flex items-center justify-center rounded-lg text-muted hover:text-ink hover:bg-panel2 cursor-pointer">
@@ -648,7 +650,7 @@ function renderSidebar(activeTab) {
     <!-- Collapse to icons — wide screens only. -->
     <div class="hidden xl:block border-t border-line p-3 shrink-0">
       <button onclick="toggleSidebar()" title="Collapse / expand menu"
-        class="sb-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted
+        class="sb-item w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-[15px] font-medium text-muted
                hover:bg-panel2 hover:text-ink transition-colors cursor-pointer">
         ${navIcon('collapse', 'sb-collapse-icon w-5 h-5 shrink-0 transition-transform duration-200')}
         <span class="sb-text">Collapse menu</span>
