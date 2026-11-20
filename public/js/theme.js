@@ -94,8 +94,14 @@
         // plain CSS below.) The side menu uses fixed text-[15px] / [12px]
         // sizes on purpose, so it stays as it is when these change.
         fontSize: {
-          xs: ['0.90625rem', { lineHeight: '1.375rem' }],  // 12px → 14.5px
-          sm: ['1rem',       { lineHeight: '1.5rem' }],    // 14px → 16px
+          xs:    ['1rem',      { lineHeight: '1.5rem' }],    // 12px → 16px
+          sm:    ['1.09375rem',{ lineHeight: '1.625rem' }],  // 14px → 17.5px
+          // Headings and big numbers grow too, so they still stand out
+          // above the (now bigger) body text.
+          base:  ['1.1875rem', { lineHeight: '1.75rem' }],   // 16px → 19px
+          lg:    ['1.3125rem', { lineHeight: '1.875rem' }],  // 18px → 21px
+          xl:    ['1.5rem',    { lineHeight: '2rem' }],      // 20px → 24px
+          '2xl': ['1.75rem',   { lineHeight: '2.25rem' }],   // 24px → 28px
         },
         // Pages sit in a max-w-7xl box (1280px). With the side menu taking
         // 260px, big monitors left wide empty margins — allow up to 1536px.
@@ -122,8 +128,8 @@
 
   /* Bump the hand-picked tiny sizes one step (see fontSize above).
      "html " in front makes these win over Tailwind's own rule. */
-  html .text-\\[9px\\], html .text-\\[10px\\] { font-size: 12.5px; }
-  html .text-\\[11px\\] { font-size: 13.5px; }
+  html .text-\\[9px\\], html .text-\\[10px\\] { font-size: 14px; }
+  html .text-\\[11px\\] { font-size: 15px; }
 
   /* Phones: iPhone Safari zooms the whole page in when you tap a field whose
      text is smaller than 16px — and doesn't zoom back out. 16px stops that. */
