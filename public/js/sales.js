@@ -56,20 +56,21 @@ function applySalesSubTab() {
   if (_salesSubTab === 'chart' && scroller) scroller.scrollLeft = scroller.scrollWidth;
 }
 
-// The List view needs every pixel for its columns: it goes full width and
-// folds the Add-a-lead form away (brought back with "+ Add lead"). Chart and
-// Pipeline keep the normal form-on-the-left layout.
+// The List and Pipeline views need every pixel for their columns: they go
+// full width and fold the Add-a-lead form away — it's brought back with the
+// "+ Add lead" button in their toolbar (any button marked
+// data-sales-add-toggle). The chart keeps the normal form-on-the-left layout.
 let _salesAddOpen = false;
 
 function applySalesLayout() {
-  const list    = _salesSubTab === 'list';
-  const showAdd = !list || _salesAddOpen;
+  const wide    = _salesSubTab === 'list' || _salesSubTab === 'board';
+  const showAdd = !wide || _salesAddOpen;
   $('sales-layout').className = 'mx-auto px-5 py-6 grid grid-cols-1 gap-5 items-start '
-    + (list ? 'max-w-none ' : 'max-w-7xl ')
+    + (wide ? 'max-w-none ' : 'max-w-7xl ')
     + (showAdd ? 'lg:grid-cols-[280px_1fr]' : '');
   $('sales-add-panel').classList.toggle('hidden', !showAdd);
-  const btn = $('sales-add-toggle');
-  if (btn) btn.textContent = _salesAddOpen ? '× Close form' : '+ Add lead';
+  document.querySelectorAll('[data-sales-add-toggle]').forEach(btn =>
+    btn.textContent = _salesAddOpen ? '× Close form' : '+ Add lead');
 }
 
 function toggleSalesAddPanel() {

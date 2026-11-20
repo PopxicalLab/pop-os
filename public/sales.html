@@ -125,9 +125,10 @@
   <!-- ════════════════════════════════════════════════════
        SALES HUB — pipeline board + add lead
   ════════════════════════════════════════════════════ -->
-  <!-- Layout classes are swapped by applySalesSubTab() (sales.js): in List
-       view the Add-a-lead form folds away and the page goes full width so
-       every column fits; "+ Add lead" in the List toolbar brings it back. -->
+  <!-- Layout classes are swapped by applySalesLayout() (sales.js): in the
+       List and Pipeline views the Add-a-lead form is hidden and the page goes
+       full width so every column fits; "+ Add lead" in their toolbar brings
+       it back. -->
   <div id="sales-layout" class="max-w-7xl mx-auto px-5 py-6 grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-5 items-start">
 
     <!-- Left: add lead form -->
@@ -195,7 +196,7 @@
           <input id="sales-list-search" type="text" placeholder="Search leads, accounts, contacts…" autocomplete="off"
             class="w-full sm:w-auto sm:flex-1 min-w-0 bg-panel2 border border-line text-ink text-xs px-3 py-1.5 rounded-lg
                    focus:outline-none focus:border-accent/60" />
-          <button id="sales-add-toggle" onclick="toggleSalesAddPanel()"
+          <button data-sales-add-toggle onclick="toggleSalesAddPanel()"
             class="text-xs bg-accent/15 border border-accent/30 text-accent hover:bg-accent/25 px-3 py-1.5 rounded-lg cursor-pointer whitespace-nowrap">
             + Add lead
           </button>
@@ -215,9 +216,17 @@
 
       <!-- Pipeline pane -->
       <div id="sales-pane-board" class="hidden">
-        <input id="sales-search" type="text" placeholder="Search leads or accounts…" autocomplete="off"
-          class="w-full bg-panel2 border border-line text-ink text-xs px-3 py-1.5 rounded-lg mb-3
-                 focus:outline-none focus:border-accent/60" />
+        <!-- Same toolbar as the List view: search, then "+ Add lead", which
+             shows / hides the Add-a-lead form (hidden by default here too). -->
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+          <input id="sales-search" type="text" placeholder="Search leads or accounts…" autocomplete="off"
+            class="w-full sm:w-auto sm:flex-1 min-w-0 bg-panel2 border border-line text-ink text-xs px-3 py-1.5 rounded-lg
+                   focus:outline-none focus:border-accent/60" />
+          <button data-sales-add-toggle onclick="toggleSalesAddPanel()"
+            class="text-xs bg-accent/15 border border-accent/30 text-accent hover:bg-accent/25 px-3 py-1.5 rounded-lg cursor-pointer whitespace-nowrap">
+            + Add lead
+          </button>
+        </div>
         <div id="sales-board">
           <div class="text-center text-muted text-sm py-10">Loading…</div>
         </div>
