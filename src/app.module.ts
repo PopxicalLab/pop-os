@@ -39,6 +39,17 @@ import { JwtAuthGuard } from './auth/jwt.guard';
   imports: [
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'public'),
+      serveStaticOptions: {
+        // Pages and scripts: "no-cache" = the browser may keep a copy but must
+        // ask the server "has this changed?" before every use (a quick check;
+        // unchanged files aren't re-downloaded). Without it, after a deploy a
+        // browser could pair the NEW sales.html with an OLD sales.js from its
+        // memory — half-updated pages. Fonts and images rarely change, so
+        // they keep the default caching.
+        setHeaders: (res, path) => {
+          if (/\.(html|js|css)$/.test(path)) res.setHeader('Cache-Control', 'no-cache');
+        },
+      },
     }),
     // Auth first — exports JwtModule so the global guard can use JwtService
     AuthModule,
