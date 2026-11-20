@@ -69,7 +69,10 @@ pop-os/
 │   │   mywork.html / journey.html / self-assess.html / skills-guide.html /
 │   │   changelog.html / reset-password.html   # One standalone page per tab, sharing shared.js
 │   │   (admin.html only redirects to notifications.html)
+│   ├── fonts/                 # Self-hosted Outfit font (OFL licence) — no Google Fonts call
 │   └── js/
+│       ├── theme.js                # Loaded in every page's <head>: colour tokens (day/night),
+│       │                           #   font, shadows, shared component classes (TailAdmin style)
 │       ├── mywork.js               # My Work personal dashboard
 │       ├── journey.js              # My Journey — lifetime record, badges, timeline, rewards
 │       ├── dashboard.js            # Cross-module command centre

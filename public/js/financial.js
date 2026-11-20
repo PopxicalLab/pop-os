@@ -147,7 +147,7 @@ function renderFinanceDashboard(d) {
   const HEALTH_SEGS = [
     { value: health.green,   color: '#34d399', label: 'On track',     cls: 'text-emerald-400' },
     { value: health.amber,   color: '#facc15', label: 'At risk',      cls: 'text-yellow-400'  },
-    { value: health.red,     color: '#c05535', label: 'Over budget',  cls: 'text-warm'        },
+    { value: health.red,     color: window._theme?.warm || '#f04438', label: 'Over budget',  cls: 'text-warm'        },
     { value: health.unknown, color: '#857f73', label: 'No value set', cls: 'text-muted'       },
   ];
   const totalProjects = HEALTH_SEGS.reduce((s, seg) => s + (seg.value || 0), 0);

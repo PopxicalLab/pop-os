@@ -24,7 +24,14 @@ not just describe.
   **Not an SPA** — every tab is its own standalone HTML page (`public/<name>.html`,
   e.g. `projects.html`, `capacity.html`, `jobs.html`). `index.html` is just the
   Dashboard page (`renderHeader('dashboard')`) — not a shell the others live
-  inside. `public/js/shared.js` is the one file every page loads: `$`/`esc`/
+  inside. `public/js/theme.js` loads in every page's `<head>` right after the
+  Tailwind CDN: the colour tokens (`bg`/`panel`/`panel2`/`line`/`ink`/`muted`/
+  `accent`/`warm` — TailAdmin-style day + night palettes; bump `THEME_VERSION`
+  when defaults change so saved colours reset), the self-hosted Outfit font
+  (`public/fonts/`, OFL), softer shadows, `rounded-xl` = 16px, and the shared
+  component classes (`.form-input`, `.form-label`, `.btn-del`, `.btn-edit`,
+  `.badge`, `.nav-sub-item`). Change the look there, never per page.
+  `public/js/shared.js` is the one file every page loads: `$`/`esc`/
   `fmtMoney`/`matchesFilter`/`toast` (corner pop-up message), fold-away forms
   on phones (mark a side-form panel `data-fold-mobile`; below `lg` it shows
   only its first `<h2>` as a "+ …" bar; call `foldAfterSave(panel, text)`
@@ -130,7 +137,8 @@ Then:
 - import the new module in `src/app.module.ts`
 - run a migration (see workflow rule above)
 - add `public/<name>.html` (copy an existing standalone page's shell — header
-  via `renderHeader('<name>')`, `<script src="/js/shared.js">` then
+  via `renderHeader('<name>')`, the Tailwind CDN + `<script src="/js/theme.js">`,
+  `<script src="/js/shared.js">` then
   `<script src="/js/<name>.js">`) and `public/js/<name>.js` for the tab's UI logic
 - add `<name>` to the `TAB_ACCESS` map in `shared.js` (which roles can see it —
   `renderHeader()` uses this both to hide the nav link and as a page guard)

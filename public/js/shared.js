@@ -8,9 +8,8 @@
 // the company filter bar (#company-filter-bar, #filter-btn-LPS/PXL), and
 // the User Manager modal (#user-mgr-overlay, #user-list, etc).
 // Also depends on window._mode/_theme/_DARK/_LIGHT being set already by
-// the small inline <head> script that resolves the active theme before
-// Tailwind loads (kept inline, per-page, so there's no flash of the wrong
-// theme while this file downloads).
+// /js/theme.js, which every page loads in <head> just before this file
+// (it picks the palette and writes the CSS before the page paints).
 // ══════════════════════════════════════════════════════════════
 
 // ── shared utilities — available to all module JS files ──────
@@ -172,8 +171,13 @@ const ICON_MOON = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBo
 // Switch modes while keeping the user's accent + warm colours intact.
 // Only the structural colours (bg/panel/borders/text) change; the chosen
 // accent and danger colours follow you across modes.
+// Exception: if the accent / warning is still this mode's DEFAULT, take the
+// other mode's default instead — day and night use slightly different
+// shades of the same indigo / red so each stays readable on its background.
 function applyModeSwitch(mode) {
   const base = mode === 'light' ? window._LIGHT : window._DARK;
+  const here = window._mode === 'light' ? window._LIGHT : window._DARK;
+  const keep = (k) => window._theme[k] === here[k] ? base[k] : window._theme[k];
   const next = {
     bg:     base.bg,
     panel:  base.panel,
@@ -181,8 +185,8 @@ function applyModeSwitch(mode) {
     line:   base.line,
     ink:    base.ink,
     muted:  base.muted,
-    accent: window._theme.accent,
-    warm:   window._theme.warm,
+    accent: keep('accent'),
+    warm:   keep('warm'),
   };
   localStorage.setItem('pop-os-mode', mode);
   localStorage.setItem('pop-os-theme-' + mode, JSON.stringify(next));
@@ -430,6 +434,14 @@ function hrefForTab(name) {
 // yet split still work as a normal link, and once-split pages navigate
 // straight there instead of trying to switchTab() a panel that no longer
 // exists on this page.
+// Nav item look (TailAdmin style): flat items, the current one tinted with
+// the accent colour. Shared by renderHeader() and switchTab().
+const NAV_CLS = {
+  base: 'px-3 py-2 rounded-lg text-[13px] font-medium transition-colors duration-150 ',
+  on:   'bg-accent/10 text-accent',
+  off:  'text-muted hover:text-ink hover:bg-panel2',
+};
+
 function renderHeader(activeTab) {
   // Page guard: hiding nav buttons isn't enough — a link or a typed URL can
   // still reach a page. If this role can't use this tab, go to My Work
@@ -438,18 +450,16 @@ function renderHeader(activeTab) {
     window.location.replace('/mywork.html');
     return '';
   }
-  const directCls = (t) => 'px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 '
-    + (t === activeTab ? 'bg-panel text-ink' : 'text-muted hover:text-ink');
-  const groupBtnCls = (g) => 'flex items-center gap-1 px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 '
-    + (TAB_GROUP[activeTab] === g ? 'bg-panel text-ink' : 'text-muted hover:text-ink');
+  const directCls = (t) => NAV_CLS.base + (t === activeTab ? NAV_CLS.on : NAV_CLS.off);
+  const groupBtnCls = (g) => 'flex items-center gap-1 ' + NAV_CLS.base + (TAB_GROUP[activeTab] === g ? NAV_CLS.on : NAV_CLS.off);
   const subCls = (t) => 'nav-sub-item' + (t === activeTab ? ' active' : '');
   const chevron = `<svg class="w-3 h-3 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/>
     </svg>`;
 
   return `
-  <header class="sticky top-0 z-50 bg-panel/95 backdrop-blur-sm border-b border-line">
-    <div class="max-w-7xl mx-auto px-3 sm:px-5 h-13 flex items-center gap-2 sm:gap-4 py-3">
+  <header class="sticky top-0 z-50 bg-panel/95 backdrop-blur-sm border-b border-line shadow-sm">
+    <div class="max-w-7xl mx-auto px-3 sm:px-5 h-16 flex items-center gap-2 sm:gap-4">
       <!-- Hamburger — only below the xl breakpoint, where the pill nav
            doesn't fit on one line. Opens the slide-in drawer below. -->
       <button id="mnav-btn" onclick="openMobileNav()" title="Menu" aria-label="Open menu"
@@ -477,7 +487,7 @@ function renderHeader(activeTab) {
       </div>
       <!-- Grouped nav — 5 top-level items, sub-tabs in dropdowns.
            Desktop only (xl+); smaller screens use the drawer instead. -->
-      <nav class="hidden xl:flex items-center gap-1 bg-bg/80 rounded-full p-1 border border-line">
+      <nav class="hidden xl:flex items-center gap-0.5">
 
         <!-- Dashboard (direct) -->
         <a id="tab-btn-dashboard" href="${hrefForTab('dashboard')}" class="${directCls('dashboard')}">Dashboard</a>
@@ -685,20 +695,13 @@ function switchTab(name) {
     const gbtn = $('grp-btn-' + g);
     if (!gbtn) return;
     const grpActive = TAB_GROUP[name] === g;
-    gbtn.className = gbtn.className
-      .replace(/bg-panel text-ink|text-muted hover:text-ink/g, '')
-      .trim();
-    gbtn.className += grpActive
-      ? ' bg-panel text-ink'
-      : ' text-muted hover:text-ink';
+    gbtn.className = 'flex items-center gap-1 ' + NAV_CLS.base + (grpActive ? NAV_CLS.on : NAV_CLS.off);
   });
   // Direct tabs (dashboard, mywork, financial)
   ['dashboard','mywork','financial'].forEach(t => {
     const btn = $('tab-btn-' + t);
     if (!btn) return;
-    btn.className = (name === t)
-      ? 'px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 bg-panel text-ink'
-      : 'px-4 py-1 rounded-full text-xs font-semibold transition-all duration-150 text-muted hover:text-ink';
+    btn.className = NAV_CLS.base + (name === t ? NAV_CLS.on : NAV_CLS.off);
   });
   if (name === 'dashboard')  loadDashboard();
   // Every other tab has its own page now — see TAB_PAGE above. switchTab() only ever runs for 'dashboard' on index.html.
@@ -735,12 +738,17 @@ document.addEventListener('click', function(e) {
 // The default colours for the active mode (set by the head script).
 const THEME_DEFAULTS = window._mode === 'light' ? window._LIGHT : window._DARK;
 
+// Day / Night are the defaults from theme.js (Mode buttons / Reset).
+// "Warm Dark" is the original gold-on-brown Pop OS theme, kept as a preset
+// for anyone who preferred it. (The preset buttons in each page's settings
+// drawer call applyPreset('<name>'), so keep these names.)
 const PRESETS = {
-  'Warm Dark': { bg:'#111009', panel:'#191814', panel2:'#201e19', line:'#2c2920', ink:'#e4e0d4', muted:'#857f73', accent:'#d4a23a', warm:'#c05535' },
-  'Cool Dark':  { bg:'#0d0f14', panel:'#141920', panel2:'#1b2029', line:'#252e3b', ink:'#dde3ee', muted:'#7a8394', accent:'#5b9cf6', warm:'#e05252' },
-  'Midnight':   { bg:'#0f0f18', panel:'#15151f', panel2:'#1c1c28', line:'#262635', ink:'#e0dff2', muted:'#7a7990', accent:'#7c6fcd', warm:'#e05b5b' },
-  'Forest':     { bg:'#0d1209', panel:'#141a0f', panel2:'#1b2416', line:'#233020', ink:'#d8e6d0', muted:'#7a9070', accent:'#5aab66', warm:'#c06038' },
-  'Day':        window._LIGHT,
+  'Day':          window._LIGHT,
+  'Night':        window._DARK,
+  'Warm Dark':    { bg:'#111009', panel:'#191814', panel2:'#201e19', line:'#2c2920', ink:'#e4e0d4', muted:'#857f73', accent:'#d4a23a', warm:'#c05535' },
+  'Cool Dark':    { bg:'#0d0f14', panel:'#141920', panel2:'#1b2029', line:'#252e3b', ink:'#dde3ee', muted:'#7a8394', accent:'#5b9cf6', warm:'#e05252' },
+  'Midnight':     { bg:'#0f0f18', panel:'#15151f', panel2:'#1c1c28', line:'#262635', ink:'#e0dff2', muted:'#7a7990', accent:'#7c6fcd', warm:'#e05b5b' },
+  'Forest':       { bg:'#0d1209', panel:'#141a0f', panel2:'#1b2416', line:'#233020', ink:'#d8e6d0', muted:'#7a9070', accent:'#5aab66', warm:'#c06038' },
 };
 
 const COLOR_LABELS = {
