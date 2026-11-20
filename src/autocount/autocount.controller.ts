@@ -1,5 +1,5 @@
 import { Controller, Get, Post, Patch, Param, Body, Query, Req, UseGuards } from '@nestjs/common';
-import { IsString, IsOptional, IsIn } from 'class-validator';
+import { IsString, IsOptional, IsIn, IsNotEmpty } from 'class-validator';
 import { AutocountService } from './autocount.service';
 import { AuditService } from '../audit/audit.service';
 import { JOB_ROLES, onlyRoles } from '../common/roles';
@@ -16,6 +16,15 @@ class PushInvoiceDto {
 
 class UpdateStatusDto {
   @IsIn(['PAID', 'VOID']) status: 'PAID' | 'VOID';
+}
+
+class FetchDocDto {
+  @IsString() @IsNotEmpty() docNo: string;
+}
+
+// leadId = the job to attach the document to; null (or left out) = unlink.
+class LinkDocDto {
+  @IsOptional() @IsString() leadId?: string | null;
 }
 
 // Quotations, invoices, debtors — money. Job roles only (src/common/roles.ts).
@@ -63,6 +72,21 @@ export class AutocountController {
   async updateStatus(@Param('id') id: string, @Body() dto: UpdateStatusDto, @Req() req: any) {
     const result = await this.svc.updateStatus(id, dto.status);
     this.audit.log(req.user, 'UPDATE', 'AccountingDocument', id, result.docNo, { status: result.status, docNo: result.docNo });
+    return result;
+  }
+
+  // ── Link documents made directly in Autocount to a job ──
+  @Get('documents/unlinked')
+  listUnlinked(@Query('search') search?: string) { return this.svc.listUnlinked(search); }
+
+  @Post('documents/fetch')
+  fetchByDocNo(@Body() dto: FetchDocDto) { return this.svc.fetchByDocNo(dto.docNo); }
+
+  @Patch('documents/:id/link')
+  async linkDocument(@Param('id') id: string, @Body() dto: LinkDocDto, @Req() req: any) {
+    const result = await this.svc.linkDocument(id, dto.leadId ?? null);
+    this.audit.log(req.user, 'UPDATE', 'AccountingDocument', id, result.docNo,
+      { docNo: result.docNo, leadId: result.leadId, projectId: result.projectId });
     return result;
   }
 

@@ -383,6 +383,12 @@ the hyphens are required, as defined in the Swagger security scheme).
 5. `GET /api/autocount/due-soon` → docs due within N days (also in dashboard).
 6. `POST /api/autocount/sync-documents` → pulls current calendar year docs only.
 7. `GET /api/autocount/reconcile` → compares Pop OS records vs live Autocount.
+8. Link docs made directly in Autocount: `GET documents/unlinked?search=`
+   (no lead + no project), `POST documents/fetch {docNo}` (Pop OS row, else
+   single-doc GET from Autocount — any year; quotation then invoice),
+   `PATCH documents/:id/link {leadId|null}` (sets lead + its project; null =
+   unlink, row kept). Never writes to Autocount. UI: Job page "Link existing"
+   / "Unlink", Sales card × and `job.html?id=…&link=1`.
 
 **Document response pattern:** Autocount returns `201 Created` with no body.
 The document number is in the `Location` response header as a query param:

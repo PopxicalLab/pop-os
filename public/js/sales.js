@@ -428,6 +428,23 @@ function renderSalesPipeline() {
   $('sales-board').querySelectorAll('[data-lead-quote]').forEach(b => {
     b.onclick = () => openQuoteModal(b.dataset.leadQuote, b.dataset.leadName, b.dataset.debtor);
   });
+
+  $('sales-board').querySelectorAll('[data-doc-unlink]').forEach(b => {
+    b.onclick = () => unlinkLeadDoc(b.dataset.docUnlink, b.dataset.docNo);
+  });
+}
+
+// Detach a wrongly linked quotation / invoice from its lead. The document
+// stays in Autocount and in Pop OS (Financial still counts it) — it can be
+// linked again from the Job page.
+async function unlinkLeadDoc(docId, docNo) {
+  if (!confirm(`Unlink ${docNo} from this lead?\n\nIt stays in Autocount — it just won't belong to this lead any more. You can link it again from the Job page.`)) return;
+  const res = await fetch(`/api/autocount/documents/${docId}/link`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ leadId: null }),
+  });
+  if (res.ok) { toast(`${esc(docNo)} unlinked`); loadSales(); }
+  else toast('Unlink failed', 'err');
 }
 
 function renderLeadCard(l) {
@@ -457,8 +474,13 @@ function renderLeadCard(l) {
     const statusCls = d.status === 'VOID' ? 'text-muted line-through' : d.status === 'PAID' ? 'text-emerald-400' : 'text-sky-400';
     const icon = d.docType === 'SALES_INVOICE' ? '🧾' : '📄';
     const due = d.dueDate ? ` · due ${new Date(d.dueDate).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}` : '';
-    return `<span class="${statusCls} text-[11px]">${icon} ${esc(d.docNo)}${due}</span>`;
-  }).join('<br>');
+    // × detaches a wrongly linked document (Autocount itself is not changed).
+    return `<span class="flex items-center gap-1">
+        <span class="${statusCls} text-[11px] flex-1 min-w-0 truncate">${icon} ${esc(d.docNo)}${due}</span>
+        <button class="text-muted hover:text-warm text-xs leading-none px-1 cursor-pointer" title="Unlink ${esc(d.docNo)} from this lead"
+                data-doc-unlink="${d.id}" data-doc-no="${esc(d.docNo)}">×</button>
+      </span>`;
+  }).join('');
 
   const quotationBtn = ['PROPOSAL', 'NEGOTIATION', 'WON', 'COMPLETED'].includes(l.status)
     ? `<div class="mt-1 space-y-0.5">
@@ -468,6 +490,8 @@ function renderLeadCard(l) {
                  data-lead-quote="${l.id}" data-lead-name="${esc(l.name)}" data-debtor="${esc(l.account?.autocountDebtorCode || '')}">
            ↑ Push quotation
          </button>
+         <a href="/job.html?id=${encodeURIComponent(l.id)}&link=1"
+            class="block text-center text-[11px] text-muted hover:text-ink mt-1">🔗 Link existing quotation</a>
        </div>`
     : '';
 

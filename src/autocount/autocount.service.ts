@@ -2,7 +2,7 @@
 // All HTTP calls live here. Documents created in Autocount are also
 // persisted as AccountingDocument rows so they stay visible in Pop OS
 // on the project detail view and in the Dashboard payment alerts.
-import { Injectable, BadRequestException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, BadRequestException, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { ensureJobForProject } from '../common/job';
 
@@ -248,6 +248,7 @@ export class AutocountService {
     docType: 'QUOTATION' | 'SALES_INVOICE',
     result: { created: number; updated: number; skipped: number },
   ) {
+    // Returns the saved row (or null if skipped) so fetchByDocNo() can link it.
     // Listing endpoint returns { master: {...}, details: [...] } per item.
     // Single-doc fetch returns the same shape. Normalise to flat master object.
     const m = item.master ?? item;
@@ -277,12 +278,12 @@ export class AutocountService {
       if (m.cancelled === true) status = 'VOID';
     }
 
-    if (!docNo) { result.skipped++; return; }
+    if (!docNo) { result.skipped++; return null; }
 
     const existing = await this.prisma.accountingDocument.findFirst({ where: { docNo } });
 
     if (existing) {
-      await this.prisma.accountingDocument.update({
+      const saved = await this.prisma.accountingDocument.update({
         where: { id: existing.id },
         data: {
           status,
@@ -294,9 +295,10 @@ export class AutocountService {
         },
       });
       result.updated++;
+      return saved;
     } else {
-      if (!docDateRaw) { result.skipped++; return; }
-      await this.prisma.accountingDocument.create({
+      if (!docDateRaw) { result.skipped++; return null; }
+      const saved = await this.prisma.accountingDocument.create({
         data: {
           docType,
           docNo,
@@ -310,7 +312,81 @@ export class AutocountService {
         },
       });
       result.created++;
+      return saved;
     }
+  }
+
+  // ── link documents made directly in Autocount ───────────────────
+  // Quotes / invoices typed straight into Autocount arrive via Sync documents
+  // (or fetchByDocNo) with no lead or project. These let a job claim them,
+  // and let a wrongly linked one be detached again. Autocount itself is never
+  // changed — only which Pop OS job the copy belongs to.
+
+  // Documents not attached to any job yet, newest first. `search` matches the
+  // doc number or the debtor's name.
+  listUnlinked(search?: string) {
+    const q = search?.trim();
+    return this.prisma.accountingDocument.findMany({
+      where: {
+        leadId: null, projectId: null,
+        ...(q ? { OR: [
+          { docNo:      { contains: q, mode: 'insensitive' as const } },
+          { debtorName: { contains: q, mode: 'insensitive' as const } },
+        ] } : {}),
+      },
+      orderBy: { docDate: 'desc' },
+      take: 100,
+    });
+  }
+
+  // Find one document by its number — in Pop OS first, else straight from
+  // Autocount (any year, unlike Sync documents which is this year only).
+  // Tries quotations, then invoices. Returns the row with its current job so
+  // the UI can warn "already linked to …" before moving it.
+  async fetchByDocNo(raw: string) {
+    const docNo = raw.trim();
+    const withLead = { lead: { select: { id: true, name: true } } };
+    const known = await this.prisma.accountingDocument.findFirst({ where: { docNo }, include: withLead });
+    if (known) return known;
+
+    const tally = { created: 0, updated: 0, skipped: 0 };
+    for (const [endpoint, type] of [['quotation', 'QUOTATION'], ['invoice', 'SALES_INVOICE']] as const) {
+      const res = await fetch(this.url(`${endpoint}?docNo=${encodeURIComponent(docNo)}`), { headers: this.authHeaders() });
+      if (!res.ok) continue;
+      const body = await res.json().catch(() => null);
+      if (!body) continue;
+      const saved = await this.upsertDocument(body, type, tally);
+      if (saved) return this.prisma.accountingDocument.findUnique({ where: { id: saved.id }, include: withLead });
+    }
+    throw new NotFoundException(`${docNo} was not found in Autocount (checked quotations and invoices).`);
+  }
+
+  // Attach a document to a job (leadId) — and to the job's project, so it
+  // shows on both. leadId null = unlink: the copy stays in Pop OS (Financial
+  // still counts it) but belongs to no job.
+  async linkDocument(id: string, leadId: string | null) {
+    const doc = await this.prisma.accountingDocument.findUnique({ where: { id } });
+    if (!doc) throw new NotFoundException('Document not found');
+
+    if (!leadId) {
+      return this.prisma.accountingDocument.update({ where: { id }, data: { leadId: null, projectId: null } });
+    }
+    const lead = await this.prisma.lead.findUnique({ where: { id: leadId }, select: { projectId: true, accountId: true } });
+    if (!lead) throw new NotFoundException('Job not found');
+
+    const updated = await this.prisma.accountingDocument.update({
+      where: { id },
+      data:  { leadId, projectId: lead.projectId ?? null },
+    });
+    // Remember the debtor on the client if it has none yet (same as a push
+    // does) — never overwrite one that's already set.
+    if (lead.accountId && doc.debtorCode) {
+      await this.prisma.account.updateMany({
+        where: { id: lead.accountId, autocountDebtorCode: null },
+        data:  { autocountDebtorCode: doc.debtorCode },
+      });
+    }
+    return updated;
   }
 
   // ── sync debtors → accounts ──────────────────────────────────────

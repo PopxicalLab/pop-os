@@ -255,6 +255,30 @@
   </div>
 
 
+  <!-- ── Link existing modal: attach a quote / invoice made directly in Autocount ── -->
+  <div id="link-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
+    <div class="bg-panel border border-line rounded-2xl w-full max-w-lg mx-4 p-6 shadow-2xl space-y-3 max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-ink">Link an existing Autocount document</h2>
+        <button onclick="closeLinkModal()" class="text-muted hover:text-ink text-lg leading-none">×</button>
+      </div>
+      <p class="text-xs text-muted">
+        For quotations or invoices made directly in Autocount. Pick one below, or type its number.
+        This client's documents are listed first.
+      </p>
+      <div class="flex gap-2">
+        <input id="link-search" type="text" placeholder="Doc no. or client name, e.g. QT_1126-012"
+          class="form-input text-sm flex-1 min-w-0" autocomplete="off" />
+        <button id="link-sync-btn" onclick="syncForLink()" title="Fetch this year's documents from Autocount"
+          class="shrink-0 text-xs bg-panel2 border border-line text-muted px-3 rounded-lg hover:text-ink cursor-pointer">
+          ↻ Sync now
+        </button>
+      </div>
+      <div id="link-msg" class="text-xs min-h-[16px]"></div>
+      <div id="link-list" class="overflow-y-auto flex-1 min-h-[120px] -mx-1 px-1"></div>
+    </div>
+  </div>
+
   <!-- ── Autocount push modal (quotation or invoice — job.js sets the wording) ── -->
   <div id="push-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-bg/80 backdrop-blur-sm">
     <div class="bg-panel border border-line rounded-2xl w-full max-w-sm mx-4 p-6 shadow-2xl space-y-4">

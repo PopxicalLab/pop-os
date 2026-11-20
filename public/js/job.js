@@ -284,7 +284,11 @@ function renderJob() {
     <div class="pt-5">
       <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
         <p class="text-[11px] font-semibold uppercase tracking-widest text-muted">Quotations &amp; invoices</p>
-        <div class="flex gap-2">
+        <div class="flex flex-wrap gap-2">
+          <button onclick="openLinkModal()" title="Attach a quotation or invoice that was made directly in Autocount"
+            class="text-[11px] bg-panel2 border border-line text-muted px-2 py-0.5 rounded-lg hover:text-ink transition-colors cursor-pointer">
+            🔗 Link existing
+          </button>
           <button onclick="openPushModal('QUOTATION')"
             class="text-[11px] bg-sky-500/15 border border-sky-500/30 text-sky-400 px-2 py-0.5 rounded-lg hover:bg-sky-500/25 transition-colors cursor-pointer">
             ↑ Push quotation
@@ -325,6 +329,14 @@ function renderJob() {
   renderCosts();
   loadJobPpmAi();
   renderDocs();
+  // Sales card "🔗 Link existing" lands here with ?link=1 → open the picker once,
+  // then drop the flag so a reload (loadJob runs after every save) doesn't reopen it.
+  const qs = new URLSearchParams(location.search);
+  if (qs.get('link') === '1') {
+    qs.delete('link');
+    history.replaceState(null, '', location.pathname + '?' + qs);
+    openLinkModal();
+  }
   wireJobFiles();
   loadJobFiles();
   wireMoneyInputs();
@@ -384,7 +396,7 @@ function renderDocs() {
           <td class="py-1.5 pr-2 ${overdue ? 'text-warm font-semibold' : ''}">${fmtDate(d.dueDate)}${overdue ? ' ⚠' : ''}</td>
           <td class="py-1.5 text-right text-ink pr-2">${rm(d.amount)}</td>
           <td class="py-1.5 pl-2"><span class="badge border ${JOB_DOC_STATUS_CLS[d.status] || ''} text-[10px]">${d.status}</span></td>
-          <td class="py-1.5 pl-1">
+          <td class="py-1.5 pl-1 whitespace-nowrap">
             ${d.status === 'ACTIVE' ? `
               <select onchange="updateJobDocStatus('${d.id}', this.value)"
                 class="bg-panel border border-line text-muted text-[10px] px-1 py-0.5 rounded cursor-pointer">
@@ -392,6 +404,12 @@ function renderDocs() {
                 <option value="PAID">Paid</option>
                 <option value="VOID">Void</option>
               </select>` : ''}
+            ${/* A linked quote may carry a different figure than the deal — offer it, never apply it silently. */
+              d.docType === 'QUOTATION' && d.status !== 'VOID' && d.amount != null && d.amount !== _job.estimatedValue ? `
+              <button onclick="useDocAmountAsValue(${d.amount})" title="Set this job's Value to the quotation amount"
+                class="text-[10px] text-accent hover:underline cursor-pointer ml-1">Use as Value</button>` : ''}
+            <button onclick="unlinkJobDoc('${d.id}', '${esc(d.docNo)}')" title="Detach from this job (Autocount is not changed)"
+              class="text-[10px] text-muted hover:text-warm cursor-pointer ml-1">Unlink</button>
           </td>
         </tr>`;
       }).join('')}
@@ -653,6 +671,118 @@ async function updateJobDocStatus(docId, status) {
     body: JSON.stringify({ status }),
   });
   if (res.ok) loadJob();
+}
+
+// ── Link / unlink Autocount documents ─────────────────────────
+// For quotes and invoices typed straight into Autocount (not pushed from
+// here). Linking only changes which Pop OS job the copy belongs to —
+// Autocount itself is never touched.
+
+async function unlinkJobDoc(docId, docNo) {
+  if (!confirm(`Unlink ${docNo} from this job?\n\nIt stays in Autocount and in Pop OS (Financial still counts it) — it just won't belong to this job any more. You can link it again later.`)) return;
+  const res = await fetch(`/api/autocount/documents/${docId}/link`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ leadId: null }),
+  });
+  if (res.ok) { toast(`${esc(docNo)} unlinked`); loadJob(); }
+  else msg($('job-msg'), 'Unlink failed', 'err');
+}
+
+function useDocAmountAsValue(amount) {
+  if (!confirm(`Change this job's Value from ${rm(_job.estimatedValue)} to ${rm(amount)}?`)) return;
+  patchJob({ estimatedValue: amount });
+}
+
+let _linkTimer = null;
+
+function openLinkModal() {
+  $('link-search').value = '';
+  $('link-msg').textContent = '';
+  $('link-modal').classList.remove('hidden');
+  $('link-search').oninput = () => { clearTimeout(_linkTimer); _linkTimer = setTimeout(loadLinkList, 250); };
+  $('link-search').onkeydown = e => { if (e.key === 'Enter') { clearTimeout(_linkTimer); loadLinkList(); } };
+  loadLinkList();
+  $('link-search').focus();
+}
+
+function closeLinkModal() { $('link-modal').classList.add('hidden'); }
+
+// Loose documents (no job yet). This client's debtor code first, then newest.
+async function loadLinkList() {
+  const q    = $('link-search').value.trim();
+  const list = $('link-list');
+  list.innerHTML = '<p class="text-xs text-muted py-4 text-center">Loading…</p>';
+  const docs = await fetch('/api/autocount/documents/unlinked?search=' + encodeURIComponent(q))
+    .then(r => r.ok ? r.json() : []).catch(() => []);
+  const mine = _job.account?.autocountDebtorCode;
+  docs.sort((a, b) => (b.debtorCode === mine && !!mine) - (a.debtorCode === mine && !!mine));
+
+  const row = d => `
+    <button onclick="linkDocToJob('${d.id}', '${esc(d.docNo)}')"
+      class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-panel2 border border-transparent hover:border-line cursor-pointer">
+      <span class="text-base">${d.docType === 'SALES_INVOICE' ? '🧾' : '📄'}</span>
+      <span class="flex-1 min-w-0">
+        <span class="block font-mono text-xs text-ink">${esc(d.docNo)}
+          ${mine && d.debtorCode === mine ? '<span class="font-sans text-[10px] text-emerald-400 ml-1">this client</span>' : ''}</span>
+        <span class="block text-[11px] text-muted truncate">${esc(d.debtorName || d.debtorCode || '—')} · ${fmtDate(d.docDate)}</span>
+      </span>
+      <span class="text-xs text-ink shrink-0">${rm(d.amount)}</span>
+    </button>`;
+
+  // Nothing matched: offer to look the number up in Autocount directly
+  // (covers older years and documents not synced yet).
+  const lookup = q ? `
+    <button onclick="fetchDocForLink()" class="w-full text-xs text-accent hover:underline cursor-pointer py-2">
+      Look up “${esc(q)}” in Autocount →
+    </button>` : '';
+
+  list.innerHTML = docs.length
+    ? docs.map(row).join('') + (q ? `<div class="border-t border-line/60 mt-2 pt-1">${lookup}</div>` : '')
+    : `<p class="text-xs text-muted py-3 text-center">${q ? 'No unlinked document matches.' : 'No unlinked documents. Try ↻ Sync now.'}</p>${lookup}`;
+}
+
+async function syncForLink() {
+  const btn = $('link-sync-btn');
+  btn.disabled = true; btn.textContent = 'Syncing…';
+  const res = await fetch('/api/autocount/sync-documents', { method: 'POST' }).catch(() => null);
+  btn.disabled = false; btn.textContent = '↻ Sync now';
+  if (res?.ok) {
+    const r = await res.json();
+    msg($('link-msg'), `Synced — ${r.created} new document(s) from Autocount.`, 'ok');
+  } else msg($('link-msg'), 'Sync failed — is Autocount reachable?', 'err');
+  loadLinkList();
+}
+
+async function fetchDocForLink() {
+  const docNo = $('link-search').value.trim();
+  if (!docNo) return;
+  msg($('link-msg'), `Looking up ${docNo} in Autocount…`, '');
+  const res = await fetch('/api/autocount/documents/fetch', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ docNo }),
+  });
+  const d = await res.json().catch(() => ({}));
+  if (!res.ok) return msg($('link-msg'), [].concat(d.message || 'Not found').join(', '), 'err');
+  if (d.leadId === _job.id) return msg($('link-msg'), `${d.docNo} is already linked to this job.`, 'ok');
+  linkDocToJob(d.id, d.docNo, d.lead?.name);
+}
+
+async function linkDocToJob(docId, docNo, currentJobName) {
+  const q = currentJobName
+    ? `${docNo} is linked to "${currentJobName}". Move it to this job?`
+    : `Link ${docNo} to this job?`;
+  if (!confirm(q)) return;
+  const res = await fetch(`/api/autocount/documents/${docId}/link`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ leadId: _job.id }),
+  });
+  if (!res.ok) {
+    const e = await res.json().catch(() => ({}));
+    return msg($('link-msg'), [].concat(e.message || 'Link failed').join(', '), 'err');
+  }
+  closeLinkModal();
+  toast(`${esc(docNo)} linked`);
+  loadJob();
 }
 
 async function convertJob() {
