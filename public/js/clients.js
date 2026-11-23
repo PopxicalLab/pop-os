@@ -6,6 +6,12 @@
 
 let _clientsAll = [];
 
+// Paging. The whole account list is already loaded in one call (it's only
+// a few hundred rows), so paging happens here in the browser: slice the
+// filtered list into pages of CLIENTS_PER_PAGE. No API change needed.
+const CLIENTS_PER_PAGE = 25;
+let _clientsPage = 1;
+
 // A website saved as "example.com" (no protocol) is a relative URL to a
 // browser, so it resolves against the current page instead of the client's
 // own site. Force an absolute URL so the link always leaves Pop OS.
@@ -61,7 +67,17 @@ function renderClientList(accounts) {
     return;
   }
 
-  $('clients-list').innerHTML = `<div class="overflow-x-auto -mx-5 px-5">
+  // Clamp the page: after a search or a delete there may be fewer pages
+  // than the one we were on.
+  const pages = Math.max(1, Math.ceil(list.length / CLIENTS_PER_PAGE));
+  _clientsPage = Math.min(Math.max(1, _clientsPage), pages);
+  const from    = (_clientsPage - 1) * CLIENTS_PER_PAGE;
+  const onPage  = list.slice(from, from + CLIENTS_PER_PAGE);
+
+  const total = list.length, count = onPage.length;
+  $('clients-list').innerHTML = `
+  ${clientPagerHtml(total, from, count, pages, true)}
+  <div class="overflow-x-auto -mx-5 px-5">
     <table class="w-full text-sm">
       <thead>
         <tr class="border-b border-line">
@@ -74,7 +90,7 @@ function renderClientList(accounts) {
         </tr>
       </thead>
       <tbody>
-        ${list.map(a => `
+        ${onPage.map(a => `
           <tr class="border-b border-line/60 hover:bg-panel2/40 transition-colors cursor-pointer"
               onclick="showAccountDetail('${a.id}')">
             <td class="py-3 px-2 font-medium text-ink">${esc(a.name)}${coBadge(a.company)}</td>
@@ -88,7 +104,57 @@ function renderClientList(accounts) {
           </tr>`).join('')}
       </tbody>
     </table>
+  </div>
+  ${clientPagerHtml(total, from, count, pages)}`;
+}
+
+// Two pagers share this one function:
+//   bottom (full):    "Showing 26–50 of 132   ‹ Prev  1 … 3 4 5 … 9  Next ›"
+//   top (compact):                                       "26–50 of 132  ‹  ›"
+// The top one is small on purpose — quick flipping without scrolling down;
+// the bottom one is the main pager. Only pages near the current one get a
+// number button (plus first and last), so the bar stays one line even with
+// many pages — and fits on a phone.
+function clientPagerHtml(total, from, count, pages, compact = false) {
+  if (pages <= 1) return '';
+  const p = _clientsPage;
+  const btn = (label, target, { active = false, disabled = false } = {}) =>
+    `<button ${disabled ? 'disabled' : `onclick="goClientPage(${target})"`}
+       class="min-w-[2.25rem] px-2.5 py-1 text-xs rounded-lg border transition-colors ${
+         active   ? 'bg-accent/15 border-accent/30 text-accent font-semibold'
+       : disabled ? 'border-line text-muted/40 cursor-default'
+       :            'border-line text-muted hover:text-ink hover:border-accent/30 cursor-pointer'}">${label}</button>`;
+
+  if (compact) {
+    return `<div class="flex items-center justify-end gap-2 pb-3">
+      <span class="text-xs text-muted mr-1">${from + 1}–${from + count} of ${total}</span>
+      ${btn('‹', p - 1, { disabled: p === 1 })}
+      ${btn('›', p + 1, { disabled: p === pages })}
+    </div>`;
+  }
+
+  const nums = [];
+  for (let i = 1; i <= pages; i++) {
+    if (i === 1 || i === pages || Math.abs(i - p) <= 1) nums.push(i);
+    else if (nums[nums.length - 1] !== '…') nums.push('…');
+  }
+
+  return `<div class="flex flex-wrap items-center justify-between gap-3 pt-4">
+    <span class="text-xs text-muted">Showing ${from + 1}–${from + count} of ${total}</span>
+    <div class="flex flex-wrap items-center gap-1">
+      ${btn('‹ Prev', p - 1, { disabled: p === 1 })}
+      ${nums.map(n => n === '…'
+        ? '<span class="px-1 text-xs text-muted">…</span>'
+        : btn(n, n, { active: n === p })).join('')}
+      ${btn('Next ›', p + 1, { disabled: p === pages })}
+    </div>
   </div>`;
+}
+
+function goClientPage(n) {
+  _clientsPage = n;
+  renderClientList(_clientsAll);
+  $('clients-list').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 async function showAccountDetail(id) {
@@ -313,4 +379,5 @@ async function deleteContact(contactId, accountId) {
 }
 
 $('acc-add').addEventListener('click', addAccount);
-$('client-search').addEventListener('input', () => renderClientList(_clientsAll));
+// A new search starts from page 1 (page 4 of the old results means nothing).
+$('client-search').addEventListener('input', () => { _clientsPage = 1; renderClientList(_clientsAll); });
