@@ -55,6 +55,7 @@ export class DashboardService {
             where: {
               status:  'ACTIVE',
               dueDate: { not: null, lte: alertCutoff },
+              docType: { not: 'PURCHASE_INVOICE' },   // supplier bills aren't client payments due
             },
             include: {
               project: {

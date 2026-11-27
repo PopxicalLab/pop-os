@@ -14,7 +14,12 @@
 // ══════════════════════════════════════════════════════════════
 
 const JOB_COST_LABEL = { WARM_POOL: 'Warm pool', SUPPLIER: 'Supplier', ADDITIONAL: 'Additional' };
-const JOB_DOC_LABEL  = { QUOTATION: 'Quotation', SALES_INVOICE: 'Invoice', PURCHASE_INVOICE: 'PO Invoice' };
+const JOB_DOC_LABEL  = { QUOTATION: 'Quotation', SALES_INVOICE: 'Invoice', PURCHASE_INVOICE: 'Supplier invoice' };
+const JOB_DOC_ICON   = { QUOTATION: '📄', SALES_INVOICE: '🧾', PURCHASE_INVOICE: '📥' };
+// Status in plain words. An open invoice is "Unpaid" (by the client, or by us
+// for a supplier invoice); an open quotation is just "Active".
+const jobDocStatus = d => d.status === 'ACTIVE' && d.docType !== 'QUOTATION' ? 'Unpaid'
+                        : { ACTIVE: 'Active', PAID: 'Paid', VOID: 'Void' }[d.status] || d.status;
 // Uploaded files (Files section) — matches AttachmentCategory in schema.prisma.
 const JOB_FILE_LABEL = {
   CONTRACT: 'Contract', QUOTATION: 'Quotation', PURCHASE_ORDER: 'Purchase order',
@@ -285,7 +290,11 @@ function renderJob() {
       <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
         <p class="text-[11px] font-semibold uppercase tracking-widest text-muted">Quotations &amp; invoices</p>
         <div class="flex flex-wrap gap-2">
-          <button onclick="openLinkModal()" title="Attach a quotation or invoice that was made directly in Autocount"
+          <button id="job-docs-sync" onclick="refreshJobDocs()" title="Re-check this job's documents in Autocount — paid status, amounts, titles"
+            class="text-[11px] bg-panel2 border border-line text-muted px-2 py-0.5 rounded-lg hover:text-ink transition-colors cursor-pointer">
+            ↻ Sync
+          </button>
+          <button onclick="openLinkModal()" title="Attach a quotation, invoice or supplier invoice that was made directly in Autocount"
             class="text-[11px] bg-panel2 border border-line text-muted px-2 py-0.5 rounded-lg hover:text-ink transition-colors cursor-pointer">
             🔗 Link existing
           </button>
@@ -359,9 +368,14 @@ function renderCosts() {
         ${costs.map(c => `
           <tr class="border-b border-line/40 last:border-0">
             <td class="py-1.5 pr-2 text-ink">${esc(c.description)}</td>
-            <td class="py-1.5 pr-2"><span class="badge bg-panel2 border border-line text-muted text-[10px]">${JOB_COST_LABEL[c.costType] || c.costType}</span></td>
+            <td class="py-1.5 pr-2"><span class="badge bg-panel2 border border-line text-muted text-[10px]">${JOB_COST_LABEL[c.costType] || c.costType}</span>
+              ${c.documentId ? '<span class="badge bg-accent/10 border border-accent/30 text-accent text-[10px] ml-1" title="From a linked supplier invoice — follows Autocount">🔗 Invoice</span>' : ''}</td>
             <td class="py-1.5 text-right text-ink pr-2">${rm(c.amount)}</td>
-            <td class="py-1.5 pl-1"><button class="text-[10px] text-warm hover:underline cursor-pointer" onclick="removeJobCost('${c.id}')">Remove</button></td>
+            <td class="py-1.5 pl-1 whitespace-nowrap">${c.documentId
+              /* Made from a supplier invoice: it mirrors Autocount, so no Remove
+                 here — unlink the invoice below instead (that removes it). */
+              ? '<span class="text-[10px] text-muted" title="Unlink the supplier invoice below to remove this cost">from invoice</span>'
+              : `<button class="text-[10px] text-warm hover:underline cursor-pointer" onclick="removeJobCost('${c.id}')">Remove</button>`}</td>
           </tr>`).join('')}
       </tbody>
       <tfoot><tr>
@@ -389,21 +403,21 @@ function renderDocs() {
     <tbody>
       ${docs.map(d => {
         const overdue = d.dueDate && d.status === 'ACTIVE' && new Date(d.dueDate) < new Date();
+        // Status is read-only here: Finance records payments in Autocount, and
+        // ↻ Sync brings them in. (A Pop OS-side "mark paid" would just be
+        // overwritten by the next sync.)
+        const who = d.docType === 'PURCHASE_INVOICE' && d.debtorName ? d.debtorName : '';
         return `<tr class="border-b border-line/40 last:border-0">
-          <td class="py-1.5 pr-2">${JOB_DOC_LABEL[d.docType] || d.docType}</td>
-          <td class="py-1.5 pr-2 font-mono text-ink">${esc(d.docNo)}</td>
+          <td class="py-1.5 pr-2 whitespace-nowrap">${JOB_DOC_ICON[d.docType] || ''} ${JOB_DOC_LABEL[d.docType] || d.docType}</td>
+          <td class="py-1.5 pr-2">
+            <span class="font-mono text-ink">${esc(d.docNo)}</span>
+            ${d.title || who ? `<span class="block text-[10px] text-muted max-w-[16rem] truncate" title="${esc([who, d.title].filter(Boolean).join(' · '))}">${esc([who, d.title].filter(Boolean).join(' · '))}</span>` : ''}
+          </td>
           <td class="py-1.5 pr-2">${fmtDate(d.docDate)}</td>
           <td class="py-1.5 pr-2 ${overdue ? 'text-warm font-semibold' : ''}">${fmtDate(d.dueDate)}${overdue ? ' ⚠' : ''}</td>
           <td class="py-1.5 text-right text-ink pr-2">${rm(d.amount)}</td>
-          <td class="py-1.5 pl-2"><span class="badge border ${JOB_DOC_STATUS_CLS[d.status] || ''} text-[10px]">${d.status}</span></td>
+          <td class="py-1.5 pl-2"><span class="badge border ${JOB_DOC_STATUS_CLS[d.status] || ''} text-[10px]">${jobDocStatus(d)}</span></td>
           <td class="py-1.5 pl-1 whitespace-nowrap">
-            ${d.status === 'ACTIVE' ? `
-              <select onchange="updateJobDocStatus('${d.id}', this.value)"
-                class="bg-panel border border-line text-muted text-[10px] px-1 py-0.5 rounded cursor-pointer">
-                <option value="">— mark —</option>
-                <option value="PAID">Paid</option>
-                <option value="VOID">Void</option>
-              </select>` : ''}
             ${/* A linked quote may carry a different figure than the deal — offer it, never apply it silently. */
               d.docType === 'QUOTATION' && d.status !== 'VOID' && d.amount != null && d.amount !== _job.estimatedValue ? `
               <button onclick="useDocAmountAsValue(${d.amount})" title="Set this job's Value to the quotation amount"
@@ -663,14 +677,21 @@ async function removeJobCost(costId) {
   loadJob();
 }
 
-async function updateJobDocStatus(docId, status) {
-  if (!status) return;
-  if (!confirm(`Mark this document as ${status}?`)) { renderDocs(); return; }
-  const res = await fetch(`/api/autocount/documents/${docId}/status`, {
-    method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status }),
-  });
-  if (res.ok) loadJob();
+// ↻ Sync — re-read this job's documents from Autocount. Finance marks
+// invoices paid (and supplier bills paid / cancelled) there; this brings the
+// latest in, and linked supplier-invoice costs follow the new amounts.
+async function refreshJobDocs() {
+  const btn = $('job-docs-sync');
+  btn.disabled = true; btn.textContent = 'Syncing…';
+  const res = await fetch(`/api/autocount/leads/${_job.id}/refresh-documents`, { method: 'POST' }).catch(() => null);
+  btn.disabled = false; btn.textContent = '↻ Sync';
+  if (!res?.ok) return toast('Sync failed — is Autocount reachable?', 'err');
+  const r = await res.json();
+  toast(!r.checked ? 'No linked documents to sync.'
+      : r.changed.length ? `Updated from Autocount: ${esc(r.changed.join(', '))}`
+      : `Up to date — ${r.checked} document(s) checked.`);
+  if (r.notFound.length) msg($('job-msg'), `Not found in Autocount: ${r.notFound.join(', ')}`, 'err');
+  loadJob();
 }
 
 // ── Link / unlink Autocount documents ─────────────────────────
@@ -679,7 +700,9 @@ async function updateJobDocStatus(docId, status) {
 // Autocount itself is never touched.
 
 async function unlinkJobDoc(docId, docNo) {
-  if (!confirm(`Unlink ${docNo} from this job?\n\nIt stays in Autocount and in Pop OS (Financial still counts it) — it just won't belong to this job any more. You can link it again later.`)) return;
+  const isSupplier = (_job.accountingDocuments || []).some(d => d.id === docId && d.docType === 'PURCHASE_INVOICE');
+  if (!confirm(`Unlink ${docNo} from this job?\n\nIt stays in Autocount and in Pop OS — it just won't belong to this job any more. You can link it again later.`
+    + (isSupplier ? `\n\nIts cost line is removed from this job's costs too.` : ''))) return;
   const res = await fetch(`/api/autocount/documents/${docId}/link`, {
     method: 'PATCH', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ leadId: null }),
@@ -694,6 +717,8 @@ function useDocAmountAsValue(amount) {
 }
 
 let _linkTimer = null;
+let _linkKind  = 'SALES';   // which tab of the picker: SALES (quotes + invoices) | PURCHASE (supplier invoices)
+let _linkDocs  = {};        // id → document, for the confirm message when one is picked
 
 function openLinkModal() {
   $('link-search').value = '';
@@ -701,32 +726,45 @@ function openLinkModal() {
   $('link-modal').classList.remove('hidden');
   $('link-search').oninput = () => { clearTimeout(_linkTimer); _linkTimer = setTimeout(loadLinkList, 250); };
   $('link-search').onkeydown = e => { if (e.key === 'Enter') { clearTimeout(_linkTimer); loadLinkList(); } };
+  document.querySelectorAll('#link-kinds [data-kind]').forEach(b =>
+    b.onclick = () => { _linkKind = b.dataset.kind; loadLinkList(); });
   loadLinkList();
   $('link-search').focus();
 }
 
 function closeLinkModal() { $('link-modal').classList.add('hidden'); }
 
-// Loose documents (no job yet). This client's debtor code first, then newest.
+// Loose documents (no job yet) of the chosen kind. For quotes / invoices this
+// client's debtor code comes first, then newest.
 async function loadLinkList() {
   const q    = $('link-search').value.trim();
   const list = $('link-list');
+  document.querySelectorAll('#link-kinds [data-kind]').forEach(b => {
+    const on = b.dataset.kind === _linkKind;
+    b.className = 'text-xs px-3 py-1 rounded-full border transition-colors cursor-pointer '
+      + (on ? 'bg-accent/15 border-accent/40 text-accent font-semibold' : 'border-line text-muted hover:text-ink');
+  });
   list.innerHTML = '<p class="text-xs text-muted py-4 text-center">Loading…</p>';
-  const docs = await fetch('/api/autocount/documents/unlinked?search=' + encodeURIComponent(q))
+  const docs = await fetch(`/api/autocount/documents/unlinked?kind=${_linkKind}&search=${encodeURIComponent(q)}`)
     .then(r => r.ok ? r.json() : []).catch(() => []);
-  const mine = _job.account?.autocountDebtorCode;
+  _linkDocs = Object.fromEntries(docs.map(d => [d.id, d]));
+  const mine = _linkKind === 'SALES' && _job.account?.autocountDebtorCode;
   docs.sort((a, b) => (b.debtorCode === mine && !!mine) - (a.debtorCode === mine && !!mine));
 
+  // Each row: number + company on top, the title (what it's for) in bold
+  // underneath — that's what tells two similar invoices apart.
   const row = d => `
     <button onclick="linkDocToJob('${d.id}', '${esc(d.docNo)}')"
-      class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-panel2 border border-transparent hover:border-line cursor-pointer">
-      <span class="text-base">${d.docType === 'SALES_INVOICE' ? '🧾' : '📄'}</span>
+      class="w-full text-left flex items-start gap-3 px-3 py-2 rounded-lg hover:bg-panel2 border border-transparent hover:border-line cursor-pointer">
+      <span class="text-base leading-6">${JOB_DOC_ICON[d.docType] || '📄'}</span>
       <span class="flex-1 min-w-0">
-        <span class="block font-mono text-xs text-ink">${esc(d.docNo)}
-          ${mine && d.debtorCode === mine ? '<span class="font-sans text-[10px] text-emerald-400 ml-1">this client</span>' : ''}</span>
-        <span class="block text-[11px] text-muted truncate">${esc(d.debtorName || d.debtorCode || '—')} · ${fmtDate(d.docDate)}</span>
+        <span class="block text-xs text-muted truncate"><span class="font-mono text-ink">${esc(d.docNo)}</span>
+          · ${esc(d.debtorName || d.debtorCode || '—')}
+          ${mine && d.debtorCode === mine ? '<span class="text-[10px] text-emerald-400 ml-1">this client</span>' : ''}</span>
+        ${d.title ? `<span class="block text-xs text-ink font-semibold truncate">${esc(d.title)}</span>` : ''}
+        <span class="block text-[11px] text-muted">${fmtDate(d.docDate)} · ${jobDocStatus(d)}</span>
       </span>
-      <span class="text-xs text-ink shrink-0">${rm(d.amount)}</span>
+      <span class="text-xs text-ink shrink-0 leading-6">${rm(d.amount)}</span>
     </button>`;
 
   // Nothing matched: offer to look the number up in Autocount directly
@@ -738,7 +776,7 @@ async function loadLinkList() {
 
   list.innerHTML = docs.length
     ? docs.map(row).join('') + (q ? `<div class="border-t border-line/60 mt-2 pt-1">${lookup}</div>` : '')
-    : `<p class="text-xs text-muted py-3 text-center">${q ? 'No unlinked document matches.' : 'No unlinked documents. Try ↻ Sync now.'}</p>${lookup}`;
+    : `<p class="text-xs text-muted py-3 text-center">${q ? 'No unlinked document matches.' : 'Nothing unlinked here. Try ↻ Sync now.'}</p>${lookup}`;
 }
 
 async function syncForLink() {
@@ -764,13 +802,18 @@ async function fetchDocForLink() {
   const d = await res.json().catch(() => ({}));
   if (!res.ok) return msg($('link-msg'), [].concat(d.message || 'Not found').join(', '), 'err');
   if (d.leadId === _job.id) return msg($('link-msg'), `${d.docNo} is already linked to this job.`, 'ok');
+  _linkDocs[d.id] = d;
   linkDocToJob(d.id, d.docNo, d.lead?.name);
 }
 
 async function linkDocToJob(docId, docNo, currentJobName) {
-  const q = currentJobName
+  const d = _linkDocs[docId];
+  // Supplier invoice = money out: say up front that it lands in Costs.
+  const costNote = d?.docType === 'PURCHASE_INVOICE'
+    ? `\n\nThis is a supplier invoice — ${rm(d.amount)} will be added to this job's costs.` : '';
+  const q = (currentJobName
     ? `${docNo} is linked to "${currentJobName}". Move it to this job?`
-    : `Link ${docNo} to this job?`;
+    : `Link ${docNo} to this job?`) + costNote;
   if (!confirm(q)) return;
   const res = await fetch(`/api/autocount/documents/${docId}/link`, {
     method: 'PATCH', headers: { 'Content-Type': 'application/json' },

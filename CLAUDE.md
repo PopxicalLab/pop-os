@@ -246,7 +246,10 @@ login. Click (admin only) to create a login or view the linked account.
 
 - **ProjectCost** — cost line item on a project. Type: `WARM_POOL` / `SUPPLIER`
   / `ADDITIONAL`. Added from project detail view. Summed to calculate net profit
-  in the commission report.
+  in the commission report. `documentId` (unique, optional) = the line was made
+  by linking an Autocount supplier invoice: amount = invoice total incl. SST (SST
+  can't be claimed back), 0 once cancelled; kept in step by every sync; the
+  project-costs API refuses to edit / delete it — unlinking the invoice removes it.
 
 - **Capacity** — weekly board. One row per person × project × week. 100% cap
   enforced in service. weekStart always Monday 00:00 UTC.
@@ -331,8 +334,16 @@ login. Click (admin only) to create a login or view the linked account.
 - **AccountingDocument** — one Autocount document per row (QUOTATION,
   SALES_INVOICE, PURCHASE_INVOICE). Linked to Project and/or Lead. Fields:
   docNo (e.g. "QT_0626-004"), docDate, dueDate (calculated from credit term),
-  amount, debtorCode, creditTerm, status (ACTIVE/PAID/VOID), notifiedAt.
+  amount, debtorCode, creditTerm, status (ACTIVE/PAID/VOID), notifiedAt,
+  `title` (Autocount description, else first line item — shown in the link
+  picker). For PURCHASE_INVOICE (supplier invoice) debtorCode / debtorName hold
+  the **creditor** (supplier).
+  - **Status comes from Autocount** — Finance records payments there; sync
+    mirrors them (outstanding 0 / "Full Payment" = PAID, cancelled = VOID).
+    The Job page has no manual "mark paid" any more.
   - `dueDate` drives the Dashboard payment alerts and Finance Dashboard overdue panel.
+  - Anything about money **owed to us** (due-soon, Dashboard alerts, Mattermost
+    reminders, AR CSV, Sales card badges) must skip `PURCHASE_INVOICE`.
   - Multiple documents per project are normal (milestone billing, revised quotes).
   - When a lead converts to a project, existing AccountingDocuments are
     auto-linked to the new project.
@@ -400,14 +411,23 @@ the hyphens are required, as defined in the Swagger security scheme).
 3. `GET /api/autocount/debtors` → lists Autocount debtors for the picker modal.
 4. `PATCH /api/autocount/documents/:id/status` → mark PAID or VOID.
 5. `GET /api/autocount/due-soon` → docs due within N days (also in dashboard).
-6. `POST /api/autocount/sync-documents` → pulls current calendar year docs only.
+6. `POST /api/autocount/sync-documents` → pulls current calendar year docs only
+   (quotations, sales invoices, supplier invoices via `purchaseinvoice/listing`).
 7. `GET /api/autocount/reconcile` → compares Pop OS records vs live Autocount.
-8. Link docs made directly in Autocount: `GET documents/unlinked?search=`
-   (no lead + no project), `POST documents/fetch {docNo}` (Pop OS row, else
-   single-doc GET from Autocount — any year; quotation then invoice),
-   `PATCH documents/:id/link {leadId|null}` (sets lead + its project; null =
-   unlink, row kept). Never writes to Autocount. UI: Job page "Link existing"
-   / "Unlink", Sales card × and `job.html?id=…&link=1`.
+8. Link docs made directly in Autocount: `GET documents/unlinked?search=&kind=`
+   (no lead + no project; `kind` SALES = quotes + invoices, PURCHASE = supplier
+   invoices; search matches number, company, title), `POST documents/fetch
+   {docNo}` (Pop OS row, else single-doc GET from Autocount — any year;
+   quotation → invoice → purchaseinvoice), `PATCH documents/:id/link
+   {leadId|null}` (sets lead + its project; null = unlink, row kept). Linking a
+   **supplier invoice** also creates its SUPPLIER cost line (same transaction;
+   needs the job's project), moving / unlinking moves / deletes it. Never writes
+   to Autocount. UI: Job page "Link existing" (two tabs) / "Unlink", Sales card ×
+   and `job.html?id=…&link=1`.
+9. `POST /api/autocount/leads/:id/refresh-documents` → Job page "↻ Sync":
+   re-reads just that job's documents one by one (any year) — paid status,
+   amount, title; linked supplier costs follow.
+   API paths per kind: `ENDPOINT` map in `autocount.service.ts`.
 
 **Document response pattern:** Autocount returns `201 Created` with no body.
 The document number is in the `Location` response header as a query param:

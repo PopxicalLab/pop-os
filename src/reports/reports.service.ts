@@ -79,6 +79,8 @@ export class ReportsService {
 
   async arCsv(): Promise<string> {
     const rows = await this.prisma.accountingDocument.findMany({
+      // AR = money clients owe us, so supplier invoices stay out.
+      where:   { docType: { not: 'PURCHASE_INVOICE' } },
       include: { project: { select: { name: true } } },
       orderBy: [{ dueDate: 'asc' }],
     });

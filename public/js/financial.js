@@ -176,7 +176,7 @@ function renderFinanceDashboard(d) {
   }
 
   // Recent documents
-  const DOC_LABEL = { QUOTATION: 'Quote', SALES_INVOICE: 'Invoice', PURCHASE_INVOICE: 'PO Invoice' };
+  const DOC_LABEL = { QUOTATION: 'Quote', SALES_INVOICE: 'Invoice', PURCHASE_INVOICE: 'Supplier invoice' };
   const DOC_CLS   = {
     QUOTATION:        'bg-sky-500/15 border-sky-500/30 text-sky-400',
     SALES_INVOICE:    'bg-accent/15 border-accent/30 text-accent',
@@ -343,10 +343,10 @@ async function syncDocumentsFromAutocount() {
     return;
   }
 
-  const { quotationsTotal, invoicesTotal, created, updated, skipped } = await res.json();
+  const { quotationsTotal, invoicesTotal, purchaseInvoicesTotal = 0, created, updated, skipped } = await res.json();
   if (msgEl) {
     msgEl.className = 'text-xs px-4 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400';
-    msgEl.textContent = `Sync done — ${quotationsTotal} quotations + ${invoicesTotal} invoices: ${created} created, ${updated} updated, ${skipped} skipped.`;
+    msgEl.textContent = `Sync done — ${quotationsTotal} quotations + ${invoicesTotal} invoices + ${purchaseInvoicesTotal} supplier invoices: ${created} created, ${updated} updated, ${skipped} skipped.`;
     msgEl.classList.remove('hidden');
     setTimeout(() => msgEl.classList.add('hidden'), 8000);
   }

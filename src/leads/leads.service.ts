@@ -16,7 +16,10 @@ const WITH_RELATIONS = {
   closedBy: { select: { id: true, name: true } },
   project:  { select: { id: true, name: true, status: true } },
   // Include accounting docs so the lead card can show pushed quotation badges.
+  // Client-side documents only — a linked supplier invoice is a cost (shown on
+  // the Job page), not something the sales card should list.
   accountingDocuments: {
+    where:  { docType: { not: 'PURCHASE_INVOICE' as const } },
     select: { id: true, docType: true, docNo: true, docDate: true, dueDate: true, amount: true, status: true, debtorName: true },
     orderBy: { docDate: 'desc' as const },
   },

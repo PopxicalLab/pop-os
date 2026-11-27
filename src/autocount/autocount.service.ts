@@ -6,6 +6,27 @@ import { Injectable, BadRequestException, InternalServerErrorException, NotFound
 import { PrismaService } from '../prisma.service';
 import { ensureJobForProject } from '../common/job';
 
+// The three Autocount document kinds Pop OS keeps a copy of, and the API
+// path for each (GET <path>?docNo=… fetches one, <path>/listing lists them).
+type DocKind = 'QUOTATION' | 'SALES_INVOICE' | 'PURCHASE_INVOICE';
+const ENDPOINT: Record<DocKind, string> = {
+  QUOTATION:        'quotation',
+  SALES_INVOICE:    'invoice',
+  PURCHASE_INVOICE: 'purchaseinvoice',
+};
+const KIND_LABEL: Record<DocKind, string> = {
+  QUOTATION: 'quotations', SALES_INVOICE: 'invoices', PURCHASE_INVOICE: 'supplier invoices',
+};
+
+// What a linked supplier invoice adds to the job's costs: the full amount
+// (incl. SST — Malaysian SST can't be claimed back, so it's a real cost),
+// or nothing once the invoice is cancelled in Autocount.
+const costAmount = (d: { amount: number | null; status: string }) =>
+  d.status === 'VOID' ? 0 : (d.amount ?? 0);
+const costDescription = (d: { docNo: string; debtorName: string | null; title: string | null; status: string }) =>
+  [d.debtorName || 'Supplier', d.docNo, d.title].filter(Boolean).join(' · ').slice(0, 250)
+  + (d.status === 'VOID' ? ' (cancelled)' : '');
+
 @Injectable()
 export class AutocountService {
   private readonly base     = process.env.AUTOCOUNT_BASE_URL      || 'https://accounting-api.autocountcloud.com';
@@ -118,6 +139,7 @@ export class AutocountService {
         debtorCode,
         debtorName: lead.account?.name ?? lead.name,
         creditTerm: term,
+        title:      lead.name,   // same text we sent as the Autocount description
         leadId,
         projectId:  lead.projectId ?? null,  // already converted? link to project too
       },
@@ -183,6 +205,7 @@ export class AutocountService {
         debtorCode,
         debtorName: project.account?.name ?? project.client ?? project.name,
         creditTerm: term,
+        title:      project.name,
         projectId,
         leadId:     jobId,
       },
@@ -223,29 +246,61 @@ export class AutocountService {
     return all;
   }
 
-  // Pull quotations and invoices from Autocount and upsert as AccountingDocument rows.
-  // Preserves existing project/lead links — only updates status, amounts, and dates.
+  // Pull quotations, sales invoices and supplier (purchase) invoices from
+  // Autocount and upsert them as AccountingDocument rows.
+  // Preserves existing project/lead links — only updates status, amounts, dates
+  // and title. Status always comes from Autocount: Finance records payments
+  // there, Pop OS just mirrors them.
   async syncDocuments() {
-    const [quotations, invoices] = await Promise.all([
+    const [quotations, invoices, purchases] = await Promise.all([
       this.fetchAllDocumentPages('quotation/listing'),
       this.fetchAllDocumentPages('invoice/listing'),
+      this.fetchAllDocumentPages('purchaseinvoice/listing'),
     ]);
 
-    const result = { quotationsTotal: quotations.length, invoicesTotal: invoices.length, created: 0, updated: 0, skipped: 0 };
+    const result = {
+      quotationsTotal: quotations.length, invoicesTotal: invoices.length, purchaseInvoicesTotal: purchases.length,
+      created: 0, updated: 0, skipped: 0,
+    };
 
-    for (const item of quotations) {
-      await this.upsertDocument(item, 'QUOTATION', result);
-    }
-    for (const item of invoices) {
-      await this.upsertDocument(item, 'SALES_INVOICE', result);
-    }
+    for (const item of quotations) await this.upsertDocument(item, 'QUOTATION', result);
+    for (const item of invoices)   await this.upsertDocument(item, 'SALES_INVOICE', result);
+    for (const item of purchases)  await this.upsertDocument(item, 'PURCHASE_INVOICE', result);
 
     return result;
   }
 
+  // Paid / void / still open, read from an Autocount document.
+  //  - Invoices (sales and supplier): outstandingAmount 0 = fully paid. Supplier
+  //    invoices also say so in words ("Full Payment").
+  //  - Anything cancelled in Autocount = VOID.
+  private statusOf(m: any, docType: DocKind): 'ACTIVE' | 'PAID' | 'VOID' {
+    if (m.cancelled === true) return 'VOID';
+    const s = String(m.status ?? m.Status ?? '').toLowerCase();
+    if (s === 'void' || s === 'cancelled') return 'VOID';
+    if (docType === 'QUOTATION') return 'ACTIVE';
+    const outstanding = m.outstandingAmount ?? m.OutstandingAmount ?? null;
+    const total       = m.finalTotal ?? m.FinalTotal ?? 0;
+    if (m.isPaid ?? m.IsPaid) return 'PAID';
+    if (outstanding !== null && outstanding === 0 && total > 0) return 'PAID';
+    if (s.includes('full payment') || s === 'paid') return 'PAID';
+    return 'ACTIVE';
+  }
+
+  // A short "what is this" line for the link picker: Autocount's description,
+  // else the first line item. Whitespace squashed, capped at 200 characters.
+  private titleOf(item: any): string | null {
+    const m = item.master ?? item;
+    const first = (item.details ?? [])[0];
+    // `||` not `??`: Autocount sends an empty string (not null) for a blank
+    // description, and that should fall through to the line item too.
+    const raw = String(m.description || m.Description || first?.description || first?.Description || '').replace(/\s+/g, ' ').trim();
+    return raw ? raw.slice(0, 200) : null;
+  }
+
   private async upsertDocument(
     item: any,
-    docType: 'QUOTATION' | 'SALES_INVOICE',
+    docType: DocKind,
     result: { created: number; updated: number; skipped: number },
   ) {
     // Returns the saved row (or null if skipped) so fetchByDocNo() can link it.
@@ -253,37 +308,31 @@ export class AutocountService {
     // Single-doc fetch returns the same shape. Normalise to flat master object.
     const m = item.master ?? item;
 
+    // Supplier invoices name the other side "creditor" instead of "debtor" —
+    // both land in the same debtorCode / debtorName columns.
     const docNo      = m.docNo      ?? m.DocNo;
     const docDateRaw = m.docDate    ?? m.DocDate;
-    const debtorCode = m.debtorCode ?? m.DebtorCode;
-    const debtorName = m.debtorName ?? m.DebtorName ?? m.companyName ?? m.CompanyName;
+    const debtorCode = m.debtorCode ?? m.DebtorCode ?? m.creditorCode ?? m.CreditorCode;
+    const debtorName = m.debtorName ?? m.DebtorName ?? m.creditorName ?? m.CreditorName ?? m.companyName ?? m.CompanyName;
     const amount     = m.finalTotal ?? m.FinalTotal ?? m.total ?? m.GrandTotal ?? 0;
     const creditTerm = m.creditTerm ?? m.CreditTerm ?? null;
+    const title      = this.titleOf(item);
+    const status     = this.statusOf(m, docType);
 
     // DueDate for invoices; ExpiryDate for quotations.
     const dueDateRaw = m.dueDate    ?? m.DueDate
                     ?? m.expiryDate ?? m.ExpiryDate
                     ?? null;
 
-    // Status: invoices have outstandingAmount (0 = fully paid); quotations have status string.
-    let status: 'ACTIVE' | 'PAID' | 'VOID' = 'ACTIVE';
-    if (docType === 'SALES_INVOICE') {
-      const outstanding = m.outstandingAmount ?? m.OutstandingAmount ?? null;
-      const isPaid      = m.isPaid ?? m.IsPaid ?? false;
-      if (isPaid || (outstanding !== null && outstanding === 0 && (m.finalTotal ?? 0) > 0)) status = 'PAID';
-      if (m.cancelled === true) status = 'VOID';
-    } else {
-      const s = String(m.status ?? m.Status ?? '').toLowerCase();
-      if (s === 'void' || s === 'cancelled') status = 'VOID';
-      if (m.cancelled === true) status = 'VOID';
-    }
-
     if (!docNo) { result.skipped++; return null; }
 
-    const existing = await this.prisma.accountingDocument.findFirst({ where: { docNo } });
+    // Match on number AND type: a supplier's invoice number is the supplier's
+    // own numbering, so it could in theory equal one of ours.
+    const existing = await this.prisma.accountingDocument.findFirst({ where: { docNo, docType } });
 
+    let saved;
     if (existing) {
-      const saved = await this.prisma.accountingDocument.update({
+      saved = await this.prisma.accountingDocument.update({
         where: { id: existing.id },
         data: {
           status,
@@ -292,13 +341,13 @@ export class AutocountService {
           debtorCode: debtorCode ?? existing.debtorCode,
           debtorName: debtorName ?? existing.debtorName,
           creditTerm: creditTerm ?? existing.creditTerm,
+          title:      title      ?? existing.title,
         },
       });
       result.updated++;
-      return saved;
     } else {
       if (!docDateRaw) { result.skipped++; return null; }
-      const saved = await this.prisma.accountingDocument.create({
+      saved = await this.prisma.accountingDocument.create({
         data: {
           docType,
           docNo,
@@ -308,12 +357,22 @@ export class AutocountService {
           debtorCode: debtorCode ?? null,
           debtorName: debtorName ?? null,
           creditTerm: creditTerm ?? null,
+          title,
           status,
         },
       });
       result.created++;
-      return saved;
     }
+
+    // A linked supplier invoice has a cost line — keep it in step with the
+    // invoice (amount changed, or cancelled in Autocount → 0).
+    if (docType === 'PURCHASE_INVOICE') {
+      await this.prisma.projectCost.updateMany({
+        where: { documentId: saved.id },
+        data:  { amount: costAmount(saved), description: costDescription(saved) },
+      });
+    }
+    return saved;
   }
 
   // ── link documents made directly in Autocount ───────────────────
@@ -323,15 +382,20 @@ export class AutocountService {
   // changed — only which Pop OS job the copy belongs to.
 
   // Documents not attached to any job yet, newest first. `search` matches the
-  // doc number or the debtor's name.
-  listUnlinked(search?: string) {
+  // doc number, the client / supplier name or the title. `kind` narrows to
+  // 'SALES' (quotations + sales invoices) or 'PURCHASE' (supplier invoices).
+  listUnlinked(search?: string, kind?: string) {
     const q = search?.trim();
+    const docType = kind === 'PURCHASE' ? { docType: 'PURCHASE_INVOICE' as const }
+                  : kind === 'SALES'    ? { docType: { in: ['QUOTATION', 'SALES_INVOICE'] as DocKind[] } }
+                  : {};
     return this.prisma.accountingDocument.findMany({
       where: {
-        leadId: null, projectId: null,
+        leadId: null, projectId: null, ...docType,
         ...(q ? { OR: [
           { docNo:      { contains: q, mode: 'insensitive' as const } },
           { debtorName: { contains: q, mode: 'insensitive' as const } },
+          { title:      { contains: q, mode: 'insensitive' as const } },
         ] } : {}),
       },
       orderBy: { docDate: 'desc' },
@@ -341,8 +405,9 @@ export class AutocountService {
 
   // Find one document by its number — in Pop OS first, else straight from
   // Autocount (any year, unlike Sync documents which is this year only).
-  // Tries quotations, then invoices. Returns the row with its current job so
-  // the UI can warn "already linked to …" before moving it.
+  // Tries quotations, sales invoices, then supplier invoices. Returns the row
+  // with its current job so the UI can warn "already linked to …" before
+  // moving it.
   async fetchByDocNo(raw: string) {
     const docNo = raw.trim();
     const withLead = { lead: { select: { id: true, name: true } } };
@@ -350,43 +415,96 @@ export class AutocountService {
     if (known) return known;
 
     const tally = { created: 0, updated: 0, skipped: 0 };
-    for (const [endpoint, type] of [['quotation', 'QUOTATION'], ['invoice', 'SALES_INVOICE']] as const) {
-      const res = await fetch(this.url(`${endpoint}?docNo=${encodeURIComponent(docNo)}`), { headers: this.authHeaders() });
-      if (!res.ok) continue;
-      const body = await res.json().catch(() => null);
+    for (const type of Object.keys(ENDPOINT) as DocKind[]) {
+      const body = await this.fetchOne(type, docNo);
       if (!body) continue;
       const saved = await this.upsertDocument(body, type, tally);
       if (saved) return this.prisma.accountingDocument.findUnique({ where: { id: saved.id }, include: withLead });
     }
-    throw new NotFoundException(`${docNo} was not found in Autocount (checked quotations and invoices).`);
+    throw new NotFoundException(`${docNo} was not found in Autocount (checked ${Object.values(KIND_LABEL).join(', ')}).`);
+  }
+
+  // One document straight from Autocount, or null if it isn't there.
+  private async fetchOne(type: DocKind, docNo: string): Promise<any | null> {
+    const res = await fetch(this.url(`${ENDPOINT[type]}?docNo=${encodeURIComponent(docNo)}`), { headers: this.authHeaders() });
+    if (!res.ok) return null;
+    return res.json().catch(() => null);
   }
 
   // Attach a document to a job (leadId) — and to the job's project, so it
   // shows on both. leadId null = unlink: the copy stays in Pop OS (Financial
   // still counts it) but belongs to no job.
+  //
+  // Supplier invoices are money OUT, so linking one also creates its cost line
+  // on the job (and moving / unlinking it moves / deletes that line). Done in
+  // one transaction so the invoice and its cost can never disagree.
   async linkDocument(id: string, leadId: string | null) {
     const doc = await this.prisma.accountingDocument.findUnique({ where: { id } });
     if (!doc) throw new NotFoundException('Document not found');
+    const isSupplier = doc.docType === 'PURCHASE_INVOICE';
 
     if (!leadId) {
-      return this.prisma.accountingDocument.update({ where: { id }, data: { leadId: null, projectId: null } });
+      return this.prisma.$transaction(async tx => {
+        if (isSupplier) await tx.projectCost.deleteMany({ where: { documentId: id } });
+        return tx.accountingDocument.update({ where: { id }, data: { leadId: null, projectId: null } });
+      });
     }
     const lead = await this.prisma.lead.findUnique({ where: { id: leadId }, select: { projectId: true, accountId: true } });
     if (!lead) throw new NotFoundException('Job not found');
+    // Same rule as typing a cost in by hand: a cost row still needs the
+    // job's project (until the step-4 cleanup makes projectId optional).
+    if (isSupplier && !lead.projectId) {
+      throw new BadRequestException('A supplier invoice becomes a cost on this job, and costs need the job\'s project. Create the project first, then link the invoice.');
+    }
 
-    const updated = await this.prisma.accountingDocument.update({
-      where: { id },
-      data:  { leadId, projectId: lead.projectId ?? null },
+    const updated = await this.prisma.$transaction(async tx => {
+      const row = await tx.accountingDocument.update({
+        where: { id },
+        data:  { leadId, projectId: lead.projectId ?? null },
+      });
+      if (isSupplier) {
+        const job = { leadId, projectId: lead.projectId! };
+        await tx.projectCost.upsert({
+          where:  { documentId: id },
+          create: { ...job, documentId: id, costType: 'SUPPLIER', amount: costAmount(row), description: costDescription(row) },
+          update: job,   // moved to another job → the cost moves with it
+        });
+      }
+      return row;
     });
+
     // Remember the debtor on the client if it has none yet (same as a push
-    // does) — never overwrite one that's already set.
-    if (lead.accountId && doc.debtorCode) {
+    // does) — never overwrite one that's already set. Not for supplier
+    // invoices: their code is the SUPPLIER's account, not the client's.
+    if (!isSupplier && lead.accountId && doc.debtorCode) {
       await this.prisma.account.updateMany({
         where: { id: lead.accountId, autocountDebtorCode: null },
         data:  { autocountDebtorCode: doc.debtorCode },
       });
     }
     return updated;
+  }
+
+  // Job page "↻ Sync": re-read just this job's documents from Autocount, one
+  // by one (fast — no full listing, and works for any year). Picks up what
+  // Finance changed there: paid / cancelled, amount, title. Linked supplier-
+  // invoice costs follow along (see upsertDocument).
+  async refreshJobDocuments(leadId: string) {
+    const lead = await this.prisma.lead.findUnique({ where: { id: leadId }, select: { projectId: true } });
+    if (!lead) throw new NotFoundException('Job not found');
+    const docs = await this.prisma.accountingDocument.findMany({
+      where: { OR: [{ leadId }, ...(lead.projectId ? [{ projectId: lead.projectId }] : [])] },
+    });
+
+    const tally = { created: 0, updated: 0, skipped: 0 };
+    const result = { checked: docs.length, changed: [] as string[], notFound: [] as string[] };
+    await Promise.all(docs.map(async d => {
+      const body = await this.fetchOne(d.docType as DocKind, d.docNo).catch(() => null);
+      if (!body) { result.notFound.push(d.docNo); return; }
+      const saved = await this.upsertDocument(body, d.docType as DocKind, tally);
+      if (saved && (saved.status !== d.status || saved.amount !== d.amount)) result.changed.push(d.docNo);
+    }));
+    return result;
   }
 
   // ── sync debtors → accounts ──────────────────────────────────────
@@ -454,24 +572,16 @@ export class AutocountService {
 
     const results = await Promise.all(docs.map(async (doc) => {
       try {
-        const endpoint = doc.docType === 'SALES_INVOICE' ? 'invoice' : 'quotation';
-        const res = await fetch(
-          this.url(`${endpoint}?docNo=${encodeURIComponent(doc.docNo)}`),
-          { headers: this.authHeaders() },
-        );
-
-        if (!res.ok) {
+        const body = await this.fetchOne(doc.docType as DocKind, doc.docNo);
+        if (!body) {
           return { ...this.docSummary(doc), acAmount: null, acStatus: null, acOutstanding: null, match: 'NOT_FOUND' as const };
         }
 
-        const body        = await res.json() as { master?: any };
-        const master      = body?.master ?? body ?? {};
+        const master        = body?.master ?? body ?? {};
         const acAmount      = master.finalTotal ?? master.total ?? null;
         const acOutstanding = master.outstandingAmount ?? null;
-        const acStatusRaw   = String(master.status ?? '').toLowerCase();
-        const acStatus      = acStatusRaw.includes('paid') ? 'PAID'
-                            : acStatusRaw.includes('void') ? 'VOID'
-                            : 'ACTIVE';
+        // Same rule the sync uses, so "mismatch" means a real difference.
+        const acStatus      = this.statusOf(master, doc.docType as DocKind);
 
         const amountMatch = doc.amount != null && acAmount != null
           ? Math.abs(doc.amount - acAmount) <= 0.01
@@ -530,6 +640,7 @@ export class AutocountService {
       where: {
         status:  'ACTIVE',
         dueDate: { not: null, lte: cutoff },
+        docType: { not: 'PURCHASE_INVOICE' },   // bills we pay, not money owed to us
       },
       include: {
         project: {

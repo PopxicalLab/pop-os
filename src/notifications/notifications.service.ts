@@ -41,6 +41,7 @@ export class NotificationsService {
       where: {
         status:  'ACTIVE',
         dueDate: { lte: cutoff },
+        docType: { not: 'PURCHASE_INVOICE' },   // supplier bills aren't client payments due
       },
       include: { project: { select: { name: true } } },
       orderBy: { dueDate: 'asc' },

@@ -76,8 +76,16 @@ export class AutocountController {
   }
 
   // ── Link documents made directly in Autocount to a job ──
+  // ?kind=SALES (quotes + sales invoices) | PURCHASE (supplier invoices) | omitted = all
   @Get('documents/unlinked')
-  listUnlinked(@Query('search') search?: string) { return this.svc.listUnlinked(search); }
+  listUnlinked(@Query('search') search?: string, @Query('kind') kind?: string) {
+    return this.svc.listUnlinked(search, kind);
+  }
+
+  // Job page "↻ Sync": re-read this job's linked documents from Autocount
+  // (paid status, amount, title) — Finance updates them there.
+  @Post('leads/:id/refresh-documents')
+  refreshJobDocuments(@Param('id') id: string) { return this.svc.refreshJobDocuments(id); }
 
   @Post('documents/fetch')
   fetchByDocNo(@Body() dto: FetchDocDto) { return this.svc.fetchByDocNo(dto.docNo); }

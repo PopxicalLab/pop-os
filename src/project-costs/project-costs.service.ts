@@ -44,12 +44,24 @@ export class ProjectCostsService {
   async update(id: string, dto: UpdateProjectCostDto) {
     const existing = await this.prisma.projectCost.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException(`ProjectCost ${id} not found`);
+    this.refuseIfFromInvoice(existing);
     return this.prisma.projectCost.update({ where: { id }, data: dto });
   }
 
   async remove(id: string) {
     const existing = await this.prisma.projectCost.findUnique({ where: { id } });
     if (!existing) throw new NotFoundException(`ProjectCost ${id} not found`);
+    this.refuseIfFromInvoice(existing);
     return this.prisma.projectCost.delete({ where: { id } });
+  }
+
+  // A cost made from a linked supplier invoice mirrors that invoice — Autocount
+  // is the source of truth. Editing it here would just be overwritten by the
+  // next sync, so send people to the right place instead.
+  private refuseIfFromInvoice(cost: { documentId: string | null }) {
+    if (cost.documentId) {
+      throw new BadRequestException(
+        'This cost comes from a linked supplier invoice. Change the invoice in Autocount and press Sync, or unlink the invoice to remove it.');
+    }
   }
 }

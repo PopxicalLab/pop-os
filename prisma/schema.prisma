@@ -603,9 +603,12 @@ model AccountingDocument {
   amount       Float?    // estimated value at time of push — sync later if needed
 
   debtorCode   String?   // Autocount debtor/creditor account code
-  debtorName   String?
+  debtorName   String?   // client name — or, for a PURCHASE_INVOICE, the supplier's
   creditTerm   String?   // stored as-is: "C.O.D.", "NET 30", etc.
   notes        String?
+  // What the document is about, so the right one can be picked when linking:
+  // Autocount's own description, or its first line item when that's blank.
+  title        String?
 
   status       DocStatus @default(ACTIVE)
   // Set when the 10-day dashboard reminder has been shown — prevents repeat alerts.
@@ -613,6 +616,8 @@ model AccountingDocument {
 
   project      Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
   lead         Lead?     @relation(fields: [leadId],    references: [id], onDelete: SetNull)
+  // A supplier invoice linked to a job becomes one cost line on it.
+  cost         ProjectCost?
 
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -785,9 +790,15 @@ model ProjectCost {
   description String
   amount      Float
   costType    CostType @default(ADDITIONAL)
+  // Set when this cost came from a linked Autocount supplier invoice. The
+  // amount then follows the invoice (re-sync updates it) and can't be
+  // edited here; unlinking the invoice deletes this line. Null = typed in
+  // by hand.
+  documentId  String?  @unique
 
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   lead        Lead?    @relation(fields: [leadId],    references: [id], onDelete: Cascade)
+  document    AccountingDocument? @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

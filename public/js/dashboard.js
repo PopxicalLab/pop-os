@@ -203,7 +203,7 @@ function renderDashboard(data) {
                    : 'text-yellow-400 font-semibold';
     const dueLabel = overdue ? `${Math.abs(daysLeft)}d overdue` : `due in ${daysLeft}d`;
     const amt      = d.amount != null ? ` · ${fmtMoney(d.amount)}` : '';
-    const DOC_LABEL = { QUOTATION: 'Quote', SALES_INVOICE: 'Invoice', PURCHASE_INVOICE: 'PO' };
+    const DOC_LABEL = { QUOTATION: 'Quote', SALES_INVOICE: 'Invoice', PURCHASE_INVOICE: 'Supplier inv.' };
 
     return `<div class="flex items-start gap-2 py-2.5 border-b border-line/60 last:border-0">
       <div class="flex-1 min-w-0">
